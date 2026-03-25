@@ -46,20 +46,23 @@ services:
     networks:
       - uft_network
   
-  # uft_frontend:
-  #   build: ./Frontend
-  #   container_name: uft_frontend
-  #   restart: always
-  #   command: ["npm", "run", "dev", "--", "--host", "--port=4173"]
-  #   ports:
-  #     - "4173:4173"
-  #   volumes:
-  #     - ./Frontend:/app
-  #     - /app/node_modules
-  #   depends_on:
-  #     - uft_backend
-  #   networks:
-  #     - uft_network
+  uft_frontend:
+    build: ./frontend
+    container_name: uft_frontend
+    restart: always
+    command: npm run dev
+    ports:
+      - "3000:3000"
+    environment:                   # <-- TAMBAHKAN BARIS INI
+      - WATCHPACK_POLLING=true     # <-- DAN BARIS INI
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    # depends_on:
+    #   - uft_backend
+    networks:
+      - uft_network
 
   uft_proxy:
     image: nginx:latest
