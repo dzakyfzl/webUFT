@@ -1,24 +1,25 @@
 version: '3.8'
 
 services:
-  # uft_database:
-  #   image: mysql:8.0
-  #   container_name: uft_database
-  #   restart: always
-  #   environment:
-  #     MYSQL_USER: ${MYSQL_USER}
-  #     MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-  #     MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-  #     MYSQL_DATABASE: ${MYSQL_DATABASE}
-  #   volumes:
-  #     - mysql_data:/var/lib/mysql
-  #   networks:
-  #     - uft_network
-  #   healthcheck:
-  #     test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
-  #     interval: 5s
-  #     timeout: 5s
-  #     retries: 20
+  uft_database:
+    image: mysql:8.0
+    container_name: uft_database
+    restart: always
+    command: --innodb_use_native_aio=0
+    environment:
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+    volumes:
+      - ./mysql_data:/var/lib/mysql
+    networks:
+      - uft_network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
 
   uft_backend:
     build: ./Backend 
@@ -37,12 +38,12 @@ services:
       REFRESH_TOKEN_EXPIRE_DAYS: ${REFRESH_TOKEN_EXPIRE_DAYS}
       ADMIN_USERNAME: ${ADMIN_USERNAME}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
-    # depends_on:
-    #   uft_database:
-    #     condition: service_healthy
+    depends_on:
+      uft_database:
+        condition: service_healthy
     volumes:
        - ./media:/media  
-    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload --reload-delay 1
+    command: uvicorn main:app --host 0.0.0.0 --port 8000
     networks:
       - uft_network
   
@@ -51,28 +52,26 @@ services:
     container_name: uft_frontend
     restart: always
     command: npm run dev
-    ports:
-      - "3000:3000"
     environment:                   # <-- TAMBAHKAN BARIS INI
       - WATCHPACK_POLLING=true     # <-- DAN BARIS INI
     volumes:
       - ./frontend:/app
       - /app/node_modules
       - /app/.next
-    # depends_on:
-    #   - uft_backend
+    depends_on:
+      - uft_backend
     networks:
       - uft_network
 
   uft_proxy:
     image: nginx:latest
-    container_name: utf_nginx
+    container_name: uft_nginx
     ports:
       - "80:80"              
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
-    #   - uft_frontend
+      - uft_frontend
       - uft_backend
     networks:
       - uft_network

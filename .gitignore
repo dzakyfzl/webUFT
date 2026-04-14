@@ -1,1 +1,4 @@
 .env
+mysql_data/
+media/
+__pycache__/

@@ -2,3 +2,6 @@ pillow==11.2.1
 Authlib==1.6.5
 uvicorn[standard]==0.32.0
 fastapi==0.120.2
+sqlalchemy==2.0.49
+pymysql==1.0.3
+python-multipart==0.0.5
