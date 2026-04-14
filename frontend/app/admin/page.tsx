@@ -1,0 +1,137 @@
+import React from 'react';
+import Link from 'next/link';
+import Image from 'next/image';
+
+// --- DATA DUMMY ACARA (DENGAN TAMBAHAN DATA ADMIN) ---
+const daftarAcara = [
+  { id: 1, title: "Gelar Karya Fotografi UKM 2026", date: "10-15 April 2026", status: "Aktif", peserta: 342, karya: 156 },
+  { id: 2, title: "Seminar Visual & Masa Depan Teknologi", date: "20 Mei 2026", status: "Draft", peserta: 0, karya: 0 },
+  { id: 3, title: "Kompetisi Desain Poster Kampus", date: "5 Juni 2026", status: "Mendatang", peserta: 120, karya: 45 },
+  { id: 4, title: "Workshop Pengolahan Citra", date: "12 Februari 2026", status: "Selesai", peserta: 85, karya: 0 },
+];
+
+export default function AdminDashboard() {
+  return (
+    <main className="min-h-screen bg-[#0f0f11] text-slate-300 font-sans selection:bg-red-600/30">
+      
+      {/* --- NAVBAR ADMIN --- */}
+      <nav className="bg-[#18181b] border-b border-white/5 sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-red-600 rounded-lg flex items-center justify-center font-bold text-white shadow-[0_0_15px_rgba(220,38,38,0.4)]">
+              UFT
+            </div>
+            <span className="font-bold text-white tracking-wide text-lg">UFT<span className="text-red-500 font-normal">Admin</span></span>
+          </div>
+          <Link href="/admin/login" className="text-sm font-medium text-slate-400 hover:text-red-500 transition-colors flex items-center gap-2">
+            Keluar <span>🚪</span>
+          </Link>
+        </div>
+      </nav>
+
+      <div className="max-w-7xl mx-auto p-6 md:p-10">
+        
+        {/* --- HEADER DASHBOARD --- */}
+        <header className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
+          <div>
+            <h1 className="text-3xl md:text-4xl font-extrabold text-white mb-2 tracking-tight">Dashboard Utama</h1>
+            <p className="text-slate-500 text-sm md:text-base">Selamat datang kembali. Berikut adalah ringkasan acara pameran Anda.</p>
+          </div>
+          
+          <Link href="/admin/acara/baru">
+            <button className="bg-red-600 hover:bg-red-500 text-white px-6 py-3 rounded-xl font-bold shadow-[0_0_20px_rgba(220,38,38,0.3)] transition-all hover:-translate-y-0.5 flex items-center gap-2">
+              <span className="text-xl leading-none">+</span> Buat Acara Baru
+            </button>
+          </Link>
+        </header>
+
+        {/* --- STATISTIK SINGKAT --- */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+          <div className="bg-[#18181b] border border-white/5 rounded-2xl p-6 shadow-xl">
+            <div className="text-slate-500 text-sm font-semibold uppercase tracking-wider mb-2">Total Acara</div>
+            <div className="text-4xl font-extrabold text-white">{daftarAcara.length}</div>
+          </div>
+          <div className="bg-[#18181b] border border-white/5 rounded-2xl p-6 shadow-xl">
+            <div className="text-slate-500 text-sm font-semibold uppercase tracking-wider mb-2">Total Karya Masuk</div>
+            <div className="text-4xl font-extrabold text-white">201</div>
+          </div>
+          <div className="bg-[#18181b] border border-white/5 rounded-2xl p-6 shadow-xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-red-600/10 rounded-full blur-2xl -mr-4 -mt-4"></div>
+            <div className="text-slate-500 text-sm font-semibold uppercase tracking-wider mb-2 relative z-10">Acara Sedang Aktif</div>
+            <div className="text-4xl font-extrabold text-red-500 relative z-10">1</div>
+          </div>
+        </div>
+
+        {/* --- TABEL DAFTAR ACARA --- */}
+        <div className="bg-[#18181b] border border-white/5 rounded-3xl overflow-hidden shadow-2xl">
+          <div className="px-8 py-6 border-b border-white/5 bg-white/[0.02] flex justify-between items-center">
+            <h2 className="text-xl font-bold text-white">Daftar Acara</h2>
+            {/* Fitur pencarian dummy */}
+            <div className="hidden md:flex bg-[#0f0f11] border border-white/10 rounded-full px-4 py-2 items-center">
+              <span className="text-sm text-slate-500 mr-2">🔍</span>
+              <input type="text" placeholder="Cari acara..." className="bg-transparent border-none outline-none text-sm text-white placeholder-slate-600 w-48" />
+            </div>
+          </div>
+          
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-white/5 bg-white/[0.01]">
+                  <th className="p-6 text-xs uppercase tracking-widest text-slate-500 font-semibold">Nama Acara</th>
+                  <th className="p-6 text-xs uppercase tracking-widest text-slate-500 font-semibold hidden md:table-cell">Jadwal</th>
+                  <th className="p-6 text-xs uppercase tracking-widest text-slate-500 font-semibold text-center">Status</th>
+                  <th className="p-6 text-xs uppercase tracking-widest text-slate-500 font-semibold text-center hidden sm:table-cell">Statistik</th>
+                  <th className="p-6 text-xs uppercase tracking-widest text-slate-500 font-semibold text-right">Aksi</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {daftarAcara.map((acara) => (
+                  <tr key={acara.id} className="hover:bg-white/[0.02] transition-colors group">
+                    <td className="p-6">
+                      <div className="font-bold text-white text-sm md:text-base mb-1 group-hover:text-red-400 transition-colors line-clamp-1">{acara.title}</div>
+                      <div className="text-xs text-slate-500 md:hidden">{acara.date}</div>
+                    </td>
+                    <td className="p-6 text-sm text-slate-400 hidden md:table-cell whitespace-nowrap">
+                      {acara.date}
+                    </td>
+                    <td className="p-6 text-center">
+                      <span className={`inline-block px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
+                        acara.status === 'Aktif' ? 'bg-green-500/10 text-green-400 border-green-500/20' :
+                        acara.status === 'Mendatang' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
+                        acara.status === 'Selesai' ? 'bg-slate-500/10 text-slate-400 border-slate-500/20' :
+                        'bg-yellow-500/10 text-yellow-500 border-yellow-500/20' // Draft
+                      }`}>
+                        {acara.status}
+                      </span>
+                    </td>
+                    <td className="p-6 text-center hidden sm:table-cell">
+                      <div className="text-xs text-slate-400">
+                        <span className="text-white font-semibold">{acara.karya}</span> Karya
+                      </div>
+                      <div className="text-xs text-slate-500">
+                        <span className="text-white font-semibold">{acara.peserta}</span> Peserta
+                      </div>
+                    </td>
+                    <td className="p-6 text-right">
+                      {/* Mengarah ke Pusat Kendali Acara berdasarkan ID */}
+                      <Link href={`/admin/acara/${acara.id}`}>
+                        <button className="px-4 py-2 bg-white/5 hover:bg-red-600 hover:text-white text-slate-300 rounded-lg text-sm font-semibold transition-all border border-white/10 hover:border-red-500">
+                          Kelola
+                        </button>
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {/* Footer Tabel */}
+          <div className="px-8 py-4 border-t border-white/5 bg-white/[0.01] text-xs text-slate-500 text-center md:text-left">
+            Menampilkan {daftarAcara.length} acara dari database.
+          </div>
+        </div>
+
+      </div>
+    </main>
+  );
+}
