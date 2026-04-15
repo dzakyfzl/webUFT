@@ -4,7 +4,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, UploadFile
 from fastapi.responses import FileResponse
-from sqlalchemy import select, func, insert, update
+from sqlalchemy import delete, select, func, insert, update
 from Database.database import SessionLocal, get_db
 from Database.models import Karya, File
 from Feature.JWT.validate_token import validate_token

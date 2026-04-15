@@ -5,17 +5,80 @@ import Image from 'next/image';
 import Link from 'next/link';
 
 // --- KOMPONEN KARTU EVENT ---
-const EventCard = ({ title, category, image, href }: { title: string, category: string, image: string, href: string }) => (
+// --- FUNGSI FORMAT WAKTU SQL KE HH:mm DD-MM-YYYY ---
+const formatSqlDate = (sqlDate: string) => {
+  if (!sqlDate) return "";
+  
+  // Mengonversi string SQL menjadi objek Date JavaScript
+  // Ganti '-' dengan '/' jika terjadi masalah parsing di browser Safari versi lama
+  const dateObj = new Date(sqlDate.replace(/-/g, '/'));
+  
+  // Jika tanggal tidak valid, kembalikan string aslinya saja
+  if (isNaN(dateObj.getTime())) return sqlDate;
+
+  const hours = String(dateObj.getHours()).padStart(2, '0');
+  const minutes = String(dateObj.getMinutes()).padStart(2, '0');
+  const day = String(dateObj.getDate()).padStart(2, '0');
+  const month = String(dateObj.getMonth() + 1).padStart(2, '0'); // Bulan dimulai dari 0
+  const year = dateObj.getFullYear();
+
+  return `${hours}:${minutes} ${day}-${month}-${year}`;
+};
+
+// --- KOMPONEN KARTU EVENT ---
+type EventCardProps = {
+  title: string;
+  category: string;
+  image: string;
+  href: string;
+  waktu: string;
+  tempat: string;
+};
+
+export const EventCard = ({ title, category, image, href, waktu, tempat }: EventCardProps) => (
   <Link href={href} className="block w-full group">
     <div className="relative w-full aspect-[3/4] rounded-3xl overflow-hidden bg-slate-200 cursor-pointer transition-all duration-300 group-hover:scale-[1.03] group-hover:shadow-2xl border-2 border-transparent group-hover:border-red-500">
+      
       <Image 
         src={image} 
         alt={title} 
         fill 
         className="object-cover transition-transform duration-700 group-hover:scale-110"
-        unoptimized={image.startsWith('/api')} // <--- TAMBAHKAN INI
+        unoptimized={image.startsWith('/api')} // Khusus untuk gambar dari Backend (Nginx Docker)
       />
-      {/* ... sisa kode EventCard ... */}
+      
+      {/* Overlay Gradien Gelap */}
+      <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/60 to-transparent bottom-0" />
+      
+      {/* Konten Teks */}
+      <div className="absolute bottom-0 left-0 p-5 w-full z-10 flex flex-col">
+        {category && (
+          <span className="self-start px-3 py-1 bg-red-600 text-white text-[10px] font-bold rounded-full mb-2 uppercase tracking-wider shadow-md">
+            {category}
+          </span>
+        )}
+        
+        <p className="text-sm md:text-base font-bold text-white line-clamp-2 tracking-wide leading-snug mb-3">
+          {title}
+        </p>
+
+        {/* --- DETAIL WAKTU & TEMPAT --- */}
+        <div className="flex flex-col gap-1.5 text-slate-300 text-[10px] md:text-xs font-medium">
+          {waktu && (
+            <div className="flex items-center gap-2">
+              <span className="text-sm">🗓️</span> 
+              <span>{formatSqlDate(waktu)}</span>
+            </div>
+          )}
+          {tempat && (
+            <div className="flex items-center gap-2">
+              <span className="text-sm">📍</span> 
+              <span className="line-clamp-1">{tempat}</span>
+            </div>
+          )}
+        </div>
+
+      </div>
     </div>
   </Link>
 );

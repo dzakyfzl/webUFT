@@ -82,16 +82,17 @@ def urutkan_karya(acara_id: int, response: Response, user: Annotated[str, Depend
         return {"message": "Unauthorized"}
     db = SessionLocal()
     try:
-        stmt = select(Karya.nama,Karya.fileID, Karya.deskripsi, Karya.pemilik, func.count(Pilihan.karyaID).label("jumlah_pilihan")).join(Pilihan, Pilihan.karyaID == Karya.karyaID, isouter=True).where(Karya.acaraID == acara_id).group_by(Karya).order_by(func.count(Pilihan.karyaID).desc())
+        stmt = select(Karya.nama, Karya.karyaID,Karya.fileID, Karya.deskripsi, Karya.pemilik, func.count(Pilihan.karyaID).label("jumlah_pilihan")).join(Pilihan, Pilihan.karyaID == Karya.karyaID, isouter=True).where(Karya.acaraID == acara_id).group_by(Karya).order_by(func.count(Pilihan.karyaID).desc())
         result = db.execute(stmt).all()
         response.status_code = 200
         return [
             {
                 "nama": row[0],
-                "fileID": row[1],
-                "deskripsi": row[2],
-                "pemilik": row[3],
-                "jumlah_pilihan": row[4],
+                "karyaID": row[1],
+                "fileID": row[2],
+                "deskripsi": row[3],
+                "pemilik": row[4],
+                "jumlah_pilihan": row[5],
             }
             for row in result
         ]
@@ -124,10 +125,12 @@ def download_csv(acara_id: int, response: Response, user: Annotated[str, Depends
         writer.writerows(csv_data)
         output.seek(0)
  
+        safe_acara_nama = str(acara_nama).replace(" ", "_") if acara_nama else f"Acara_{acara_id}"
+
         return StreamingResponse(
-        iter([output.getvalue()]), 
-        media_type="text/csv",
-        headers={f"Content-Disposition": "attachment; filename=data_absensi_{acara_nama}.csv"}
+            iter([output.getvalue()]), 
+            media_type="text/csv",
+            headers={"Content-Disposition": f'attachment; filename="data_absensi_{safe_acara_nama}.csv"'}
         )
     except Exception as e:
         response.status_code = 500

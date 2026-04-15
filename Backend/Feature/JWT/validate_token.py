@@ -1,3 +1,5 @@
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+
 from .main import decode_token
 from fastapi import Header, HTTPException, status, Depends
 from Database.database import get_db
@@ -37,16 +39,32 @@ def isUser(token: str) -> bool:
         return False
     return True
 
-def validate_token(token: str) -> dict:
+# Inisialisasi skema HTTPBearer
+security = HTTPBearer()
+
+def validate_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
     """
-    Validate the token (Refresh and Access)
+    Fungsi ini otomatis mencari header: 'Authorization: Bearer <token>'
     """
-    payload = decode_token(token)
-    if payload is None:
-        # Gunakan HTTPException agar FastAPI mengembalikan status 401
+    # credentials.credentials berisi string token JWT yang sudah dipotong dari kata "Bearer "
+    token = credentials.credentials
+    
+    try:
+        # Panggil fungsi decode kamu
+        payload = decode_token(token) 
+        
+        # Ekstrak data yang dibutuhkan
+        username = payload.get("sub")
+        role = payload.get("role")
+        
+        if not username:
+            raise HTTPException(status_code=401, detail="Token tidak valid: Username tidak ditemukan")
+            
+        return {"username": username, "role": role}
+        
+    except Exception as e:
+        # Tangkap error jika token expired atau signature tidak cocok
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token tidak valid atau telah kedaluwarsa",
-            headers={"WWW-Authenticate": "Bearer"}, # Standar keamanan keamanan tambahan
+            status_code=401, 
+            detail="Token otorisasi tidak valid atau sudah kedaluwarsa"
         )
-    return payload

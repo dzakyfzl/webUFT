@@ -1,16 +1,102 @@
-import React from 'react';
-import Link from 'next/link';
-import Image from 'next/image';
+"use client"; // Wajib karena kita menggunakan hooks (useState, useEffect, useRouter)
 
-// --- DATA DUMMY ACARA (DENGAN TAMBAHAN DATA ADMIN) ---
-const daftarAcara = [
-  { id: 1, title: "Gelar Karya Fotografi UKM 2026", date: "10-15 April 2026", status: "Aktif", peserta: 342, karya: 156 },
-  { id: 2, title: "Seminar Visual & Masa Depan Teknologi", date: "20 Mei 2026", status: "Draft", peserta: 0, karya: 0 },
-  { id: 3, title: "Kompetisi Desain Poster Kampus", date: "5 Juni 2026", status: "Mendatang", peserta: 120, karya: 45 },
-  { id: 4, title: "Workshop Pengolahan Citra", date: "12 Februari 2026", status: "Selesai", peserta: 85, karya: 0 },
-];
+import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 export default function AdminDashboard() {
+  const router = useRouter();
+  
+  // State manajemen
+  const [daftarAcara, setDaftarAcara] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  // Mengambil data saat halaman pertama kali dimuat
+  useEffect(() => {
+    const fetchAcara = async () => {
+      const token = localStorage.getItem('access_token');
+      
+      // Proteksi rute di sisi client
+      if (!token) {
+        router.push('/admin/login');
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/acara/list-all', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`, // Menyisipkan token
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (response.status === 401 || response.status === 403) {
+          // Token kedaluwarsa atau tidak valid, arahkan ke login
+          // Catatan: Di sinilah kamu bisa memanggil endpoint /refresh-token jika ingin flow yang lebih seamless
+          localStorage.removeItem('access_token');
+          localStorage.removeItem('refresh_token');
+          router.push('/admin/login');
+          return;
+        }
+
+        if (!response.ok) {
+          throw new Error('Gagal mengambil data acara');
+        }
+
+        const data = await response.json();
+        setDaftarAcara(data);
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchAcara();
+  }, [router]);
+
+  // Fungsi untuk menangani proses Logout
+  const handleLogout = async (e) => {
+    e.preventDefault();
+    const accessToken = localStorage.getItem('access_token');
+    const refreshToken = localStorage.getItem('refresh_token');
+
+    if (refreshToken && accessToken) {
+      try {
+        // Memanggil endpoint logout di FastAPI
+        await fetch('/api/akun/logout', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`, // Diperlukan oleh fungsi validate_token di backend
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ refresh_token: refreshToken })
+        });
+      } catch (err) {
+        console.error("Gagal melakukan logout di sisi server", err);
+      }
+    }
+
+    // Selalu hapus token di sisi client terlepas dari respon server
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    router.push('/admin/login');
+  };
+
+  // Tampilan saat data sedang dimuat
+  if (isLoading) {
+    return (
+      <main className="min-h-screen bg-[#0f0f11] flex items-center justify-center">
+        <div className="text-red-500 text-xl font-bold animate-pulse">Memuat Data Sistem...</div>
+      </main>
+    );
+  }
+
+  // Menghitung jumlah acara aktif untuk widget statistik
+  const acaraAktif = daftarAcara.filter(a => a.status === 'Aktif').length;
+
   return (
     <main className="min-h-screen bg-[#0f0f11] text-slate-300 font-sans selection:bg-red-600/30">
       
@@ -18,19 +104,27 @@ export default function AdminDashboard() {
       <nav className="bg-[#18181b] border-b border-white/5 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-red-600 rounded-lg flex items-center justify-center font-bold text-white shadow-[0_0_15px_rgba(220,38,38,0.4)]">
-              UFT
-            </div>
+            <img src="/logo-uft.png" alt="Logo UFT" className="w-8 h-8" />
             <span className="font-bold text-white tracking-wide text-lg">UFT<span className="text-red-500 font-normal">Admin</span></span>
           </div>
-          <Link href="/admin/login" className="text-sm font-medium text-slate-400 hover:text-red-500 transition-colors flex items-center gap-2">
+          <button 
+            onClick={handleLogout}
+            className="text-sm font-medium text-slate-400 hover:text-red-500 transition-colors flex items-center gap-2"
+          >
             Keluar <span>🚪</span>
-          </Link>
+          </button>
         </div>
       </nav>
 
       <div className="max-w-7xl mx-auto p-6 md:p-10">
         
+        {/* Menampilkan pesan error jika ada */}
+        {error && (
+          <div className="mb-6 p-4 bg-red-500/10 border border-red-500/50 rounded-xl text-red-500 font-medium">
+            Error: {error}
+          </div>
+        )}
+
         {/* --- HEADER DASHBOARD --- */}
         <header className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div>
@@ -53,12 +147,13 @@ export default function AdminDashboard() {
           </div>
           <div className="bg-[#18181b] border border-white/5 rounded-2xl p-6 shadow-xl">
             <div className="text-slate-500 text-sm font-semibold uppercase tracking-wider mb-2">Total Karya Masuk</div>
-            <div className="text-4xl font-extrabold text-white">201</div>
+            {/* Hardcoded sementara karena atribut karya belum ada di backend model */}
+            <div className="text-4xl font-extrabold text-white">0</div> 
           </div>
           <div className="bg-[#18181b] border border-white/5 rounded-2xl p-6 shadow-xl relative overflow-hidden">
             <div className="absolute top-0 right-0 w-24 h-24 bg-red-600/10 rounded-full blur-2xl -mr-4 -mt-4"></div>
             <div className="text-slate-500 text-sm font-semibold uppercase tracking-wider mb-2 relative z-10">Acara Sedang Aktif</div>
-            <div className="text-4xl font-extrabold text-red-500 relative z-10">1</div>
+            <div className="text-4xl font-extrabold text-red-500 relative z-10">{acaraAktif}</div>
           </div>
         </div>
 
@@ -66,11 +161,6 @@ export default function AdminDashboard() {
         <div className="bg-[#18181b] border border-white/5 rounded-3xl overflow-hidden shadow-2xl">
           <div className="px-8 py-6 border-b border-white/5 bg-white/[0.02] flex justify-between items-center">
             <h2 className="text-xl font-bold text-white">Daftar Acara</h2>
-            {/* Fitur pencarian dummy */}
-            <div className="hidden md:flex bg-[#0f0f11] border border-white/10 rounded-full px-4 py-2 items-center">
-              <span className="text-sm text-slate-500 mr-2">🔍</span>
-              <input type="text" placeholder="Cari acara..." className="bg-transparent border-none outline-none text-sm text-white placeholder-slate-600 w-48" />
-            </div>
           </div>
           
           <div className="overflow-x-auto">
@@ -86,35 +176,37 @@ export default function AdminDashboard() {
               </thead>
               <tbody className="divide-y divide-white/5">
                 {daftarAcara.map((acara) => (
-                  <tr key={acara.id} className="hover:bg-white/[0.02] transition-colors group">
+                  <tr key={acara.acaraID} className="hover:bg-white/[0.02] transition-colors group">
                     <td className="p-6">
-                      <div className="font-bold text-white text-sm md:text-base mb-1 group-hover:text-red-400 transition-colors line-clamp-1">{acara.title}</div>
-                      <div className="text-xs text-slate-500 md:hidden">{acara.date}</div>
+                      <div className="font-bold text-white text-sm md:text-base mb-1 group-hover:text-red-400 transition-colors line-clamp-1">
+                        {acara.nama} {/* Disesuaikan dari title -> nama */}
+                      </div>
+                      <div className="text-xs text-slate-500 md:hidden">{acara.waktu}</div>
                     </td>
                     <td className="p-6 text-sm text-slate-400 hidden md:table-cell whitespace-nowrap">
-                      {acara.date}
+                      {acara.waktu} {/* Disesuaikan dari date -> waktu */}
                     </td>
                     <td className="p-6 text-center">
                       <span className={`inline-block px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
                         acara.status === 'Aktif' ? 'bg-green-500/10 text-green-400 border-green-500/20' :
                         acara.status === 'Mendatang' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
                         acara.status === 'Selesai' ? 'bg-slate-500/10 text-slate-400 border-slate-500/20' :
-                        'bg-yellow-500/10 text-yellow-500 border-yellow-500/20' // Draft
+                        'bg-yellow-500/10 text-yellow-500 border-yellow-500/20'
                       }`}>
                         {acara.status}
                       </span>
                     </td>
                     <td className="p-6 text-center hidden sm:table-cell">
                       <div className="text-xs text-slate-400">
-                        <span className="text-white font-semibold">{acara.karya}</span> Karya
+                         {/* Default 0 karena model belum memiliki jumlah karya/peserta */}
+                        <span className="text-white font-semibold">0</span> Karya
                       </div>
                       <div className="text-xs text-slate-500">
-                        <span className="text-white font-semibold">{acara.peserta}</span> Peserta
+                        <span className="text-white font-semibold">0</span> Peserta
                       </div>
                     </td>
                     <td className="p-6 text-right">
-                      {/* Mengarah ke Pusat Kendali Acara berdasarkan ID */}
-                      <Link href={`/admin/acara/${acara.id}`}>
+                      <Link href={`/admin/acara/${acara.acaraID}`}> {/* Disesuaikan dari id -> acaraID */}
                         <button className="px-4 py-2 bg-white/5 hover:bg-red-600 hover:text-white text-slate-300 rounded-lg text-sm font-semibold transition-all border border-white/10 hover:border-red-500">
                           Kelola
                         </button>
@@ -122,10 +214,16 @@ export default function AdminDashboard() {
                     </td>
                   </tr>
                 ))}
+                {daftarAcara.length === 0 && !isLoading && (
+                   <tr>
+                      <td colSpan="5" className="p-6 text-center text-slate-500">
+                         Belum ada acara yang terdaftar.
+                      </td>
+                   </tr>
+                )}
               </tbody>
             </table>
           </div>
-          {/* Footer Tabel */}
           <div className="px-8 py-4 border-t border-white/5 bg-white/[0.01] text-xs text-slate-500 text-center md:text-left">
             Menampilkan {daftarAcara.length} acara dari database.
           </div>

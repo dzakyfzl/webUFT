@@ -1,9 +1,10 @@
+import os
 from typing import Annotated
 
 from fastapi import APIRouter, Depends
-from sqlalchemy import select, func, insert, update
+from sqlalchemy import delete, select, func, insert, update
 from Database.database import SessionLocal, get_db
-from Database.models import Acara, Karya
+from Database.models import Acara, File, Karya, Pilihan, Responden
 from Feature.JWT.validate_token import validate_token
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
@@ -87,25 +88,40 @@ def edit_karya(karya_id: int, karya: KaryaCreate, response: Response, user: Anno
 def hapus_karya(karya_id: int, response: Response, user: Annotated[str, Depends(validate_token)], db: Session = Depends(get_db)):
     if user.get("role") != "Admin":
         response.status_code = 403
-        return {"message": "Unauthorized"}
-    db = SessionLocal()
+        return {"message": "Unauthorized"} 
+    
     try:
+        # 1. Cari data Karya
         stmt = select(Karya).where(Karya.karyaID == karya_id)
         result = db.execute(stmt).scalar_one_or_none()
         if result is None:
             response.status_code = 404
             return {"message": "Karya not found"}
-        db.delete(result)
+        # Simpan fileID sebelum Karya dihapus
+        karya_file_id = result.fileID
+        # 2. Hapus data relasi di tabel Pilihan
+        db.execute(delete(Pilihan).where(Pilihan.karyaID == karya_id))
+        db.execute(delete(Responden).where(Responden.acaraID == result.acaraID))
+        # 3. Hapus data Karya
+        db.execute(delete(Karya).where(Karya.karyaID == karya_id))
         db.commit()
+        # 4. Hapus data File dan file fisiknya (jika ada fileID)
+        if karya_file_id:
+            file_direktori = db.execute(select(File.direktori).where(File.fileID == karya_file_id)).scalar_one_or_none()
+            # Perbaiki penulisan query delete file (where berada di dalam kurung execute)
+            db.execute(delete(File).where(File.fileID == karya_file_id))
+            db.commit()
+            # Hapus file fisik dengan aman (cek apakah file benar-benar ada di storage)
+            if file_direktori and os.path.exists(file_direktori):
+                os.remove(file_direktori)
         response.status_code = 200
         return {"message": "Karya deleted successfully"}
     except Exception as e:
+        db.rollback() # Sangat penting untuk rollback jika terjadi error agar DB tidak terkunci
         response.status_code = 500
         print(f"Database error: {e}")
         return {"message": "Database error"}
-    finally:
-        db.close()
-
+    
 @router.get("/list/{acara_id}")
 def list_karya(acara_id: int, response: Response, db: Session = Depends(get_db)):
     db = SessionLocal()
