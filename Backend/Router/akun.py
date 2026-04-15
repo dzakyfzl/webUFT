@@ -77,3 +77,8 @@ def refresh_token(refresh_token: str, response: Response, db: Session = Depends(
     new_access_token = create_access_token(username, role)
     response.status_code = 200
     return {"access_token": new_access_token}
+
+@router.get("/me")
+def get_current_user(user: Annotated[str, Depends(validate_token)], response: Response):
+    response.status_code = 200
+    return {"username": user.get("username"), "role": user.get("role")}

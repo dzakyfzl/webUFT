@@ -3,6 +3,7 @@ from fastapi import Header, HTTPException, status, Depends
 from Database.database import get_db
 from sqlalchemy.orm import Session
 
+
 async def verify_is_guest(authorization: str = Header(None)):
     """
     Memastikan request TIDAK memiliki token valid (Hanya untuk Yang Perama kali mengisi form untuk acara ini).
@@ -38,9 +39,14 @@ def isUser(token: str) -> bool:
 
 def validate_token(token: str) -> dict:
     """
-        Validate the token (Refresh and Access)
+    Validate the token (Refresh and Access)
     """
     payload = decode_token(token)
     if payload is None:
-        raise Exception("Invalid token")
+        # Gunakan HTTPException agar FastAPI mengembalikan status 401
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token tidak valid atau telah kedaluwarsa",
+            headers={"WWW-Authenticate": "Bearer"}, # Standar keamanan keamanan tambahan
+        )
     return payload
