@@ -1,7 +1,6 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // PENTING: Mendaftarkan domain Unsplash agar Next.js Image bisa digunakan
   images: {
     remotePatterns: [
       {
@@ -10,6 +9,8 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  // Tambahkan baris di bawah ini:
+  devIndicators: false
 };
 
 export default nextConfig;
