@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
@@ -17,80 +17,144 @@ export default function BuatAcaraBaru() {
   const [status, setStatus] = useState('Draft');
   
   // State khusus untuk File Poster
-  const [posterFile, setPosterFile] = useState(null);
+  const [posterFile, setPosterFile] = useState<File | null>(null)
   const [posterPreview, setPosterPreview] = useState('');
 
   // State untuk UI
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true); // Tambahan state untuk loading awal
 
   const jamOptions = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'));
   const menitOptions = Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, '0'));
 
+  // Mengecek otentikasi saat halaman pertama kali dimuat
+  useEffect(() => {
+    const validateToken = async () => {
+      // Ambil token di dalam useEffect agar aman dari error SSR Next.js
+      const accesstoken = localStorage.getItem('access_token');
+      const refreshtoken = localStorage.getItem('refresh_token');
+
+      if (!accesstoken || !refreshtoken) {
+        router.push('/admin/login');
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/akun/me', {
+          method: 'GET',
+          headers: { 'Authorization': `Bearer ${accesstoken}` }
+        });
+
+        if (!response.ok) {
+          localStorage.removeItem('access_token');
+          const refreshResponse = await fetch('/api/akun/access-token', {
+            method: 'GET',
+            headers: { 'Authorization': `Bearer ${refreshtoken}` }
+          });
+          
+          if (refreshResponse.ok) {
+            const accessTokenResponse = await refreshResponse.json();
+            localStorage.setItem('access_token', accessTokenResponse.access_token);
+          } else {
+            router.push('/admin/login');
+            return;
+          }
+        }
+      } catch (err) {
+        console.error('Error validating token:', err);
+        router.push('/admin/login');
+        return;
+      } finally {
+        setIsCheckingAuth(false);
+      }
+    };
+
+    validateToken();
+  }, [router]);
+
   // Fungsi untuk menangani pemilihan file
-  const handleFileChange = (e) => {
-    const file = e.target.files[0];
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
     if (file) {
-      // Validasi tipe file di sisi client (mencocokkan dengan backend kamu)
       if (!file.type.startsWith('image/')) {
         setError('File harus berupa gambar (JPG, PNG, dll).');
         setPosterFile(null);
         setPosterPreview('');
         return;
       }
-      
       setPosterFile(file);
-      // Membuat URL lokal untuk preview gambar
       setPosterPreview(URL.createObjectURL(file));
       setError('');
     }
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
 
-    const token = localStorage.getItem('access_token');
-    if (!token) {
+    // Ambil token langsung saat tombol ditekan
+    const accesstoken = localStorage.getItem('access_token');
+    const refreshtoken = localStorage.getItem('refresh_token');
+
+    if (!accesstoken) {
       router.push('/admin/login');
       return;
     }
 
-    let finalFileId = 0; // Default jika tidak ada gambar yang diunggah
+    let finalFileId = 0; 
 
     try {
       // TAHAP 1: Unggah Poster (Jika ada)
       if (posterFile) {
         const formData = new FormData();
-        formData.append('file', posterFile); // 'file' disesuaikan dengan parameter UploadFile di backend
+        formData.append('file', posterFile); 
 
         const uploadResponse = await fetch('/api/file/tambah', {
           method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`
-            // CATATAN PENTING: Jangan set 'Content-Type' secara manual saat mengirim FormData!
-            // Browser akan otomatis mengatur tipe multipart/form-data beserta boundary-nya.
-          },
+          headers: { 'Authorization': `Bearer ${accesstoken}` },
           body: formData
         });
 
+        if (uploadResponse.status === 401) {
+          localStorage.removeItem('access_token');
+          const refreshResponse = await fetch('/api/akun/access-token', {
+            method: 'GET',
+            headers: { 'Authorization': `Bearer ${refreshtoken}` }
+          });
+          
+          if (refreshResponse.ok) {
+            const accessTokenResponse = await refreshResponse.json();
+            localStorage.setItem('access_token', accessTokenResponse.access_token);
+            // Idealnya di sini kita me-retry ulang upload file, tapi untuk sementara kita lempar error
+            // agar user menekan tombol simpan sekali lagi
+            throw new Error('Sesi diperbarui. Silakan tekan tombol Simpan sekali lagi.');
+          } else {
+            router.push('/admin/login');
+            return;
+          }
+        }
+        
         if (!uploadResponse.ok) {
           const errorData = await uploadResponse.json();
           throw new Error(errorData.message || 'Gagal mengunggah poster.');
         }
 
         const uploadData = await uploadResponse.json();
-        finalFileId = uploadData.file_id; // Simpan ID untuk digunakan di tahap 2
+        finalFileId = uploadData.file_id; 
       }
 
       // TAHAP 2: Simpan Data Acara
       const waktuFormatGabungan = `${tanggal} ${jam}:${menit}:00`;
+      
+      // Karena token mungkin baru diperbarui di Tahap 1, kita ambil ulang
+      const currentAccessToken = localStorage.getItem('access_token');
 
       const acaraResponse = await fetch('/api/acara/tambah', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${currentAccessToken}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
@@ -98,10 +162,27 @@ export default function BuatAcaraBaru() {
           deskripsi: deskripsi,
           tempat: tempat,
           waktu: waktuFormatGabungan,
-          fileID: finalFileId, // Menggunakan ID asli dari database file
+          fileID: finalFileId, 
           status: status
         })
       });
+
+      if (acaraResponse.status === 401) {
+          localStorage.removeItem('access_token');
+          const refreshResponse = await fetch('/api/akun/access-token', {
+            method: 'GET',
+            headers: { 'Authorization': `Bearer ${refreshtoken}` }
+          });
+          
+          if (refreshResponse.ok) {
+            const accessTokenResponse = await refreshResponse.json();
+            localStorage.setItem('access_token', accessTokenResponse.access_token);
+            throw new Error('Sesi diperbarui. Silakan tekan tombol Simpan sekali lagi.');
+          } else {
+            router.push('/admin/login');
+            return;
+          }
+      }
 
       if (!acaraResponse.ok) {
         const errorData = await acaraResponse.json();
@@ -110,11 +191,16 @@ export default function BuatAcaraBaru() {
 
       // Kembali ke dashboard jika semuanya sukses
       router.push('/admin');
-    } catch (err) {
+    } catch (err: any) {
       setError(err.message);
       setIsLoading(false);
     }
   };
+
+  // Mencegah halaman berkedip form sebelum otentikasi selesai
+  if (isCheckingAuth) {
+    return <div className="min-h-screen bg-[#0f0f11] flex items-center justify-center text-red-500 font-bold animate-pulse">Memverifikasi Sesi...</div>;
+  }
 
   return (
     <main className="min-h-screen bg-[#0f0f11] text-slate-300 font-sans pb-12">
@@ -152,7 +238,7 @@ export default function BuatAcaraBaru() {
               <div>
                 <label className="block text-sm font-semibold text-slate-400 mb-2">Deskripsi Acara</label>
                 <textarea 
-                  required rows="4" value={deskripsi} onChange={(e) => setDeskripsi(e.target.value)}
+                  required rows={4} value={deskripsi} onChange={(e) => setDeskripsi(e.target.value)}
                   className="w-full px-4 py-3 rounded-xl border border-white/10 focus:ring-2 focus:ring-red-500 bg-[#0f0f11] text-white outline-none transition-all resize-none"
                   placeholder="Tuliskan detail dan tujuan acara ini..."
                 />
@@ -209,7 +295,6 @@ export default function BuatAcaraBaru() {
                 
                 {posterPreview ? (
                   <>
-                    {/* Menampilkan Preview Gambar */}
                     <img 
                       src={posterPreview} 
                       alt="Preview Poster" 
@@ -231,7 +316,6 @@ export default function BuatAcaraBaru() {
                   </>
                 )}
 
-                {/* Input File Tersembunyi tapi menutupi seluruh area */}
                 <input 
                   type="file" 
                   accept="image/*"

@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import select, func, insert, update
 from Database.database import SessionLocal, get_db
 from Database.models import Acara, Token
-from Feature.JWT.validate_token import validate_token
+from Feature.JWT.validate_token import validate_refresh_token, validate_token
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from fastapi.responses import Response
@@ -27,7 +27,11 @@ class AkunCreate(BaseModel):
 def login(akun: AkunCreate, response: Response, db: Session = Depends(get_db)):
     if akun.username == os.getenv("ADMIN_USERNAME") and akun.password == os.getenv("ADMIN_PASSWORD"):  
         response.status_code = 200
-        return {"message": "Login successful", "refresh_token": create_refresh_token(akun.username,"Admin"), "access_token": create_access_token(akun.username,"Admin")}
+        refresh_token = create_refresh_token(akun.username,"Admin")
+        access_token = create_access_token(akun.username,"Admin")
+        db.add(Token(tokenID=refresh_token))
+        db.commit()
+        return {"message": "Login successful", "refresh_token": refresh_token, "access_token": access_token}
     else:
         response.status_code = 401
         return {"message": "Invalid credentials"}
@@ -57,8 +61,8 @@ def logout(request:LogoutRequest, response: Response, user: Annotated[str, Depen
         db.close()
 
 
-@router.get("/refresh-token")
-def refresh_token(refresh_token: str, response: Response, db: Session = Depends(get_db)):
+@router.get("/access-token")
+def refresh_token(refresh_token: Annotated[str, Depends(validate_refresh_token)], response: Response, db: Session = Depends(get_db)):
     try:
         stmt = select(Token).where(Token.tokenID == refresh_token)
         result = db.execute(stmt).scalar_one_or_none()

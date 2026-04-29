@@ -4,7 +4,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 
-// --- KOMPONEN KARTU EVENT ---
 // --- FUNGSI FORMAT WAKTU SQL KE HH:mm DD-MM-YYYY ---
 const formatSqlDate = (sqlDate: string) => {
   if (!sqlDate) return "";
@@ -67,7 +66,9 @@ export const EventCard = ({ title, category, image, href, waktu, tempat }: Event
           {waktu && (
             <div className="flex items-center gap-2">
               <span className="text-sm">🗓️</span> 
-              <span>{formatSqlDate(waktu)}</span>
+              <span className="line-clamp-1">{waktu.substring(8, 10)}-{waktu.substring(5, 7)}-{waktu.substring(0, 4)}</span>
+              <span className="text-sm">🕰️</span>
+              <span className="line-clamp-1">{waktu.substring(11, 16)}</span>
             </div>
           )}
           {tempat && (
@@ -82,6 +83,7 @@ export const EventCard = ({ title, category, image, href, waktu, tempat }: Event
     </div>
   </Link>
 );
+
 export default function Home() {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [featuredEvents, setFeaturedEvents] = useState<any[]>([]);
@@ -96,7 +98,8 @@ export default function Home() {
         const response = await fetch('/api/acara/list');
         
         if (!response.ok) {
-          throw new Error('Gagal mengambil data dari server');
+          console.error("Failed to fetch events. Status:", response.status);
+          return;
         }
 
         const data = await response.json();
@@ -106,11 +109,11 @@ export default function Home() {
           id: item.acaraID,
           title: item.nama,
           description: item.deskripsi,
-          // Sesuaikan URL ini jika Anda memiliki endpoint untuk mengambil gambar berdasarkan fileID
-          // Sementara menggunakan placeholder jika backend tidak mengirimkan URL gambar penuh
+          waktu: item.waktu || "",     // <--- Mengambil data waktu dari API
+          tempat: item.tempat || "",   // <--- Mengambil data tempat dari API
           image: item.fileID ? `/api/file/ambil/${item.fileID}` : "https://images.unsplash.com/photo-1518173946687-a4c8892bbd9f?q=80&w=800",
           link: `/katalog/karya?acaraId=${item.acaraID}`,
-          category: "Pameran", // Default karena di backend tidak ada kolom kategori
+          category: "Kegiatan", // Default karena di backend tidak ada kolom kategori
         }));
 
         // Membagi data: Misalnya 3 acara pertama masuk ke Featured Hero
@@ -118,7 +121,6 @@ export default function Home() {
         setAllEvents(formattedData);
       } catch (error) {
         console.error("Error fetching events:", error);
-        // Fallback opsional jika backend mati
       } finally {
         setIsLoading(false);
       }
@@ -149,7 +151,7 @@ export default function Home() {
 
   // Tampilkan loading state sederhana jika data belum siap
   if (isLoading) {
-    return <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white">Memuat Data Pameran...</div>;
+    return <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white font-bold animate-pulse">Memuat Data Pameran...</div>;
   }
 
   return (
@@ -168,7 +170,7 @@ export default function Home() {
                 fill 
                 className="object-cover" 
                 priority={index === 0} 
-                unoptimized={event.image.startsWith('/api')} // <--- TAMBAHKAN INI
+                unoptimized={event.image.startsWith('/api')}
               />
             </div>
             ))}
@@ -184,7 +186,7 @@ export default function Home() {
             <button onClick={prevSlide} className="absolute left-4 md:left-8 z-40 p-4 rounded-full bg-black/10 hover:bg-red-600/60 text-white transition-all hidden md:block group">
               <span className="text-3xl block group-hover:-translate-x-1 transition-transform">❮</span>
             </button>
-            <button onClick={nextSlide} className="absolute right-4 md:right-8 z-40 p-4 rounded-full bg-black/10 hover:bg-red-600/60 text-white transition-all hidden md:block group">
+            <button onClick={nextSlide} className="absolute right-4 md:left-auto md:right-8 z-40 p-4 rounded-full bg-black/10 hover:bg-red-600/60 text-white transition-all hidden md:block group">
               <span className="text-3xl block group-hover:translate-x-1 transition-transform">❯</span>
             </button>
 
@@ -210,7 +212,7 @@ export default function Home() {
             </div>
           </>
         ) : (
-          <h2 className="z-10 text-2xl">Belum ada acara unggulan.</h2>
+          <h2 className="z-10 text-2xl font-bold text-slate-400">Belum ada acara pameran yang aktif.</h2>
         )}
       </section>
 
@@ -226,18 +228,26 @@ export default function Home() {
         {allEvents.length > 0 ? (
           <div className="grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-10 w-full">
             {allEvents.map(event => (
-              <EventCard key={event.id} title={event.title} category={event.category} image={event.image} href={`/katalog/karya?acaraId=${event.id}`} />
+              <EventCard 
+                key={event.id} 
+                title={event.title} 
+                category={event.category} 
+                image={event.image} 
+                href={event.link} 
+                waktu={event.waktu}   
+                tempat={event.tempat}  
+              />
             ))}
           </div>
         ) : (
-          <p className="text-center text-slate-500">Belum ada acara yang tersedia saat ini.</p>
+          <p className="text-center text-slate-500 font-medium">Belum ada acara yang tersedia saat ini.</p>
         )}
       </section>
       
       {/* Footer Minimalis */}
       <footer className="w-full bg-slate-950 text-slate-400 py-10 text-center mt-auto border-t border-slate-900">
         <p className="text-sm font-medium tracking-wide">&copy; 2026 UKM FOTOGRAFI TELKOM UNIVERSITY. ALL RIGHTS RESERVED.</p>
-        <Link href="/admin/login" className="inline-block mt-4 text-[10px] uppercase tracking-[0.2em] text-slate-800 hover:text-red-600 transition-all font-bold">
+        <Link href="/admin" className="inline-block mt-4 text-[10px] uppercase tracking-[0.2em] text-slate-800 hover:text-red-600 transition-all font-bold">
           Administrator Portal
         </Link>
       </footer>

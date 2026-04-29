@@ -37,8 +37,8 @@ export default function KelolaAcara({ params }: { params: Promise<{ id: string }
   // =========================================================================
   useEffect(() => {
     const fetchEventData = async () => {
-      const token = localStorage.getItem('access_token');
-      if (!token) {
+      const accesstoken = localStorage.getItem('access_token');
+      if (!accesstoken) {
         router.push('/admin/login');
         return;
       }
@@ -46,14 +46,33 @@ export default function KelolaAcara({ params }: { params: Promise<{ id: string }
       try {
         // Ambil Info Acara
         const resAcara = await fetch(`/api/acara/admin-ambil/${acaraId}`, {
-          headers: { 'Authorization': `Bearer ${token}` }
+          headers: { 'Authorization': `Bearer ${accesstoken}` }
         });
-        if (!resAcara.ok) throw new Error('Gagal mengambil data acara');
+        
         setCurrentEvent(await resAcara.json());
+        const refreshtoken = localStorage.getItem('refresh_token');
+        if (resAcara.status === 401) {
+          localStorage.removeItem('access_token');
+          const refreshResponse = await fetch('/api/akun/access-token', {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${refreshtoken}`
+            }
+          });
+          const accessTokenResponse = await refreshResponse.json();
+          if (refreshResponse.ok) {
+            localStorage.setItem('access_token', accessTokenResponse.access_token);
+          } else {
+            router.push('/admin/login');
+            return;
+          }
+
+        }
+        if (!resAcara.ok) throw new Error('Gagal mengambil data acara');
 
         // Ambil Daftar Karya & Jumlah Pilihan (Kini sudah membawa karyaID)
         const resKarya = await fetch(`/api/form/urutkan-karya/${acaraId}`, {
-          headers: { 'Authorization': `Bearer ${token}` }
+          headers: { 'Authorization': `Bearer ${accesstoken}` }
         });
         if (resKarya.ok) {
           // Langsung simpan karena data dari backend sudah lengkap dan terurut
@@ -62,7 +81,7 @@ export default function KelolaAcara({ params }: { params: Promise<{ id: string }
 
         // Ambil Daftar Absensi/Responden
         const resVoters = await fetch(`/api/form/list/${acaraId}`, {
-          headers: { 'Authorization': `Bearer ${token}` }
+          headers: { 'Authorization': `Bearer ${accesstoken}` }
         });
         if (resVoters.ok) {
           setVotersList(await resVoters.json());
@@ -83,14 +102,31 @@ export default function KelolaAcara({ params }: { params: Promise<{ id: string }
   // 2. FUNGSI DOWNLOAD CSV
   // =========================================================================
   const handleDownloadCSV = async () => {
-    const token = localStorage.getItem('access_token');
-    if (!token) return;
+    const accesstoken = localStorage.getItem('access_token');
+    if (!accesstoken) return;
 
     try {
       const response = await fetch(`/api/form/download-csv/${acaraId}`, {
         method: 'GET',
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { 'Authorization': `Bearer ${accesstoken}` }
       });
+      const refreshtoken = localStorage.getItem('refresh_token');
+      if (response.status === 401) {
+        localStorage.removeItem('access_token');
+        const refreshResponse = await fetch('/api/akun/access-token', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${refreshtoken}`
+          }
+        });
+        const accessTokenResponse = await refreshResponse.json();
+        if (refreshResponse.ok) {
+          localStorage.setItem('access_token', accessTokenResponse.access_token);
+        } else {
+          router.push('/admin/login');
+          return;
+        }
+      }
 
       if (!response.ok) throw new Error('Gagal mengunduh CSV dari server');
 
@@ -128,7 +164,7 @@ export default function KelolaAcara({ params }: { params: Promise<{ id: string }
     }
     
     setIsSubmitting(true);
-    const token = localStorage.getItem('access_token');
+    const accesstoken = localStorage.getItem('access_token');
 
     try {
       // Tahap 1: Upload File Gambar
@@ -136,9 +172,26 @@ export default function KelolaAcara({ params }: { params: Promise<{ id: string }
       formData.append('file', fotoKaryaBaru);
       const uploadRes = await fetch('/api/file/tambah', {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }, // Tanpa Content-Type manual
+        headers: { 'Authorization': `Bearer ${accesstoken}` }, // Tanpa Content-Type manual
         body: formData
       });
+      const refreshtoken = localStorage.getItem('refresh_token');
+      if (uploadRes.status === 401) {
+        localStorage.removeItem('access_token');
+        const refreshResponse = await fetch('/api/akun/access-token', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${refreshtoken}`
+          }
+        });
+        const accessTokenResponse = await refreshResponse.json();
+        if (refreshResponse.ok) {
+          localStorage.setItem('access_token', accessTokenResponse.access_token);
+        } else {
+          router.push('/admin/login');
+          return;
+        }
+      }
       
       if (!uploadRes.ok) throw new Error('Gagal mengunggah foto karya');
       const uploadData = await uploadRes.json();
@@ -148,7 +201,7 @@ export default function KelolaAcara({ params }: { params: Promise<{ id: string }
       const karyaRes = await fetch('/api/karya/tambah', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${accesstoken}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
@@ -177,14 +230,14 @@ export default function KelolaAcara({ params }: { params: Promise<{ id: string }
 
   const handleSaveEdit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const token = localStorage.getItem('access_token');
+    const accesstoken = localStorage.getItem('access_token');
 
     try {
       // Menggunakan karyaID untuk operasi edit
       const res = await fetch(`/api/karya/edit/${editingKarya.karyaID}`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${accesstoken}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
@@ -195,6 +248,23 @@ export default function KelolaAcara({ params }: { params: Promise<{ id: string }
           fileID: editingKarya.fileID // Tetap sertakan fileID agar relasi file tidak hilang
         })
       });
+      const refreshtoken = localStorage.getItem('refresh_token');
+      if (res.status === 401) {
+        localStorage.removeItem('access_token');
+        const refreshResponse = await fetch('/api/akun/access-token', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${refreshtoken}`
+          }
+        });
+        const accessTokenResponse = await refreshResponse.json();
+        if (refreshResponse.ok) {
+          localStorage.setItem('access_token', accessTokenResponse.access_token);
+        } else {
+          router.push('/admin/login');
+          return;
+        }
+      }
 
       if (!res.ok) throw new Error('Gagal memperbarui karya');
 
@@ -209,12 +279,29 @@ export default function KelolaAcara({ params }: { params: Promise<{ id: string }
 
   const handleDeleteKarya = async (karyaId: number, namaKarya: string) => {
     if (window.confirm(`Hapus karya "${namaKarya}" secara permanen?`)) {
-      const token = localStorage.getItem('access_token');
+      const accesstoken = localStorage.getItem('access_token');
       try {
         const res = await fetch(`/api/karya/hapus/${karyaId}`, {
           method: 'DELETE',
-          headers: { 'Authorization': `Bearer ${token}` }
+          headers: { 'Authorization': `Bearer ${accesstoken}` }
         });
+        const refreshtoken = localStorage.getItem('refresh_token');
+      if (res.status === 401) {
+        localStorage.removeItem('access_token');
+        const refreshResponse = await fetch('/api/akun/access-token', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${refreshtoken}`
+          }
+        });
+        const accessTokenResponse = await refreshResponse.json();
+        if (refreshResponse.ok) {
+          localStorage.setItem('access_token', accessTokenResponse.access_token);
+        } else {
+          router.push('/admin/login');
+          return;
+        }
+      }
 
         if (!res.ok) throw new Error('Gagal menghapus karya');
         
@@ -227,12 +314,29 @@ export default function KelolaAcara({ params }: { params: Promise<{ id: string }
   };
 
   const handleDeleteAcara = async () => {
-    const token = localStorage.getItem('access_token');
+    const accesstoken = localStorage.getItem('access_token');
     try {
       const res = await fetch(`/api/acara/hapus/${acaraId}`, {
         method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { 'Authorization': `Bearer ${accesstoken}` }
       });
+      const refreshtoken = localStorage.getItem('refresh_token');
+      if (res.status === 401) {
+        localStorage.removeItem('access_token');
+        const refreshResponse = await fetch('/api/akun/access-token', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${refreshtoken}`
+          }
+        });
+        const accessTokenResponse = await refreshResponse.json();
+        if (refreshResponse.ok) {
+          localStorage.setItem('access_token', accessTokenResponse.access_token);
+        } else {
+          router.push('/admin/login');
+          return;
+        }
+      }
       if (!res.ok) throw new Error('Gagal menghapus acara');
       
       alert(`Acara Berhasil Dihapus`);

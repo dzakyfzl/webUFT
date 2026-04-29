@@ -12,14 +12,51 @@ export default function AdminLogin() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  // Fungsi untuk menangani proses login
-  const handleLogin = async (e) => {
+  // Fungsi untuk menangani proses login dengan deklarasi TypeScript yang tepat
+  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault(); // Mencegah reload halaman bawaan browser
     setError('');
     setIsLoading(true);
 
     try {
-      // Endpoint mengarah ke /api/akun/login karena NGINX mem-proxy /api/ ke FastAPI
+      // Pengecekan token existing
+      const accesstoken = localStorage.getItem('access_token');
+      const refreshtoken = localStorage.getItem('refresh_token');
+      
+      if (accesstoken) {
+        const response = await fetch('/api/akun/me', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${accesstoken}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (response.ok) {
+          const userData = await response.json();
+          if (userData.role === 'Admin') {
+            router.push('/admin');
+            return;
+          }
+        } else {
+          localStorage.removeItem('access_token');
+          const refreshResponse = await fetch('/api/akun/access-token', {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${refreshtoken}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          const accessTokenResponse = await refreshResponse.json();
+          if (refreshResponse.ok) {
+            localStorage.setItem('access_token', accessTokenResponse.access_token);
+            router.push('/admin');
+            return; // Tambahkan return agar tidak lanjut memanggil /api/akun/login di bawahnya
+          }
+        }
+      }
+
+      // Pemanggilan otentikasi login
       const response = await fetch('/api/akun/login', {
         method: 'POST',
         headers: {
@@ -31,7 +68,7 @@ export default function AdminLogin() {
       const data = await response.json();
 
       if (response.ok) {
-        // Simpan token ke localStorage (atau bisa dikembangkan menggunakan Cookies nanti)
+        // Simpan token ke localStorage
         localStorage.setItem('access_token', data.access_token);
         localStorage.setItem('refresh_token', data.refresh_token);
         console.log('Login berhasil, token disimpan:', data.access_token);
@@ -39,10 +76,10 @@ export default function AdminLogin() {
         // Arahkan ke halaman dashboard
         router.push('/admin');
       } else {
-        // Tangkap pesan error dari FastAPI (response code 401 dll)
+        // Tangkap pesan error dari FastAPI
         setError(data.message || 'Username atau password salah.');
       }
-    } catch (err) {
+    } catch (err: any) { // Deklarasi tipe 'any' untuk menangkap pesan error server
       setError('Terjadi kesalahan saat menghubungi server.');
     } finally {
       setIsLoading(false);

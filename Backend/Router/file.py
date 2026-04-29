@@ -5,6 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, UploadFile
 from fastapi.responses import FileResponse
 from sqlalchemy import delete, select, func, insert, update
+from Feature.image_processing.main import converting_to_webp, watermarking
 from Database.database import SessionLocal, get_db
 from Database.models import Karya, File
 from Feature.JWT.validate_token import validate_token
@@ -54,10 +55,8 @@ async def tambah_file(file: UploadFile,response:Response,user: Annotated[str,Dep
             return {"message": "There was an error uploading the file"}
         finally:
             await file.close()
-        
-        
-
-        new_file = File(nama=file.filename, direktori=filepath, jenis=file.content_type, ukuran=os.path.getsize(filepath))
+        new_filepath = converting_to_webp(filepath)
+        new_file = File(nama=new_filepath[8:], direktori=new_filepath, jenis="image/webp", ukuran=os.path.getsize(new_filepath))
         db.add(new_file)
         db.commit()
         db.refresh(new_file)

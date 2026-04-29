@@ -25,7 +25,7 @@ def converting_to_webp(img_path:str) -> str:
     with Image.open(img_path) as im:
         im.convert('RGBA')
         new_img_path = img_path.split('.')[0] + '.webp'
-        im.save(new_img_path,'webp',optimize=True, quality=1)
+        im.save(new_img_path,'webp',optimize=True, quality=20)
         try:
             os.remove(img_path)
         except OSError as e:
