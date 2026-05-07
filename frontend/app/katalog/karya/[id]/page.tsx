@@ -1,17 +1,15 @@
 "use client";
 
-import React, { useState, useEffect, use } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 
-export default function DetailKarya({ params }: { params: Promise<{ id: string }> }) {
-  // --- EXTRACT PARAMS & SEARCH PARAMS ---
-  
-  
+// --- SUB-KOMPONEN UTAMA (Yang menggunakan useSearchParams) ---
+function KaryaContent() {
   const searchParams = useSearchParams();
-  const karyaId = searchParams.get('karyaId'); // Dari Query Params (contoh: ?karyaId=1)
-  const acaraId = searchParams.get('acaraId'); // Dari Query Params (contoh: ?acaraId=1)
+  const karyaId = searchParams.get('karyaId'); 
+  const acaraId = searchParams.get('acaraId'); 
 
   // --- STATE MANAGEMENT ---
   const [karya, setKarya] = useState<any>(null);
@@ -51,7 +49,6 @@ export default function DetailKarya({ params }: { params: Promise<{ id: string }
           title: data.nama,
           author: data.pemilik,
           description: data.deskripsi,
-          // Mengambil gambar dari endpoint file, gunakan unoptimized={true} di komponen Image
           image: data.fileID ? `/api/file/ambil/${data.fileID}` : "https://images.unsplash.com/photo-1555899434-94d1368aa7af?q=80&w=1200"
         });
       } catch (err: any) {
@@ -71,16 +68,15 @@ export default function DetailKarya({ params }: { params: Promise<{ id: string }
     setIsSubmitLoading(true);
 
     try {
-      // Ambil token dari localStorage jika user pernah submit sebelumnya
       const guestToken = localStorage.getItem('guest_token');
       const headers: HeadersInit = { 'Content-Type': 'application/json' };
       
-      // Asumsi backend membaca dari header Authorization (Bearer Token)
       if (guestToken) {
         headers['Authorization'] = `Bearer ${guestToken}`;
       }
 
-      const response = await fetch(`/api/form/isi/${acaraId}`, {
+      // Pastikan acaraId berupa string yang aman dilempar ke URL
+      const response = await fetch(`/api/form/isi/${acaraId || '0'}`, {
         method: 'POST',
         headers: headers,
         body: JSON.stringify({
@@ -88,7 +84,7 @@ export default function DetailKarya({ params }: { params: Promise<{ id: string }
           prodi_instansi: formData.prodi_instansi,
           nomor: formData.nomor,
           nim: formData.nim,
-          karyaID: parseInt(karyaId)
+          karyaID: parseInt(karyaId || '0')
         })
       });
 
@@ -101,7 +97,6 @@ export default function DetailKarya({ params }: { params: Promise<{ id: string }
 
       const responseData = await response.json();
       
-      // Simpan token ke localStorage agar backend bisa memblokir vote kedua
       if (responseData.refresh_token) {
         localStorage.setItem('guest_token', responseData.refresh_token);
       }
@@ -110,12 +105,11 @@ export default function DetailKarya({ params }: { params: Promise<{ id: string }
       setTimeout(() => {
         setShowVoteForm(false);
         setIsSuccess(false);
-        // Reset form
         setFormData({ nama: '', prodi_instansi: '', nim: '', nomor: '' });
       }, 3500);
 
     } catch (err: any) {
-      alert(err.message); // Tampilkan alert error (bisa diganti dengan UI Toast yang lebih rapi)
+      alert(err.message); 
     } finally {
       setIsSubmitLoading(false);
     }
@@ -157,7 +151,7 @@ export default function DetailKarya({ params }: { params: Promise<{ id: string }
             fill 
             className="object-contain p-4 md:p-8" 
             priority
-            unoptimized={karya.image.startsWith('/api')} // Penting untuk Docker/Nginx
+            unoptimized={karya.image.startsWith('/api')} 
           />
         </div>
 
@@ -169,7 +163,7 @@ export default function DetailKarya({ params }: { params: Promise<{ id: string }
             </p>
             
             <h3 className="text-sm font-bold text-slate-800 mb-2 uppercase tracking-wider">Deskripsi Karya</h3>
-            <p className="text-slate-600 leading-relaxed text-sm md:text-base">
+            <p className="text-slate-600 leading-relaxed text-sm md:text-base whitespace-pre-wrap">
               {karya.description}
             </p>
           </div>
@@ -188,7 +182,7 @@ export default function DetailKarya({ params }: { params: Promise<{ id: string }
 
       {/* --- MODAL FORM VOTE --- */}
       {showVoteForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white rounded-[2rem] overflow-hidden max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200 relative">
             
             {!isSuccess && (
@@ -215,7 +209,7 @@ export default function DetailKarya({ params }: { params: Promise<{ id: string }
                     </div>
                     <div>
                       <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">NIM</label>
-                      <input type="text" name="nim" value={formData.nim} onChange={handleInputChange} required placeholder="Nomor Induk Mahasiswa / Kosong" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 outline-none focus:ring-2 focus:ring-red-600 transition-all font-medium" />
+                      <input type="text" name="nim" value={formData.nim} onChange={handleInputChange} required placeholder="NIM / Kosong" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 outline-none focus:ring-2 focus:ring-red-600 transition-all font-medium" />
                     </div>
                   </div>
 
@@ -240,5 +234,14 @@ export default function DetailKarya({ params }: { params: Promise<{ id: string }
         </div>
       )}
     </main>
+  );
+}
+
+// --- KOMPONEN EXPORT UTAMA DIBUNGKUS SUSPENSE ---
+export default function DetailKarya() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-500 font-bold">Menyiapkan Katalog...</div>}>
+      <KaryaContent />
+    </Suspense>
   );
 }

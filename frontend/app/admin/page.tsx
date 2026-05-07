@@ -1,4 +1,4 @@
-"use client"; // Wajib karena kita menggunakan hooks (useState, useEffect, useRouter)
+"use client"; // Wajib ditambahkan agar bisa menggunakan state dan event handler
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
@@ -7,47 +7,86 @@ import { useRouter } from 'next/navigation';
 export default function AdminDashboard() {
   const router = useRouter();
   
-  // State manajemen
-  const [daftarAcara, setDaftarAcara] = useState([]);
+  // State manajemen dengan typing TypeScript
+  const [daftarAcara, setDaftarAcara] = useState<any[]>([]); 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
   // Mengambil data saat halaman pertama kali dimuat
   useEffect(() => {
     const fetchAcara = async () => {
-      const token = localStorage.getItem('access_token');
-      
-      // Proteksi rute di sisi client
-      if (!token) {
+      const accesstoken = localStorage.getItem('access_token');
+      const refreshtoken = localStorage.getItem('refresh_token');
+
+      // Proteksi awal jika token sama sekali tidak ada
+      if (!accesstoken || !refreshtoken) {
         router.push('/admin/login');
         return;
       }
-
+      
+      // Tahap 1: Validasi Sesi Pengguna
       try {
-        const response = await fetch('/api/acara/list-all', {
+        const meResponse = await fetch('/api/akun/me', {
           method: 'GET',
           headers: {
-            'Authorization': `Bearer ${token}`, // Menyisipkan token
+            'Authorization': `Bearer ${accesstoken}`,
             'Content-Type': 'application/json'
           }
         });
 
-        if (response.status === 401 || response.status === 403) {
-          // Token kedaluwarsa atau tidak valid, arahkan ke login
-          // Catatan: Di sinilah kamu bisa memanggil endpoint /refresh-token jika ingin flow yang lebih seamless
+        // Jika token utama kedaluwarsa, coba perbarui menggunakan refresh token
+        if (meResponse.status === 401) {
+          localStorage.removeItem('access_token');
+          
+          const refreshResponse = await fetch('/api/akun/access-token', {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${refreshtoken}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (refreshResponse.ok) {
+            const accessTokenData = await refreshResponse.json();
+            localStorage.setItem('access_token', accessTokenData.access_token);
+            // Panggil ulang fungsinya agar mengambil data menggunakan token yang baru saja diperbarui
+            fetchAcara(); 
+            return; // Hentikan eksekusi yang ini agar tidak tumpang tindih
+          } else {
+            // Jika refresh token juga kedaluwarsa/tidak valid
+            router.push('/admin/login');
+            return;
+          }
+        }
+      } catch (err: any) {
+        setError(err.message);
+      }
+
+      // Tahap 2: Fetch Data Acara (Menggunakan token terbaru)
+      const currentToken = localStorage.getItem('access_token');
+      try {
+        const listResponse = await fetch('/api/acara/list-all', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${currentToken}`, // Gunakan token dari memori lokal terbaru
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (listResponse.status === 401 || listResponse.status === 403) {
           localStorage.removeItem('access_token');
           localStorage.removeItem('refresh_token');
           router.push('/admin/login');
           return;
         }
 
-        if (!response.ok) {
+        if (!listResponse.ok) {
           throw new Error('Gagal mengambil data acara');
         }
 
-        const data = await response.json();
+        const data = await listResponse.json();
         setDaftarAcara(data);
-      } catch (err) {
+      } catch (err: any) {
         setError(err.message);
       } finally {
         setIsLoading(false);
@@ -58,7 +97,7 @@ export default function AdminDashboard() {
   }, [router]);
 
   // Fungsi untuk menangani proses Logout
-  const handleLogout = async (e) => {
+  const handleLogout = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     const accessToken = localStorage.getItem('access_token');
     const refreshToken = localStorage.getItem('refresh_token');
@@ -69,17 +108,17 @@ export default function AdminDashboard() {
         await fetch('/api/akun/logout', {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${accessToken}`, // Diperlukan oleh fungsi validate_token di backend
+            'Authorization': `Bearer ${accessToken}`, 
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({ refresh_token: refreshToken })
         });
-      } catch (err) {
+      } catch (err: any) {
         console.error("Gagal melakukan logout di sisi server", err);
       }
     }
 
-    // Selalu hapus token di sisi client terlepas dari respon server
+    // Selalu hapus kedua token di sisi client terlepas dari respon server
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     router.push('/admin/login');
@@ -104,6 +143,7 @@ export default function AdminDashboard() {
       <nav className="bg-[#18181b] border-b border-white/5 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
           <div className="flex items-center gap-3">
+            {/* Pastikan file logo-uft.png benar-benar ada di folder /public */}
             <img src="/logo-uft.png" alt="Logo UFT" className="w-8 h-8" />
             <span className="font-bold text-white tracking-wide text-lg">UFT<span className="text-red-500 font-normal">Admin</span></span>
           </div>
@@ -147,7 +187,7 @@ export default function AdminDashboard() {
           </div>
           <div className="bg-[#18181b] border border-white/5 rounded-2xl p-6 shadow-xl">
             <div className="text-slate-500 text-sm font-semibold uppercase tracking-wider mb-2">Total Karya Masuk</div>
-            {/* Hardcoded sementara karena atribut karya belum ada di backend model */}
+            {/* Hardcoded sementara karena atribut total karya global belum ada di backend model */}
             <div className="text-4xl font-extrabold text-white">0</div> 
           </div>
           <div className="bg-[#18181b] border border-white/5 rounded-2xl p-6 shadow-xl relative overflow-hidden">
@@ -179,12 +219,13 @@ export default function AdminDashboard() {
                   <tr key={acara.acaraID} className="hover:bg-white/[0.02] transition-colors group">
                     <td className="p-6">
                       <div className="font-bold text-white text-sm md:text-base mb-1 group-hover:text-red-400 transition-colors line-clamp-1">
-                        {acara.nama} {/* Disesuaikan dari title -> nama */}
+                        {acara.nama} 
                       </div>
-                      <div className="text-xs text-slate-500 md:hidden">{acara.waktu}</div>
+                      <div className="text-xs text-slate-500 md:hidden"></div>
                     </td>
                     <td className="p-6 text-sm text-slate-400 hidden md:table-cell whitespace-nowrap">
-                      {acara.waktu} {/* Disesuaikan dari date -> waktu */}
+                        <span className="line-clamp-1">{acara.waktu.substring(11, 16)}</span>
+                        <span className="line-clamp-1">{acara.waktu.substring(8, 10)}-{acara.waktu.substring(5, 7)}-{acara.waktu.substring(0, 4)}</span>
                     </td>
                     <td className="p-6 text-center">
                       <span className={`inline-block px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
@@ -198,15 +239,14 @@ export default function AdminDashboard() {
                     </td>
                     <td className="p-6 text-center hidden sm:table-cell">
                       <div className="text-xs text-slate-400">
-                         {/* Default 0 karena model belum memiliki jumlah karya/peserta */}
-                        <span className="text-white font-semibold">0</span> Karya
+                        <span className="text-white font-semibold">-</span> Karya
                       </div>
                       <div className="text-xs text-slate-500">
-                        <span className="text-white font-semibold">0</span> Peserta
+                        <span className="text-white font-semibold">-</span> Peserta
                       </div>
                     </td>
                     <td className="p-6 text-right">
-                      <Link href={`/admin/acara/${acara.acaraID}`}> {/* Disesuaikan dari id -> acaraID */}
+                      <Link href={`/admin/acara/${acara.acaraID}`}>
                         <button className="px-4 py-2 bg-white/5 hover:bg-red-600 hover:text-white text-slate-300 rounded-lg text-sm font-semibold transition-all border border-white/10 hover:border-red-500">
                           Kelola
                         </button>
@@ -214,9 +254,11 @@ export default function AdminDashboard() {
                     </td>
                   </tr>
                 ))}
+                
+                {/* Penyesuaian colSpan menggunakan kurung kurawal */}
                 {daftarAcara.length === 0 && !isLoading && (
                    <tr>
-                      <td colSpan="5" className="p-6 text-center text-slate-500">
+                      <td colSpan={5} className="p-6 text-center text-slate-500">
                          Belum ada acara yang terdaftar.
                       </td>
                    </tr>

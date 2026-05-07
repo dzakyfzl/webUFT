@@ -35,16 +35,34 @@ export default function EditAcara({ params }: { params: Promise<{ id: string }> 
   // FETCH DATA ACARA LAMA SAAT HALAMAN DIMUAT
   useEffect(() => {
     const fetchAcara = async () => {
-      const token = localStorage.getItem('access_token');
-      if (!token) {
+      const accesstoken = localStorage.getItem('access_token');
+      if (!accesstoken) {
         router.push('/admin/login');
         return;
       }
 
       try {
         const response = await fetch(`/api/acara/admin-ambil/${acaraId}`, {
-          headers: { 'Authorization': `Bearer ${token}` }
+          headers: { 'Authorization': `Bearer ${accesstoken}` }
         });
+        const refreshtoken = localStorage.getItem('refresh_token');
+      if (response.status === 401) {
+          localStorage.removeItem('access_token');
+          const refreshResponse = await fetch('/api/akun/access-token', {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${refreshtoken}`
+            }
+          });
+          const accessTokenResponse = await refreshResponse.json();
+          if (refreshResponse.ok) {
+            localStorage.setItem('access_token', accessTokenResponse.access_token);
+          } else {
+            router.push('/admin/login');
+            return;
+          }
+
+        }
 
         if (!response.ok) throw new Error('Gagal memuat data acara');
         const data = await response.json();
@@ -95,8 +113,8 @@ export default function EditAcara({ params }: { params: Promise<{ id: string }> 
     setIsSubmitting(true);
     setError('');
 
-    const token = localStorage.getItem('access_token');
-    if (!token) return;
+    const accesstoken = localStorage.getItem('access_token');
+    if (!accesstoken) return;
 
     try {
       let finalFileId = currentFileId; // Gunakan ID lama sebagai default
@@ -108,9 +126,27 @@ export default function EditAcara({ params }: { params: Promise<{ id: string }> 
 
         const uploadRes = await fetch('/api/file/tambah', {
           method: 'POST',
-          headers: { 'Authorization': `Bearer ${token}` }, // Ingat: Jangan set Content-Type manual untuk FormData
+          headers: { 'Authorization': `Bearer ${accesstoken}` }, // Ingat: Jangan set Content-Type manual untuk FormData
           body: formData
         });
+        const refreshtoken = localStorage.getItem('refresh_token');
+      if (uploadRes.status === 401) {
+          localStorage.removeItem('access_token');
+          const refreshResponse = await fetch('/api/akun/access-token', {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${refreshtoken}`
+            }
+          });
+          const accessTokenResponse = await refreshResponse.json();
+          if (refreshResponse.ok) {
+            localStorage.setItem('access_token', accessTokenResponse.access_token);
+          } else {
+            router.push('/admin/login');
+            return;
+          }
+
+        }
 
         if (!uploadRes.ok) throw new Error('Gagal mengunggah poster baru');
         const uploadData = await uploadRes.json();
@@ -123,7 +159,7 @@ export default function EditAcara({ params }: { params: Promise<{ id: string }> 
       const updateRes = await fetch(`/api/acara/edit/${acaraId}`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${accesstoken}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
@@ -135,6 +171,24 @@ export default function EditAcara({ params }: { params: Promise<{ id: string }> 
           status: status
         })
       });
+      const refreshtoken = localStorage.getItem('refresh_token');
+      if (updateRes.status === 401) {
+          localStorage.removeItem('access_token');
+          const refreshResponse = await fetch('/api/akun/access-token', {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${refreshtoken}`
+            }
+          });
+          const accessTokenResponse = await refreshResponse.json();
+          if (refreshResponse.ok) {
+            localStorage.setItem('access_token', accessTokenResponse.access_token);
+          } else {
+            router.push('/admin/login');
+            return;
+          }
+
+        }
 
       if (!updateRes.ok) throw new Error('Gagal menyimpan perubahan informasi acara');
 
