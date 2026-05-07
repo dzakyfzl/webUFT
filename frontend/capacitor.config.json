@@ -1,0 +1,6 @@
+{
+  "appId": "com.tugas.app",
+  "appName": "Aplikasi Tugas",
+  "webDir": "out",
+  "bundledWebRuntime": false
+}
