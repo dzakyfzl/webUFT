@@ -38,6 +38,7 @@ services:
       REFRESH_TOKEN_EXPIRE_DAYS: ${REFRESH_TOKEN_EXPIRE_DAYS}
       ADMIN_USERNAME: ${ADMIN_USERNAME}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      IMAGE_QUALITY: ${IMAGE_QUALITY} 
     depends_on:
       uft_database:
         condition: service_healthy
@@ -51,7 +52,7 @@ services:
     build: ./frontend
     container_name: uft_frontend
     restart: always
-    command: npm run dev
+    command: sh -c "npm run build && npm run start"
     environment:                   # <-- TAMBAHKAN BARIS INI
       - WATCHPACK_POLLING=true     # <-- DAN BARIS INI
     volumes:

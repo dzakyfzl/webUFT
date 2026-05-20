@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "UKM Fotografi Telkom",
-  description: "Web Resmi UKM Fotografi Telkom",
+  description: "Unit Kegiatan Mahasiswa (UKM) Fotografi Telkom bergerak dalam bidang peminatan mahasiswa pada bidang fotografi",
 };
 
 export default function RootLayout({

@@ -27,9 +27,14 @@ class FormCreate(BaseModel):
 def isi_form(acara_id:int, isi: FormCreate, isGuest: Annotated[str, Depends(verify_is_guest)],response: Response, db: Session = Depends(get_db)):
     db = SessionLocal()
     token_count = db.execute(select(func.count("*")).select_from(Responden).where(Responden.tokenID == isGuest, Responden.acaraID == acara_id)).scalar_one_or_none()
-    if isGuest != "Baru" or token_count > 0:
+    data_number_count = db.execute(select(func.count("*")).select_from(Responden).where(Responden.nomor == isi.nomor, Responden.acaraID == acara_id)).scalar_one_or_none()
+    data_name_count = db.execute(select(func.count("*")).select_from(Responden).where(Responden.nama == isi.nama.lower(), Responden.acaraID == acara_id)).scalar_one_or_none()
+    isexist = isGuest != "Baru" and token_count > 0 and data_number_count > 0 and data_name_count > 0
+    if isexist:
         response.status_code = 403
         return {"message": "Unauthorized"}
+    
+    
     
     token = create_refresh_token(isi.nama, "Pengguna")
     try:
@@ -42,7 +47,7 @@ def isi_form(acara_id:int, isi: FormCreate, isGuest: Annotated[str, Depends(veri
         print(f"Database error: {e}")
         return {"message": "Database error"}
     try:
-        new_responden = Responden(acaraID=acara_id, nama=isi.nama, prodi_instansi=isi.prodi_instansi, nomor=isi.nomor, nim=isi.nim, tokenID=token)
+        new_responden = Responden(acaraID=acara_id, nama=isi.nama.lower(), prodi_instansi=isi.prodi_instansi.lower(), nomor=isi.nomor, nim=isi.nim, tokenID=token)
         db.add(new_responden)
         db.commit()
         db.refresh(new_responden)

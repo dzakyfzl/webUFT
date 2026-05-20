@@ -5,6 +5,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from .main import decode_token
 from fastapi import Header, HTTPException, status, Depends
 from Database.database import get_db
+from Database.models import Token
 from sqlalchemy.orm import Session
 
 
@@ -91,8 +92,14 @@ def validate_refresh_token(credentials: HTTPAuthorizationCredentials = Depends(s
         expired_at = payload.get("exp")
         current_time = int(time.time())
         
-        if not username or current_time > expired_at:
+        if not username:
             raise HTTPException(status_code=401, detail="Token tidak valid: Data token tidak lengkap")
+        
+        if  current_time > expired_at:
+            db = get_db()
+            # Hapus token dari database jika sudah expired
+            db.query(Token).filter(Token.tokenID == token).delete()
+            raise HTTPException(status_code=401, detail="Token sudah kedaluwarsa")
             
         return token
         

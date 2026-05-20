@@ -1,9 +1,13 @@
 import os
 
 from PIL import Image, ImageDraw, ImageFile
+import dotenv
+
+dotenv.load_dotenv()
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 WATERMARK_PATH = os.path.join(BASE_DIR, "WM_UFT.png")
+IMAGE_QUALITY = int(os.getenv("IMAGE_QUALITY", 50))
 watermark_UFT = Image.open(WATERMARK_PATH)
 def watermarking(img_path:str):
     """
@@ -25,7 +29,7 @@ def converting_to_webp(img_path:str) -> str:
     with Image.open(img_path) as im:
         im.convert('RGBA')
         new_img_path = img_path.split('.')[0] + '.webp'
-        im.save(new_img_path,'webp',optimize=True, quality=20)
+        im.save(new_img_path,'webp',optimize=True, quality=IMAGE_QUALITY)
         try:
             os.remove(img_path)
         except OSError as e:

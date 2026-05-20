@@ -149,6 +149,15 @@ export default function AdminLogin() {
                   {isLoading ? 'Memproses...' : 'Otorisasi Akses'}
                 </button>
               </div>
+              <div className="text-center text-sm text-slate-500 mt-4">
+                <button 
+                  type="button" 
+                  onClick={() => router.push('/')} 
+                  className="text-slate-400 hover:text-slate-200 transition-colors"
+                >
+                  Kembali ke Beranda
+                </button>
+              </div>
             </form>
          </div>
       </div>
