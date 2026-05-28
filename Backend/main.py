@@ -1,5 +1,6 @@
 from dotenv import load_dotenv
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 import os
 import hashlib
 
@@ -7,11 +8,25 @@ from fastapi.concurrency import asynccontextmanager
 from Database.database import engine
 from Database import models
 from Router import acara, karya, akun, file, form
+
 models.Base.metadata.create_all(bind=engine)
 
 load_dotenv()
 
 app = FastAPI(root_path="/api", docs_url="/docs")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:7566",
+        "http://localhost",
+        "http://127.0.0.1:7566"
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.include_router(acara.router)
 app.include_router(akun.router)
 app.include_router(file.router)
