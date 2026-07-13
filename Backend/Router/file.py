@@ -1,5 +1,6 @@
 import os
 import shutil
+import time
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, UploadFile
@@ -45,6 +46,7 @@ async def tambah_file(file: UploadFile,response:Response,user: Annotated[str,Dep
         response.status_code = 400
         return {"message": "Only image files are allowed"}
     try:
+        file.filename = "UFT_IMAGE_" + str(int(time.time()))
         filepath = os.path.join("/media", file.filename)
         try:
             with open(filepath, "wb+") as file_object:

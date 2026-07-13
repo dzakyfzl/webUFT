@@ -18,7 +18,7 @@ function KatalogContent() {
   useEffect(() => {
     const fetchData = async () => {
       if (!acaraId) {
-        setError("Acara tidak ditemukan. Silakan kembali ke beranda dan pilih pameran.");
+        setError("Acara tidak ditemukan. Silakan kembali ke beranda dan pilih acara.");
         setIsLoading(false);
         return;
       }
@@ -56,7 +56,7 @@ function KatalogContent() {
         setDaftarKarya(formattedData);
       } catch (err: any) {
         console.error("Error fetching data:", err);
-        setError("Gagal memuat data pameran. Silakan coba lagi nanti.");
+        setError("Gagal memuat data acara. Silakan coba lagi nanti.");
       } finally {
         setIsLoading(false);
       }
@@ -72,7 +72,7 @@ function KatalogContent() {
           <Link href="/" className="text-sm font-bold text-slate-500 hover:text-red-600 transition-colors">
             ← Beranda
           </Link>
-          <div className="font-extrabold text-slate-800 tracking-tight">Katalog <span className="text-red-600">Pameran</span></div>
+          <div className="font-extrabold text-slate-800 tracking-tight">Katalog <span className="text-red-600">Acara</span></div>
         </div>
       </header>
 
@@ -87,7 +87,7 @@ function KatalogContent() {
         ) : (
           <>
             <h1 className="text-3xl md:text-5xl font-extrabold mb-4">
-              {acaraDetail?.nama || "Galeri Pameran"}
+              {acaraDetail?.nama || "Galeri Acara"}
             </h1>
             <p className="text-slate-400 text-sm md:text-base max-w-2xl mx-auto">
               {acaraDetail?.deskripsi || "Jelajahi karya-karya luar biasa dari para kreator visual kami."}

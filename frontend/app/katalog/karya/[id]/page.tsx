@@ -15,6 +15,7 @@ function KaryaContent() {
   const [karya, setKarya] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isActive, setIsActive] = useState(false);
 
   const [showVoteForm, setShowVoteForm] = useState(false);
   const [isSubmitLoading, setIsSubmitLoading] = useState(false);
@@ -119,6 +120,12 @@ function KaryaContent() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  // --- LOGIKA PENENTUAN STATUS VOTE ---
+  const checkActiveStatus = (async () => {
+    const response = await fetch(`/api/acara/ambil/${acaraId}`).then(res => res.json());
+    setIsActive(response.status === "Aktif");
+  })();
+
   // --- TAMPILAN LOADING / ERROR ---
   if (isLoading) {
     return <div className="min-h-screen flex items-center justify-center bg-slate-50">Memuat detail karya...</div>;
@@ -168,15 +175,16 @@ function KaryaContent() {
             </p>
           </div>
 
-          <div className="mt-12 pt-8 border-t border-slate-100">
-            <button 
-              onClick={() => setShowVoteForm(true)}
-              className="w-full bg-red-600 hover:bg-red-700 text-white font-black py-5 rounded-2xl shadow-[0_10px_30px_rgba(220,38,38,0.3)] transition-all flex items-center justify-center gap-3 active:scale-95 text-lg"
-            >
-              VOTE KARYA INI
+          {isActive && (
+            <div className="mt-12 pt-8 border-t border-slate-100">
+              <button 
+                onClick={() => setShowVoteForm(true)}
+                className="w-full bg-red-600 hover:bg-red-700 text-white font-black py-5 rounded-2xl shadow-[0_10px_30px_rgba(220,38,38,0.3)] transition-all flex items-center justify-center gap-3 active:scale-95 text-lg"
+              >
+                VOTE KARYA INI
             </button>
             <p className="text-center text-[10px] text-slate-400 mt-4 uppercase font-bold tracking-widest">Satu identitas, satu vote</p>
-          </div>
+          </div>)}
         </div>
       </div>
 

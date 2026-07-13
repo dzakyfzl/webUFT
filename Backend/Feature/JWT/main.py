@@ -24,7 +24,7 @@ def decode_token(token: str) -> dict | None:
         return None
 
 
-def create_access_token(username:str,role:str) -> str:
+def create_access_token(username:str,role:str,access: list) -> str:
     """
         Create access token based on JWT
 
@@ -36,6 +36,7 @@ def create_access_token(username:str,role:str) -> str:
         "iat": int(time.time()),      
         "exp": int(expire.timestamp()),
         "role":role,
+        "access": access,
         "type":"Access"
     }
     header = {"alg": ALGORITHM}
@@ -45,7 +46,7 @@ def create_access_token(username:str,role:str) -> str:
     except authlib.jose.JoseError as e:
         return "Error"
 
-def create_refresh_token(username:str,role:str) -> str:
+def create_refresh_token(username:str,role:str,access: list) -> str:
     """
         Create refresh token based on JWT
 
@@ -59,6 +60,7 @@ def create_refresh_token(username:str,role:str) -> str:
         "iat": int(time.time()),      
         "exp": int(expire.timestamp()),
         "role":role,
+        "access": access,
         "type":"Refresh"
     }
     header = {"alg": ALGORITHM}

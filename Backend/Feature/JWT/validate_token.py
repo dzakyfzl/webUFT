@@ -60,12 +60,13 @@ def validate_token(credentials: HTTPAuthorizationCredentials = Depends(security)
         role = payload.get("role")
         created_at = payload.get("iat")
         expired_at = payload.get("exp")
+        access = payload.get("access", [])
         current_time = int(time.time())
         
         if not username or current_time > expired_at:
             raise HTTPException(status_code=401, detail="Token tidak valid: Data token tidak lengkap")
             
-        return {"username": username, "role": role}
+        return {"username": username, "role": role, "access": access}
         
     except Exception as e:
         # Tangkap error jika token expired atau signature tidak cocok
@@ -90,6 +91,7 @@ def validate_refresh_token(credentials: HTTPAuthorizationCredentials = Depends(s
         role = payload.get("role")
         created_at = payload.get("iat")
         expired_at = payload.get("exp")
+        access = payload.get("access", [])
         current_time = int(time.time())
         
         if not username:

@@ -27,14 +27,14 @@ const formatSqlDate = (sqlDate: string) => {
 // --- KOMPONEN KARTU EVENT ---
 type EventCardProps = {
   title: string;
-  category: string;
+  status: string;
   image: string;
   href: string;
   waktu: string;
   tempat: string;
 };
 
-export const EventCard = ({ title, category, image, href, waktu, tempat }: EventCardProps) => (
+export const EventCard = ({ title, status, image, href, waktu, tempat }: EventCardProps) => (
   <Link href={href} className="block w-full group">
     <div className="relative w-full aspect-[3/4] rounded-3xl overflow-hidden bg-slate-200 cursor-pointer transition-all duration-300 group-hover:scale-[1.03] group-hover:shadow-2xl border-2 border-transparent group-hover:border-red-500">
       
@@ -51,9 +51,9 @@ export const EventCard = ({ title, category, image, href, waktu, tempat }: Event
       
       {/* Konten Teks */}
       <div className="absolute bottom-0 left-0 p-5 w-full z-10 flex flex-col">
-        {category && (
+        {status && (
           <span className="self-start px-3 py-1 bg-red-600 text-white text-[10px] font-bold rounded-full mb-2 uppercase tracking-wider shadow-md">
-            {category}
+            {status}
           </span>
         )}
         
@@ -113,7 +113,7 @@ export default function Home() {
           tempat: item.tempat || "",   // <--- Mengambil data tempat dari API
           image: item.fileID ? `/api/file/ambil/${item.fileID}` : "https://images.unsplash.com/photo-1518173946687-a4c8892bbd9f?q=80&w=800",
           link: `/katalog/karya?acaraId=${item.acaraID}`,
-          category: "Kegiatan", // Default karena di backend tidak ada kolom kategori
+          status: item.status || "",
         }));
 
         // Membagi data: Misalnya 3 acara pertama masuk ke Featured Hero
@@ -151,7 +151,7 @@ export default function Home() {
 
   // Tampilkan loading state sederhana jika data belum siap
   if (isLoading) {
-    return <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white font-bold animate-pulse">Memuat Data Pameran...</div>;
+    return <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white font-bold animate-pulse">Memuat Data...</div>;
   }
 
   return (
@@ -195,7 +195,7 @@ export default function Home() {
                 <div key={event.id} className={`transition-all duration-700 absolute w-full flex flex-col items-center ${index === currentSlide ? 'opacity-100 translate-y-0 relative' : 'opacity-0 translate-y-8 absolute pointer-events-none'}`}>
                   <h1 className="text-5xl sm:text-6xl md:text-8xl font-extrabold tracking-tighter text-white mb-6 leading-tight drop-shadow-lg">{event.title}</h1>
                   <p className="text-sm sm:text-base md:text-xl text-slate-200 mb-10 max-w-2xl drop-shadow-md">{event.description}</p>
-                  <Link href={event.link}><button className="rounded-full bg-red-600 hover:bg-red-700 px-10 py-4 text-sm md:text-lg font-extrabold text-white transition-all hover:scale-105 shadow-2xl hover:shadow-red-600/50">Lihat Karya Pameran</button></Link>
+                  <Link href={event.link}><button className="rounded-full bg-red-600 hover:bg-red-700 px-10 py-4 text-sm md:text-lg font-extrabold text-white transition-all hover:scale-105 shadow-2xl hover:shadow-red-600/50">Lihat Karya</button></Link>
                 </div>
               ))}
             </div>
@@ -212,7 +212,7 @@ export default function Home() {
             </div>
           </>
         ) : (
-          <h2 className="z-10 text-2xl font-bold text-slate-400">Belum ada acara pameran yang aktif.</h2>
+          <h2 className="z-10 text-2xl font-bold text-slate-400">Belum ada acara yang aktif.</h2>
         )}
       </section>
 
@@ -221,7 +221,7 @@ export default function Home() {
           ========================================= */}
       <section id="semua-acara" className="w-full max-w-7xl mx-auto p-6 py-16 md:p-16 md:py-24 flex-grow">
         <div className="mb-12">
-          <h2 className="text-4xl md:text-6xl font-extrabold text-slate-900 tracking-tight text-center md:text-left">Jelajahi Pameran</h2>
+          <h2 className="text-4xl md:text-6xl font-extrabold text-slate-900 tracking-tight text-center md:text-left">Jelajahi Acara</h2>
           <div className="h-1.5 w-20 bg-red-600 mt-4 mx-auto md:mx-0 rounded-full"></div>
         </div>
         
@@ -231,7 +231,7 @@ export default function Home() {
               <EventCard 
                 key={event.id} 
                 title={event.title} 
-                category={event.category} 
+                status={event.status} 
                 image={event.image} 
                 href={event.link} 
                 waktu={event.waktu}   
@@ -247,7 +247,7 @@ export default function Home() {
       {/* Footer Minimalis */}
       <footer className="w-full bg-slate-950 text-slate-400 py-10 text-center mt-auto border-t border-slate-900">
         <p className="text-sm font-medium tracking-wide">&copy; 2026 UKM FOTOGRAFI TELKOM UNIVERSITY. ALL RIGHTS RESERVED.</p>
-        <Link href="/admin" className="inline-block mt-4 text-[10px] uppercase tracking-[0.2em] text-slate-800 hover:text-red-600 transition-all font-bold">
+        <Link href="/admin/login" className="inline-block mt-4 text-[10px] uppercase tracking-[0.2em] text-slate-800 hover:text-red-600 transition-all font-bold">
           Administrator Portal
         </Link>
       </footer>

@@ -40,7 +40,7 @@ class KaryaCreate(BaseModel):
     fileID: int
 @router.post("/tambah")
 def tambah_karya(karya: KaryaCreate, response: Response, user: Annotated[str, Depends(validate_token)], db: Session = Depends(get_db)):
-    if user.get("role") != "Admin":
+    if user.get("role") != "Admin" or "Kelola Acara" not in user.get("access", []):
         response.status_code = 403
         return {"message": "Unauthorized"}
     db = SessionLocal()
@@ -59,7 +59,7 @@ def tambah_karya(karya: KaryaCreate, response: Response, user: Annotated[str, De
     
 @router.post("/edit/{karya_id}")
 def edit_karya(karya_id: int, karya: KaryaCreate, response: Response, user: Annotated[str, Depends(validate_token)], db: Session = Depends(get_db)):
-    if user.get("role") != "Admin":
+    if user.get("role") != "Admin" or "Kelola Acara" not in user.get("access", []):
         response.status_code = 403
         return {"message": "Unauthorized"}
     db = SessionLocal()
@@ -86,7 +86,7 @@ def edit_karya(karya_id: int, karya: KaryaCreate, response: Response, user: Anno
 
 @router.delete("/hapus/{karya_id}")
 def hapus_karya(karya_id: int, response: Response, user: Annotated[str, Depends(validate_token)], db: Session = Depends(get_db)):
-    if user.get("role") != "Admin":
+    if user.get("role") != "Admin" or "Kelola Acara" not in user.get("access", []):
         response.status_code = 403
         return {"message": "Unauthorized"} 
     

@@ -30,13 +30,16 @@ def isi_form(acara_id:int, isi: FormCreate, isGuest: Annotated[str, Depends(veri
     data_number_count = db.execute(select(func.count("*")).select_from(Responden).where(Responden.nomor == isi.nomor, Responden.acaraID == acara_id)).scalar_one_or_none()
     data_name_count = db.execute(select(func.count("*")).select_from(Responden).where(Responden.nama == isi.nama.lower(), Responden.acaraID == acara_id)).scalar_one_or_none()
     isexist = isGuest != "Baru" and token_count > 0 and data_number_count > 0 and data_name_count > 0
+    status_acara = db.execute(select(Acara.status).where(Acara.acaraID == acara_id)).scalar_one_or_none()
+
     if isexist:
         response.status_code = 403
         return {"message": "Unauthorized"}
+    if status_acara != "aktif":
+        response.status_code = 403
+        return {"message": "Acara tidak sedang berlangsung"}
     
-    
-    
-    token = create_refresh_token(isi.nama, "Pengguna")
+    token = create_refresh_token(isi.nama, "Pengguna", [])
     try:
         new_token = Token(tokenID=token)
         db.add(new_token)
@@ -64,7 +67,7 @@ def isi_form(acara_id:int, isi: FormCreate, isGuest: Annotated[str, Depends(veri
 
 @router.get("/list/{acara_id}")
 def list_responden(acara_id: int, response: Response, user: Annotated[str, Depends(validate_token)], db: Session = Depends(get_db)):
-    if user.get("role") != "Admin":
+    if user.get("role") != "Admin" and "Kelola Acara" not in user.get("access", []):
         response.status_code = 403
         return {"message": "Unauthorized"}
     db = SessionLocal()
@@ -82,7 +85,7 @@ def list_responden(acara_id: int, response: Response, user: Annotated[str, Depen
 
 @router.get("/urutkan-karya/{acara_id}")
 def urutkan_karya(acara_id: int, response: Response, user: Annotated[str, Depends(validate_token)], db: Session = Depends(get_db)):
-    if user.get("role") != "Admin":
+    if user.get("role") != "Admin" or "Kelola Acara" not in user.get("access", []):
         response.status_code = 403
         return {"message": "Unauthorized"}
     db = SessionLocal()
@@ -110,7 +113,7 @@ def urutkan_karya(acara_id: int, response: Response, user: Annotated[str, Depend
 
 @router.get("/download-csv/{acara_id}")
 def download_csv(acara_id: int, response: Response, user: Annotated[str, Depends(validate_token)], db: Session = Depends(get_db)):
-    if user.get("role") != "Admin":
+    if user.get("role") != "Admin" or "Kelola Acara" not in user.get("access", []):
         response.status_code = 403
         return {"message": "Unauthorized"}
     db = SessionLocal()

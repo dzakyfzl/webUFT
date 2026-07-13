@@ -4,7 +4,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends
 from sqlalchemy import delete, select, func, insert, update
 from Database.database import SessionLocal, get_db
-from Database.models import Acara, File, Jawaban, Karya, Pertanyaan, Pilihan, Responden
+from Database.models import Acara, File, Karya, Pilihan, Responden
 from Feature.JWT.validate_token import validate_token
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
@@ -36,7 +36,7 @@ async def ambil_acara(acara_id: int, response: Response, db: Session = Depends(g
 
 @router.get("/admin-ambil/{acara_id}")
 async def ambil_acara(acara_id: int, response: Response, user: Annotated[str,Depends(validate_token)], db: Session = Depends(get_db)):
-    if user.get("role") != "Admin":
+    if user.get("role") != "Admin" or "Kelola Acara" not in user.get("access", []):
         response.status_code = 403
         return {"message": "Unauthorized"}
     db = SessionLocal()
@@ -65,7 +65,7 @@ class AcaraCreate(BaseModel):
 
 @router.post("/tambah")
 async def tambah_acara(acara: AcaraCreate, response: Response, user: Annotated[str, Depends(validate_token)] , db: Session = Depends(get_db)):
-    if user.get("role") != "Admin":
+    if user.get("role") != "Admin" or "Kelola Acara" not in user.get("access", []):
         response.status_code = 403
         return {"message": "Unauthorized"}
     db = SessionLocal()
@@ -80,7 +80,7 @@ async def tambah_acara(acara: AcaraCreate, response: Response, user: Annotated[s
 
 @router.post("/edit/{acara_id}")
 async def edit_acara(acara_id: int, acara: AcaraCreate, response: Response, user: Annotated[str, Depends(validate_token)], db: Session = Depends(get_db)):
-    if user.get("role") != "Admin":
+    if user.get("role") != "Admin" or "Kelola Acara" not in user.get("access", []):
         response.status_code = 403
         return {"message": "Unauthorized"}
     db = SessionLocal()
@@ -112,7 +112,7 @@ async def edit_acara(acara_id: int, acara: AcaraCreate, response: Response, user
 
 @router.delete("/hapus/{acara_id}")
 async def hapus_acara(acara_id: int, response: Response, user: Annotated[str, Depends(validate_token)], db: Session = Depends(get_db)):
-    if user.get("role") != "Admin":
+    if user.get("role") != "Admin" or "Kelola Acara" not in user.get("access", []):
         response.status_code = 403
         return {"message": "Unauthorized"}
     
@@ -212,7 +212,7 @@ async def hapus_acara(acara_id: int, response: Response, user: Annotated[str, De
 async def list_acara(response: Response, db: Session = Depends(get_db)):
     db = SessionLocal()
     try:
-        stmt = select(Acara).where(Acara.status == "Aktif")
+        stmt = select(Acara).where(Acara.status != "Draft")
         result = db.execute(stmt).scalars().all()
         response.status_code = 200
         return result
@@ -225,7 +225,7 @@ async def list_acara(response: Response, db: Session = Depends(get_db)):
 
 @router.get("/list-all")
 async def list_acara(response: Response, user:Annotated[str,Depends(validate_token)], db: Session = Depends(get_db)):
-    if user.get("role") != "Admin":
+    if user.get("role") != "Admin" or "Kelola Acara" not in user.get("access", []):
         response.status_code = 403
         return {"message": "Unauthorized"}
     db = SessionLocal()
