@@ -1,6 +1,4 @@
-FROM --platform=linux/amd64 python:3.11-slim
-
-COPY --from=ghcr.io/astral-sh/uv:0.11.28 /uv /uvx /bin/
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
 
 WORKDIR /app
 

@@ -55,6 +55,11 @@ async def lifespan(app: FastAPI):
     print("App Shutdown")
 
 app = FastAPI(root_path="/api", docs_url="/docs", lifespan=lifespan)
+
+@app.get("/health", tags=["Health"])
+async def health_check():
+    return {"status": "healthy"}
+
 app.include_router(acara.router)
 app.include_router(akun.router)
 app.include_router(file.router)
