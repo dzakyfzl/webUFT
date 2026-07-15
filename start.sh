@@ -14,9 +14,7 @@ trap cleanup SIGINT SIGTERM EXIT
 # 1. Jalankan Backend (FastAPI)
 echo "[1/2] Menjalankan Backend (FastAPI) di port 8000..."
 cd Backend || exit 1
-# Pastikan menggunakan virtual environment jika ada, jika tidak akan memakai global python
-# python -m venv venv && source venv/bin/activate && pip install -r requirements.txt
-uvicorn main:app --reload --host 127.0.0.1 --port 8000 &
+uv run uvicorn main:app --reload --host 127.0.0.1 --port 8000 &
 BACKEND_PID=$!
 cd ..
 

@@ -2,3 +2,4 @@
 mysql_data/
 media/
 __pycache__/
+.venv/
