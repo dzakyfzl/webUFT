@@ -3,3 +3,4 @@ mysql_data/
 media/
 __pycache__/
 .venv/
+postgresql_data/
