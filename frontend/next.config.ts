@@ -10,8 +10,26 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  // Tambahkan baris di bawah ini:
-  devIndicators: false
+  devIndicators: false,
+
+  /**
+   * Proxy /api/* → localhost:8000 HANYA saat development.
+   *
+   * Di production, Nginx yang intercept semua request /api/ dan
+   * meneruskannya ke uft_backend:8000 — sehingga rewrite ini
+   * tidak pernah dieksekusi dan tidak berpengaruh sama sekali.
+   */
+  async rewrites() {
+    if (process.env.NODE_ENV !== 'development') {
+      return [];
+    }
+    return [
+      {
+        source: '/api/:path*',
+        destination: 'http://localhost:8000/:path*',
+      },
+    ];
+  },
 };
 
 export default nextConfig;

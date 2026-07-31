@@ -1,12 +1,13 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
+
 import { jwtDecode, JwtPayload } from "jwt-decode";
 import { useRouter } from 'next/navigation';
 import KelolaAcara from '../components/subdashboard/KelolaAcara';
 import KelolaAkun from '../components/subdashboard/KelolaAkun';
 import KelolaMigrasi from '../components/subdashboard/KelolaMigrasi';
+import KelolaSertifikat from '../components/subdashboard/KelolaSertifikat';
 
 interface CustomJwtPayload extends JwtPayload {
   access?: string[];
@@ -28,6 +29,11 @@ export default function AdminDashboardLayout() {
     { id: 'Kelola Migrasi', icon: '🔄' } // Typo diperbaiki: pakai spasi agar cocok dengan switch case
   ];
 
+  // Tools — visible untuk semua admin yang sudah login (tidak difilter access[])
+  const toolItems = [
+    { id: 'Generate Sertifikat', icon: '🎓' },
+  ];
+
   useEffect(() => {
     const token = localStorage.getItem('access_token');
     
@@ -45,10 +51,12 @@ export default function AdminDashboardLayout() {
       const filteredMenu = list_menuItems.filter(item => userAccess.includes(item.id));
       
       // 4. Simpan ke dalam state agar layar merender ulang
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setMenuItems(filteredMenu);
 
       // 5. Atur default active menu ke menu pertama yang mereka punya akses
       if (filteredMenu.length > 0) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setActiveMenu(filteredMenu[0].id);
       }
     } catch (error) {
@@ -66,6 +74,8 @@ export default function AdminDashboardLayout() {
         return <KelolaAkun />;
       case 'Kelola Migrasi':
         return <KelolaMigrasi />;
+      case 'Generate Sertifikat':
+        return <KelolaSertifikat />;
       default:
         // Render kosong jika activeMenu belum di-set / user tidak punya akses apa-apa
         return <div className="p-8 text-slate-500">Silakan pilih menu...</div>; 
@@ -117,6 +127,25 @@ export default function AdminDashboardLayout() {
           {menuItems.length === 0 && (
             <div className="px-2 text-sm text-slate-600">Tidak ada akses.</div>
           )}
+
+          {/* Tools — selalu tampil untuk admin yang sudah login */}
+          <div className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-2 mt-4 px-2">
+            Tools
+          </div>
+          {toolItems.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => setActiveMenu(item.id)}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-medium text-sm ${
+                activeMenu === item.id
+                  ? 'bg-red-600/10 text-red-500 border border-red-500/20 shadow-[0_0_15px_rgba(220,38,38,0.1)]'
+                  : 'text-slate-400 hover:bg-white/5 hover:text-white border border-transparent'
+              }`}
+            >
+              <span>{item.icon}</span>
+              {item.id}
+            </button>
+          ))}
         </nav>
 
         {/* Tombol Logout di Bawah */}
