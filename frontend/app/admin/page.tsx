@@ -1,13 +1,14 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
+
 import { jwtDecode, JwtPayload } from "jwt-decode";
 import { useRouter } from 'next/navigation';
 import KelolaAcara from '../components/subdashboard/KelolaAcara';
 import KelolaAkun from '../components/subdashboard/KelolaAkun';
 import KelolaMigrasi from '../components/subdashboard/KelolaMigrasi';
 import KelolaGaleri from '../components/subdashboard/KelolaGaleri';
+import KelolaSertifikat from '../components/subdashboard/KelolaSertifikat';
 
 interface CustomJwtPayload extends JwtPayload {
   access?: string[];
@@ -17,7 +18,7 @@ interface CustomJwtPayload extends JwtPayload {
 // --- KOMPONEN UTAMA (SIDEBAR + LAYOUT) ---
 export default function AdminDashboardLayout() {
   const router = useRouter();
-  
+
   // 1. Jadikan menuItems sebagai State di React
   const [menuItems, setMenuItems] = useState<{id: string, icon: string}[]>([]);
   const [activeMenu, setActiveMenu] = useState('');
@@ -27,13 +28,14 @@ export default function AdminDashboardLayout() {
   const list_menuItems = [
     { id: 'Kelola Acara', icon: '📅' },
     { id: 'Kelola Akun', icon: '👤' },
-    { id: 'Kelola Galeri',icon: '🖼'},
-    { id: 'Kelola Migrasi', icon: '🔄'}
+    { id: 'Kelola Galeri', icon: '🖼' },
+    { id: 'Kelola Migrasi', icon: '🔄' },
+    { id: 'Certificate', icon: '🎓' },
   ];
 
   useEffect(() => {
     const token = localStorage.getItem('access_token');
-    
+
     // 2. Proteksi jika token tidak ada
     if (!token) {
       router.push('/admin/login');
@@ -43,10 +45,10 @@ export default function AdminDashboardLayout() {
     try {
       const decodedToken = jwtDecode<CustomJwtPayload>(token);
       const userAccess = decodedToken.access || [];
-      
-      // 3. Filter menu
+
+      // 3. Filter menu berdasarkan akses dari token
       const filteredMenu = list_menuItems.filter(item => userAccess.includes(item.id));
-      
+
       // 4. Simpan ke dalam state agar layar merender ulang
       setMenuItems(filteredMenu);
 
@@ -71,9 +73,11 @@ export default function AdminDashboardLayout() {
         return <KelolaMigrasi />;
       case 'Kelola Galeri':
         return <KelolaGaleri/>;
+      case 'Certificate':
+        return <KelolaSertifikat />;
       default:
         // Render kosong jika activeMenu belum di-set / user tidak punya akses apa-apa
-        return <div className="p-8 text-slate-500">Silakan pilih menu...</div>; 
+        return <div className="p-8 text-slate-500">Silakan pilih menu...</div>;
     }
   };
 
@@ -85,7 +89,7 @@ export default function AdminDashboardLayout() {
 
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-[#0f0f11] font-sans selection:bg-red-600/30 overflow-hidden">
-      
+
       {/* --- MOBILE NAVBAR --- */}
       <nav className="w-full md:hidden bg-[#18181b] border-b border-white/5 flex items-center px-6 h-[73px] flex-shrink-0 z-20">
         <button onClick={() => setIsSidebarOpen(true)} className="flex items-center gap-3">
@@ -98,12 +102,12 @@ export default function AdminDashboardLayout() {
 
       {/* --- MOBILE OVERLAY --- */}
       {isSidebarOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/60 z-30 md:hidden backdrop-blur-sm"
           onClick={() => setIsSidebarOpen(false)}
         />
       )}
-      
+
       {/* --- SIDEBAR --- */}
       <aside className={`fixed md:sticky top-0 left-0 h-screen w-64 bg-[#18181b] border-r border-white/5 flex flex-col z-40 transform transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
         {/* Logo Brand */}
@@ -125,7 +129,7 @@ export default function AdminDashboardLayout() {
           <div className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-4 mt-2 px-2">
             Menu Utama
           </div>
-          
+
           {/* Menu dirender dari State, bukan variabel mati */}
           {menuItems.map((item) => (
             <button
@@ -144,26 +148,28 @@ export default function AdminDashboardLayout() {
               {item.id}
             </button>
           ))}
-          
+
           {/* Pesan jika user tidak punya akses menu apa pun */}
           {menuItems.length === 0 && (
             <div className="px-2 text-sm text-slate-600">Tidak ada akses.</div>
           )}
+
+
         </nav>
 
         {/* Tombol Logout di Bawah */}
         <div className="p-4 border-t border-white/5 bg-white/[0.01]">
-          <button 
+          <button
             onClick={handleLogout}
             className="w-full px-4 py-3 bg-white/5 hover:bg-red-600 hover:text-white text-slate-300 rounded-xl text-sm font-semibold transition-all border border-white/10 hover:border-red-500 flex justify-center items-center gap-2"
           >
             Keluar <span>🚪</span>
           </button>
         </div>
-        
+
         {/* Tombol Kembali ke Beranda */}
         <div className="p-4 border-t border-white/5 bg-white/[0.01]">
-          <button 
+          <button
             onClick={() => router.push('/')}
             className="w-full px-4 py-3 bg-white/5 hover:bg-slate-600 hover:text-white text-slate-300 rounded-xl text-sm font-semibold transition-all border border-white/10 hover:border-slate-500 flex justify-center items-center gap-2"
           >
@@ -179,7 +185,7 @@ export default function AdminDashboardLayout() {
           {renderContent()}
         </div>
       </main>
-      
+
     </div>
   );
 }
