@@ -30,7 +30,7 @@ export default function AdminDashboardLayout() {
     { id: 'Kelola Akun', icon: '👤' },
     { id: 'Kelola Galeri', icon: '🖼' },
     { id: 'Kelola Migrasi', icon: '🔄' },
-    { id: 'Certificate', icon: '🎓' },
+    { id: 'Kelola Certificate', icon: '🎓' },
   ];
 
   useEffect(() => {
@@ -73,7 +73,7 @@ export default function AdminDashboardLayout() {
         return <KelolaMigrasi />;
       case 'Kelola Galeri':
         return <KelolaGaleri/>;
-      case 'Certificate':
+      case 'Kelola Certificate':
         return <KelolaSertifikat />;
       default:
         // Render kosong jika activeMenu belum di-set / user tidak punya akses apa-apa

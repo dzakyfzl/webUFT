@@ -6,7 +6,7 @@ from app.core.database import Base
 
 class Token(Base):
     __tablename__ = "token"
-    tokenID = Column(String(300), primary_key=True, index=True)
+    tokenID = Column(Text, primary_key=True, index=True)
     respondens = relationship("Responden", back_populates="token")
     akuns = relationship("Akun", back_populates="token")
 
@@ -41,7 +41,7 @@ class Responden(Base):
     __tablename__ = "responden"
     respID = Column(Integer, primary_key=True, index=True)
     acaraID = Column(Integer, ForeignKey("acara.acaraID"))
-    tokenID = Column(String(300), ForeignKey("token.tokenID"))
+    tokenID = Column(Text, ForeignKey("token.tokenID"))
     nama = Column(String(255))
     prodi_instansi = Column(String(255))
     nomor = Column(String(50))
@@ -75,7 +75,7 @@ class Pilihan(Base):
 class Akun(Base):
     __tablename__ = "akun"
     akunID = Column(Integer, primary_key=True, index=True)
-    tokenID = Column(String(300), ForeignKey("token.tokenID"), nullable=True)
+    tokenID = Column(Text, ForeignKey("token.tokenID"), nullable=True)
     username = Column(String(255), unique=True, index=True)
     hashed_password = Column(String(255))
     salt = Column(String(255))
