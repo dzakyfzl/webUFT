@@ -226,7 +226,7 @@ export default function Home() {
         </div>
         
         {allEvents.length > 0 ? (
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-10 w-full">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-4 md:gap-10 w-full">
             {allEvents.map(event => (
               <EventCard 
                 key={event.id} 
@@ -246,8 +246,8 @@ export default function Home() {
       
       {/* Footer Minimalis */}
       <footer className="w-full bg-slate-950 text-slate-400 py-10 text-center mt-auto border-t border-slate-900">
-        <p className="text-sm font-medium tracking-wide">&copy; 2026 UKM FOTOGRAFI TELKOM UNIVERSITY. ALL RIGHTS RESERVED.</p>
-        <Link href="/admin/login" className="inline-block mt-4 text-[10px] uppercase tracking-[0.2em] text-slate-800 hover:text-red-600 transition-all font-bold">
+        <p className="m-10 text-sm font-medium tracking-wide">&copy; 2026 UKM FOTOGRAFI TELKOM UNIVERSITY. ALL RIGHTS RESERVED.</p>
+        <Link href="/admin" className="inline-block mt-4 text-[10px] uppercase tracking-[0.2em] text-slate-800 hover:text-red-600 transition-all font-bold">
           Administrator Portal
         </Link>
       </footer>

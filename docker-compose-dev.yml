@@ -1,0 +1,79 @@
+services:
+  backend:
+    build:
+      context: ./Backend
+    container_name: uft_backend
+    env_file:
+      - ./.env
+    environment:
+      APP_ENV: development
+      DEBUG: "false"
+      STORAGE_DIR: /app/storage
+      MODULE_STORAGE_DIR: /app/storage/modules
+      PUBLIC_FILE_BASE_URL: /static/modules
+      DATABASE_URL: postgresql+psycopg2://${DATABASE_USERNAME}:${DATABASE_PASSWORD}@${DATABASE_HOST}:${DATABASE_PORT}/${DATABASE_DATABASE}
+    volumes:
+      - backend_storage:/app/storage
+      - ./media:/media
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    depends_on:
+      - database
+    networks:
+      - uft_network
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: uft_frontend
+    env_file:
+      - path: ./frontend/.env
+        required: false
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - uft_network
+    
+  database:
+    image: postgres:18
+    container_name: uft_db
+    environment:
+      POSTGRES_USER: ${DATABASE_USERNAME}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+      POSTGRES_DB: ${DATABASE_DATABASE}
+      TZ: ${TIMEZONE}
+      PGTZ: ${TIMEZONE}
+    volumes:
+      - ./postgresql_data:/var/lib/postgresql/data
+    networks:
+      - uft_network
+  
+  proxy:
+    image: nginx:latest
+    container_name: uft_nginx
+    ports:
+      - "80:80"              
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - uft_network
+
+volumes:
+  backend_storage:
+
+networks:
+  uft_network:
