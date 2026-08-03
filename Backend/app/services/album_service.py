@@ -34,9 +34,9 @@ class AlbumService:
     def get(self, album_id: int):
         return self._get(lambda: self.repository.get(album_id))
 
-    def list_range(self, start: int, end: int):
+    def getAll(self):
         try:
-            return ServiceResult(self.repository.list_range(start, end))
+            return ServiceResult(self.repository.getAll())
         except Exception as exc:
             print(f"Database error: {exc}")
             return ServiceResult({"message": "Database error"}, 500)

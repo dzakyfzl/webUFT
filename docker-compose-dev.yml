@@ -27,7 +27,8 @@ services:
       start_period: 10s
     restart: unless-stopped
     depends_on:
-      - database
+      database:
+        condition: service_healthy
     networks:
       - uft_network
 
@@ -46,7 +47,7 @@ services:
       - uft_network
     
   database:
-    image: postgres:18
+    image: postgres:17
     container_name: uft_db
     environment:
       POSTGRES_USER: ${DATABASE_USERNAME}
@@ -54,6 +55,12 @@ services:
       POSTGRES_DB: ${DATABASE_DATABASE}
       TZ: ${TIMEZONE}
       PGTZ: ${TIMEZONE}
+    healthcheck:                     
+      test: ["CMD-SHELL", "pg_isready -U ${DATABASE_USERNAME} -d ${DATABASE_DATABASE}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     volumes:
       - ./postgresql_data:/var/lib/postgresql/data
     networks:

@@ -12,7 +12,7 @@ from app.services.foto_service import FotoService
 router = APIRouter(prefix="/foto", tags=["Foto"])
 
 
-@router.get("/tambah/{album_id}")
+@router.post("/tambah/{album_id}")
 async def tambah_foto(album_id: int, foto_data: DataFoto, response: Response, user: Annotated[str, Depends(validate_token)], service: FotoService = Depends(get_foto_service)):
     return apply_result(service.create(album_id, foto_data, user), response)
 

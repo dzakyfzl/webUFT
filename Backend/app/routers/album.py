@@ -17,7 +17,7 @@ async def tambah_album(album_data: DataAlbum, response: Response, user: Annotate
     return apply_result(await service.create(album_data, user), response)
 
 
-@router.get("/edit/{album_id}")
+@router.put("/edit/{album_id}")
 async def edit_album(album_id: int, album_data: DataAlbum, response: Response, user: Annotated[str, Depends(validate_token)], service: AlbumService = Depends(get_album_service)):
     return apply_result(service.update(album_id, album_data, user), response)
 
@@ -27,9 +27,9 @@ async def ambil_album(album_id: int, response: Response, service: AlbumService =
     return apply_result(service.get(album_id), response)
 
 
-@router.get("/ambil-semua/{rentang_awal}/{rentang_akhir}")
-async def ambil_semua_album(rentang_awal: int, rentang_akhir: int, response: Response, service: AlbumService = Depends(get_album_service)):
-    return apply_result(service.list_range(rentang_awal, rentang_akhir), response)
+@router.get("/ambil-semua")
+async def ambil_semua_album(response: Response, service: AlbumService = Depends(get_album_service)):
+    return apply_result(service.getAll(), response)
 
 
 @router.delete("/hapus/{album_id}")

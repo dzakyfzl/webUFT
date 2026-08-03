@@ -6,7 +6,7 @@ from app.repositories.base import BaseRepository
 
 class AlbumRepository(BaseRepository):
     def create_with_legacy_status(self, nama: str, deskripsi: str):
-        entity = Album(nama=nama, deskripsi=deskripsi, status="Aktif")
+        entity = Album(nama=nama, deskripsi=deskripsi)
         self.db.add(entity)
         self.db.commit()
         self.db.refresh(entity)
@@ -19,12 +19,28 @@ class AlbumRepository(BaseRepository):
         return result.rowcount
 
     def get(self, album_id: int):
-        stmt = select(Album.albumID, Album.nama, Album.deskripsi, Foto.nama, Foto.pemilik, Foto.fileID).where(and_(Album.albumID == album_id)).join(Foto, Album.albumID == Foto.albumID)
-        return self.db.execute(stmt).scalar_one_or_none()
+        album = self.db.execute(select(Album).where(Album.albumID == album_id)).scalar_one_or_none()
+        if not album:
+            return None
+        return {
+            "album": {
+                "albumID": album.albumID,
+                "nama": album.nama,
+                "deskripsi": album.deskripsi
+            },
+            "fotos": [
+                {
+                    "fotoID": f.fotoID,
+                    "nama": f.nama,
+                    "pemilik": f.pemilik,
+                    "fileID": f.fileID
+                } for f in album.fotos
+            ]
+        }
 
-    def list_range(self, start: int, end: int):
-        stmt = select(Album.albumID, Album.nama, Album.deskripsi, Foto.nama, Foto.pemilik, Foto.fileID).join(Foto, Album.albumID == Foto.albumID).offset(start).limit(end - start)
-        return self.db.execute(stmt).scalars().all()
+    def getAll(self):
+        stmt = select(Album.albumID, Album.nama, Album.deskripsi)
+        return self.db.execute(stmt).mappings().all()
 
     def foto_file_ids(self, album_id: int):
         return self.db.execute(select(Foto.fileID).where(Foto.albumID == album_id)).scalars().all()
