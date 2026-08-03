@@ -31,11 +31,12 @@ def isi_form(acara_id:int, isi: FormCreate, isGuest: Annotated[str, Depends(veri
     data_name_count = db.execute(select(func.count("*")).select_from(Responden).where(Responden.nama == isi.nama.lower(), Responden.acaraID == acara_id)).scalar_one_or_none()
     isexist = isGuest != "Baru" and token_count > 0 and data_number_count > 0 and data_name_count > 0
     status_acara = db.execute(select(Acara.status).where(Acara.acaraID == acara_id)).scalar_one_or_none()
+    print(status_acara)
 
     if isexist:
         response.status_code = 403
         return {"message": "Unauthorized"}
-    if status_acara != "aktif":
+    if status_acara != "Aktif":
         response.status_code = 403
         return {"message": "Acara tidak sedang berlangsung"}
     

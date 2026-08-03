@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import KelolaAcara from '../components/subdashboard/KelolaAcara';
 import KelolaAkun from '../components/subdashboard/KelolaAkun';
 import KelolaMigrasi from '../components/subdashboard/KelolaMigrasi';
+import KelolaGaleri from '../components/subdashboard/KelolaGaleri';
 
 interface CustomJwtPayload extends JwtPayload {
   access?: string[];
@@ -20,12 +21,14 @@ export default function AdminDashboardLayout() {
   // 1. Jadikan menuItems sebagai State di React
   const [menuItems, setMenuItems] = useState<{id: string, icon: string}[]>([]);
   const [activeMenu, setActiveMenu] = useState('');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   // Daftar menu sidebar bawaan
   const list_menuItems = [
     { id: 'Kelola Acara', icon: '📅' },
     { id: 'Kelola Akun', icon: '👤' },
-    { id: 'Kelola Migrasi', icon: '🔄' } // Typo diperbaiki: pakai spasi agar cocok dengan switch case
+    { id: 'Kelola Galeri',icon: '🖼'},
+    { id: 'Kelola Migrasi', icon: '🔄'}
   ];
 
   useEffect(() => {
@@ -66,6 +69,8 @@ export default function AdminDashboardLayout() {
         return <KelolaAkun />;
       case 'Kelola Migrasi':
         return <KelolaMigrasi />;
+      case 'Kelola Galeri':
+        return <KelolaGaleri/>;
       default:
         // Render kosong jika activeMenu belum di-set / user tidak punya akses apa-apa
         return <div className="p-8 text-slate-500">Silakan pilih menu...</div>; 
@@ -79,16 +84,40 @@ export default function AdminDashboardLayout() {
   };
 
   return (
-    <div className="flex min-h-screen bg-[#0f0f11] font-sans selection:bg-red-600/30">
+    <div className="flex flex-col md:flex-row min-h-screen bg-[#0f0f11] font-sans selection:bg-red-600/30 overflow-hidden">
       
-      {/* --- SIDEBAR --- */}
-      <aside className="w-64 bg-[#18181b] border-r border-white/5 flex flex-col sticky top-0 h-screen">
-        {/* Logo Brand */}
-        <div className="p-6 flex items-center gap-3 border-b border-white/5 h-[73px]">
+      {/* --- MOBILE NAVBAR --- */}
+      <nav className="w-full md:hidden bg-[#18181b] border-b border-white/5 flex items-center px-6 h-[73px] flex-shrink-0 z-20">
+        <button onClick={() => setIsSidebarOpen(true)} className="flex items-center gap-3">
           <img src="/logo-uft.png" alt="Logo UFT" className="w-8 h-8" />
           <span className="font-bold text-white tracking-wide text-lg">
             UFT<span className="text-red-500 font-normal">Admin</span>
           </span>
+        </button>
+      </nav>
+
+      {/* --- MOBILE OVERLAY --- */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/60 z-30 md:hidden backdrop-blur-sm"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+      
+      {/* --- SIDEBAR --- */}
+      <aside className={`fixed md:sticky top-0 left-0 h-screen w-64 bg-[#18181b] border-r border-white/5 flex flex-col z-40 transform transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
+        {/* Logo Brand */}
+        <div className="p-6 flex items-center justify-between border-b border-white/5 h-[73px]">
+          <div className="flex items-center gap-3">
+            <img src="/logo-uft.png" alt="Logo UFT" className="w-8 h-8" />
+            <span className="font-bold text-white tracking-wide text-lg">
+              UFT<span className="text-red-500 font-normal">Admin</span>
+            </span>
+          </div>
+          {/* Close button on mobile */}
+          <button className="md:hidden text-white/50 hover:text-white" onClick={() => setIsSidebarOpen(false)}>
+            ✕
+          </button>
         </div>
 
         {/* Navigasi Menu */}
@@ -101,7 +130,10 @@ export default function AdminDashboardLayout() {
           {menuItems.map((item) => (
             <button
               key={item.id}
-              onClick={() => setActiveMenu(item.id)}
+              onClick={() => {
+                setActiveMenu(item.id);
+                setIsSidebarOpen(false);
+              }}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-medium text-sm ${
                 activeMenu === item.id
                   ? 'bg-red-600/10 text-red-500 border border-red-500/20 shadow-[0_0_15px_rgba(220,38,38,0.1)]'
@@ -141,7 +173,7 @@ export default function AdminDashboardLayout() {
       </aside>
 
       {/* --- KONTEN UTAMA --- */}
-      <main className="flex-1 flex flex-col h-screen overflow-y-auto">
+      <main className="flex-1 flex flex-col h-[calc(100vh-73px)] md:h-screen overflow-y-auto w-full relative z-0">
         {/* Area Render Komponen */}
         <div className="flex-1">
           {renderContent()}

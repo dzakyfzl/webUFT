@@ -30,7 +30,7 @@ async def tambah_album(album_data: DataAlbum, response: Response, user: Annotate
         return {"message": "Unauthorized"}
     db = SessionLocal()
     try:
-        new_album = Album(nama=album_data.nama, deskripsi=album_data.deskripsi, status="Aktif")
+        new_album = Album(nama=album_data.nama, deskripsi=album_data.deskripsi)
         db.add(new_album)
         db.commit()
         db.refresh(new_album)
@@ -43,7 +43,7 @@ async def tambah_album(album_data: DataAlbum, response: Response, user: Annotate
     finally:
         db.close()
 
-@router.get("/edit/{album_id}")
+@router.put("/edit/{album_id}")
 async def edit_album(album_id: int, album_data: DataAlbum, response: Response, user: Annotated[str, Depends(validate_token)], db: Session = Depends(get_db)):
     if user.get("role") != "Admin" or "Kelola Galeri" not in user.get("access", []):
         response.status_code = 403
@@ -69,13 +69,20 @@ async def edit_album(album_id: int, album_data: DataAlbum, response: Response, u
 async def ambil_album(album_id: int, response: Response, db: Session = Depends(get_db)):
     db = SessionLocal()
     try:
-        stmt = select(Album.albumID, Album.nama, Album.deskripsi, Foto.nama, Foto.pemilik, Foto.fileID).where(and_(Album.albumID == album_id)).join(Foto, Album.albumID == Foto.albumID)
-        result = db.execute(stmt).scalar_one_or_none()
-        if result is None:
+        stmt_album = select(Album).where(Album.albumID == album_id)
+        album = db.execute(stmt_album).scalar_one_or_none()
+        if album is None:
             response.status_code = 404
             return {"message": "Album not found"}
+            
+        stmt_fotos = select(Foto).where(Foto.albumID == album_id)
+        fotos = db.execute(stmt_fotos).scalars().all()
+        
         response.status_code = 200
-        return result
+        return {
+            "album": album,
+            "fotos": fotos
+        }
     except Exception as e:
         response.status_code = 500
         print(f"Database error: {e}")
@@ -83,11 +90,11 @@ async def ambil_album(album_id: int, response: Response, db: Session = Depends(g
     finally:
         db.close()
 
-@router.get("/ambil-semua/{rentang_awal}/{rentang_akhir}")
-async def ambil_semua_album(rentang_awal: int, rentang_akhir: int, response: Response, db: Session = Depends(get_db)):
+@router.get("/ambil-semua")
+async def ambil_semua_album(response: Response, db: Session = Depends(get_db)):
     db = SessionLocal()
     try:
-        stmt = select(Album.albumID, Album.nama, Album.deskripsi, Foto.nama, Foto.pemilik, Foto.fileID).join(Foto, Album.albumID == Foto.albumID).offset(rentang_awal).limit(rentang_akhir - rentang_awal)
+        stmt = select(Album)
         results = db.execute(stmt).scalars().all()
         response.status_code = 200
         return results

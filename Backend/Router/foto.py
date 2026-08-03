@@ -25,7 +25,7 @@ class DataFoto(BaseModel):
     nama: str
     pemilik: str
     fileID: int
-@router.get("/tambah/{album_id}")
+@router.post("/tambah/{album_id}")
 async def tambah_foto(album_id: int, foto_data: DataFoto, response: Response, user: Annotated[str, Depends(validate_token)], db: Session = Depends(get_db)):
     if user.get("role") != "Admin" or "Kelola Galeri" not in user.get("access", []):
         response.status_code = 403

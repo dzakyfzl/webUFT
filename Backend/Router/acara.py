@@ -151,16 +151,6 @@ async def hapus_acara(acara_id: int, response: Response, user: Annotated[str, De
             select(Karya.karyaID).where(Karya.acaraID == acara_id)
         )))
 
-        # PENTING: Hapus Jawaban yang terkait dengan Pertanyaan atau Responden di Acara ini
-        db.execute(delete(Jawaban).where(Jawaban.pertanyaanID.in_(
-            select(Pertanyaan.pertanyaanID).where(Pertanyaan.acaraID == acara_id)
-        )))
-
-        # Hapus Pertanyaan, Responden, dan Karya
-        db.execute(delete(Pertanyaan).where(Pertanyaan.acaraID == acara_id))
-        db.execute(delete(Responden).where(Responden.acaraID == acara_id))
-        db.execute(delete(Karya).where(Karya.acaraID == acara_id))
-
         # Hapus Acara (Parent utama)
         db.execute(delete(Acara).where(Acara.acaraID == acara_id))
 
