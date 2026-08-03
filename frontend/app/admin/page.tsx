@@ -26,28 +26,30 @@ export default function AdminDashboardLayout() {
   const list_menuItems = [
     { id: 'Kelola Acara', icon: '📅' },
     { id: 'Kelola Akun', icon: '👤' },
-    { id: 'Kelola Migrasi', icon: '🔄' }, // Typo diperbaiki: pakai spasi agar cocok dengan switch case
+    { id: 'Kelola Migrasi', icon: '🔄' },
     { id: 'Certificate', icon: '🎓' },
   ];
 
   useEffect(() => {
-    // ⚠️ TEMPORARY: Auth dibypass sementara agar Certificate bisa diakses tanpa login.
-    // Untuk memulihkan, hapus blok ini dan aktifkan kembali blok di bawah.
-    const certificateMenu = list_menuItems.filter(item => item.id === 'Certificate');
-    setMenuItems(certificateMenu);
-    setActiveMenu('Certificate');
-
-    /* ---- AUTH ASLI (nonaktif sementara) ----
     const token = localStorage.getItem('access_token');
+
+    // 2. Proteksi jika token tidak ada
     if (!token) {
       router.push('/admin/login');
       return;
     }
+
     try {
       const decodedToken = jwtDecode<CustomJwtPayload>(token);
       const userAccess = decodedToken.access || [];
+
+      // 3. Filter menu berdasarkan akses dari token
       const filteredMenu = list_menuItems.filter(item => userAccess.includes(item.id));
+
+      // 4. Simpan ke dalam state agar layar merender ulang
       setMenuItems(filteredMenu);
+
+      // 5. Atur default active menu ke menu pertama yang mereka punya akses
       if (filteredMenu.length > 0) {
         setActiveMenu(filteredMenu[0].id);
       }
@@ -55,7 +57,6 @@ export default function AdminDashboardLayout() {
       console.error("Token tidak valid:", error);
       router.push('/admin/login');
     }
-    ---- AKHIR AUTH ASLI ---- */
   }, [router]);
 
   // Fungsi untuk merender konten berdasarkan state
