@@ -9,6 +9,7 @@ import KelolaAkun from '../components/subdashboard/KelolaAkun';
 import KelolaMigrasi from '../components/subdashboard/KelolaMigrasi';
 import KelolaGaleri from '../components/subdashboard/KelolaGaleri';
 import KelolaSertifikat from '../components/subdashboard/KelolaSertifikat';
+import KelolaLink from '../components/subdashboard/KelolaLink';
 
 interface CustomJwtPayload extends JwtPayload {
   access?: string[];
@@ -31,6 +32,7 @@ export default function AdminDashboardLayout() {
     { id: 'Kelola Galeri', icon: '🖼' },
     { id: 'Kelola Migrasi', icon: '🔄' },
     { id: 'Kelola Certificate', icon: '🎓' },
+    { id: 'Kelola Link', icon: '🔗' },
   ];
 
   useEffect(() => {
@@ -75,6 +77,8 @@ export default function AdminDashboardLayout() {
         return <KelolaGaleri/>;
       case 'Kelola Certificate':
         return <KelolaSertifikat />;
+      case 'Kelola Link':
+        return <KelolaLink />;
       default:
         // Render kosong jika activeMenu belum di-set / user tidak punya akses apa-apa
         return <div className="p-8 text-slate-500">Silakan pilih menu...</div>;

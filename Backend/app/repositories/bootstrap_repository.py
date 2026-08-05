@@ -3,10 +3,6 @@ from app.repositories.base import BaseRepository
 
 
 class BootstrapRepository(BaseRepository):
-    @staticmethod
-    def create_schema(engine, metadata):
-        metadata.create_all(bind=engine)
-
     def bidang_count(self):
         return self.db.query(Bidang).count()
 

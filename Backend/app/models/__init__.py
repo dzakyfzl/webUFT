@@ -10,9 +10,10 @@ from app.models.entities import (
     Pilihan,
     Responden,
     Token,
+    ShortLink
 )
 
 __all__ = [
     "Acara", "Akses", "Akun", "Album", "Bidang", "File", "Foto",
-    "Karya", "Pilihan", "Responden", "Token",
+    "Karya", "Pilihan", "Responden", "Token", "ShortLink"
 ]

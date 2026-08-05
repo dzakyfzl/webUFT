@@ -2,12 +2,10 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.core.database import Base, SessionLocal, engine
+from app.core.database import SessionLocal
 from app.repositories.bootstrap_repository import BootstrapRepository
-from app.routers import acara, akun, album, file, form, foto, karya
+from app.routers import acara, akun, album, file, form, foto, karya, shortlink
 from app.services.bootstrap_service import BootstrapService
-
-BootstrapRepository.create_schema(engine, Base.metadata)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -32,3 +30,4 @@ app.include_router(karya.router)
 app.include_router(form.router)
 app.include_router(album.router)
 app.include_router(foto.router)
+app.include_router(shortlink.router)

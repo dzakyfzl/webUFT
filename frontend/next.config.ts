@@ -1,7 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  allowedDevOrigins: ['ukmfotografitelkom.com'],
+  allowedDevOrigins: [
+    process.env.NEXT_PUBLIC_SHORTLINK_DOMAIN || 'ukmfotografitelkom.com',
+    `${process.env.NEXT_PUBLIC_SHORTLINK_SUBDOMAIN || 'link'}.${process.env.NEXT_PUBLIC_SHORTLINK_DOMAIN || 'ukmfotografitelkom.com'}`,
+    `${process.env.NEXT_PUBLIC_SHORTLINK_SUBDOMAIN || 'link'}.localhost`,
+  ],
   images: {
     remotePatterns: [
       {

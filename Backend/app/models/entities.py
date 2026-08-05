@@ -116,3 +116,11 @@ class Album(Base):
     nama = Column(String(255), nullable=False)
     deskripsi = Column(Text, nullable=True)
     fotos = relationship("Foto", back_populates="album")
+
+class ShortLink(Base):
+    __tablename__ = "shortlink"
+    linkID = Column(Integer, primary_key=True, index=True)
+    destinationUrl = Column(Text, nullable=False)
+    slug = Column(String(255), nullable=False, unique=True)
+
+    
