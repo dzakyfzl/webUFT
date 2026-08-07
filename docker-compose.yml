@@ -13,6 +13,7 @@ services:
       PUBLIC_FILE_BASE_URL: /static/modules
     volumes:
       - backend_storage:/app/storage
+      - ./media:/media
     expose:
       - "8000"
     healthcheck:
