@@ -123,4 +123,11 @@ class ShortLink(Base):
     destinationUrl = Column(Text, nullable=False)
     slug = Column(String(255), nullable=False, unique=True)
 
-    
+
+class LastMigrate(Base):
+    __tablename__ = "last_migrate"
+    migrateID = Column(Integer, primary_key=True, index=True)
+    exported_at = Column(DateTime, nullable=False)
+    imported_at = Column(DateTime, nullable=True)
+    exporter_username = Column(String(255), nullable=False)
+    importer_username = Column(String(255), nullable=True)

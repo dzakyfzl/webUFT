@@ -47,7 +47,7 @@ class AlbumService:
             return denied
         try:
             for file_id in self.repository.foto_file_ids(album_id):
-                await self.file_service.delete_internal_legacy(file_id)
+                await self.file_service.delete(file_id,user)
             self.repository.delete(album_id)
             return ServiceResult({"message": "Album deleted successfully"})
         except Exception as exc:

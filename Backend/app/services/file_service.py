@@ -44,7 +44,7 @@ class FileService:
             print(f"Error uploading file: {exc}")
             return ServiceResult({"message": "Error uploading file"})
 
-    def delete(self, file_id: int, user: dict):
+    async def delete(self, file_id: int, user: dict):
         if user.get("role") != "Admin":
             return ServiceResult({"message": "Unauthorized"}, 403)
         try:
