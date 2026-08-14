@@ -20,3 +20,9 @@ class MigrateRepository(BaseRepository):
         self.db.commit()
         self.db.refresh(entity)
         return entity
+
+    def get(self, id: int = 0):
+        print("Migrate Pass")
+        if id == 0:
+            return self.db.execute(select(LastMigrate).order_by(LastMigrate.migrateID.desc())).scalars().all()
+        return self.db.execute(select(LastMigrate).where(LastMigrate.migrateID==id).order_by(LastMigrate.migrateID.desc())).scalar_one_or_none()

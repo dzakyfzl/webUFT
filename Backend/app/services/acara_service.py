@@ -60,9 +60,6 @@ class AcaraService:
             karya_paths = self.repository.karya_paths(acara_id)
             karya_file_ids = self.repository.karya_file_ids(acara_id)
             self.repository.delete_pilihan(acara_id)
-            # Preserve the existing failure point caused by the removed legacy
-            # Jawaban/Pertanyaan models.
-            raise NameError("name 'Jawaban' is not defined")
             self.repository.delete_respondens(acara_id)
             self.repository.delete_karyas(acara_id)
             self.repository.delete_acara(acara_id)

@@ -33,3 +33,12 @@ async def import_media(
     service: MigrateService = Depends(get_migrate_service)
 ):
     return apply_result(await service.importData(file, user), response)
+
+@router.get("/")
+async def get_migration_history(
+    user: Annotated[dict, Depends(validate_token)],
+    response: Response,
+    id: int = 0,
+    service: MigrateService = Depends(get_migrate_service)
+):
+    return apply_result(await service.get(user=user,id=id),response)

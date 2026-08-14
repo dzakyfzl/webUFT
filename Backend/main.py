@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.database import SessionLocal, Base,engine
 from app.repositories.bootstrap_repository import BootstrapRepository

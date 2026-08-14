@@ -16,9 +16,25 @@ class MigrateService:
         self.file_repository = file_repository
         self.media_dir = "/media"
 
+    @staticmethod
+    def _authorize(user: dict):
+            print("auth pass")
+            if user.get("role") != "Admin" or "Kelola Migrasi" not in user.get("access", []):
+                return ServiceResult({"message": "Unauthorized"}, 403)
+
+    @staticmethod
+    def _get(callback):
+        try:
+            entity = callback()
+            return ServiceResult(entity if entity is not None else {"message": "Migration not found"}, 200 if entity is not None else 404)
+        except Exception as exc:
+            print(f"Database error: {exc}")
+            return ServiceResult({"message": "Database error"}, 500)
+
     def exportData(self, user: dict):
-        if user.get("role") != "Admin":
-            return ServiceResult({"message": "Unauthorized"}, 403)
+        denied = self._authorize(user)
+        if denied:
+            return denied
         
         # Hilangkan microsecond agar sesuai dengan format nama file
         timestamp = datetime.now().replace(microsecond=0)
@@ -48,8 +64,9 @@ class MigrateService:
             return ServiceResult({"message": "Error exporting media"}, 500)
 
     async def importData(self, upload: UploadFile, user: dict):
-        if user.get("role") != "Admin":
-            return ServiceResult({"message": "Unauthorized"}, 403)
+        denied = self._authorize(user)
+        if denied:
+            return denied
             
         filename = upload.filename
         if not filename.endswith('.zip'):
@@ -107,3 +124,14 @@ class MigrateService:
             if os.path.exists(zip_filepath):
                 os.remove(zip_filepath)
             await upload.close()
+
+    async def get(self, user: dict, id: int = 0):
+        denied = self._authorize(user)
+        if denied:
+            return denied
+        try:
+            migrate_history = self.repository.get(id)
+            return ServiceResult(migrate_history)
+        except Exception as e:
+            print(f"Error retrieving {e}");
+            return ServiceResult({"message": "Error getting migrate history data"}, 500)
