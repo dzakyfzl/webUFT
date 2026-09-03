@@ -5,3 +5,6 @@ __pycache__/
 .venv/
 postgresql_data/
 Sandboxes/
+.agents/
+SKILL.md
+AGENTS.md
