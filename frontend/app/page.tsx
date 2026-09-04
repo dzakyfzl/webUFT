@@ -9,171 +9,42 @@ import { ServiceGrid } from './components/ServiceGrid';
 import { ArrowRightToLine } from 'lucide-react';
 import { ScrollArea, ScrollBar } from '@/app/components/ui/scroll-area';
 import type { Acara, Koleksi, KoleksiOrigin } from './components/types';
+import { fetchGalleryData, fetchEventsData } from './lib/api';
 
-// --- DATA PLACEHOLDER KOLEKSI ---
-const KOLEKSI_DATA = [
-  { id: 1, title: "Urban Solitude", photographer: "Budi Santoso", category: "Street", image: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=800", span: "md:col-span-1 md:row-span-2", description: "Diambil pada sudut jalan Braga di pagi buta. Kesunyian kota direkam sebelum hiruk pikuk dimulai.", exif: "Sony A7III / 50mm / f/1.8 / 1/200s / ISO 100" },
-  { id: 2, title: "Neon Nights", photographer: "Siti Aminah", category: "Night", image: "https://images.unsplash.com/photo-1519999482648-25049ddd37b1?q=80&w=800", span: "md:col-span-2 md:row-span-1", description: "Binar lampu neon pasar malam memantulkan cerita masyarakat urban yang tak pernah tidur.", exif: "Fujifilm X-T4 / 35mm / f/2.0 / 1/60s / ISO 800" },
-  { id: 3, title: "Silent Peaks", photographer: "Andi Wijaya", category: "Landscape", image: "https://images.unsplash.com/photo-1469474968028-56623f02e42e?q=80&w=800", span: "md:col-span-1 md:row-span-1", description: "Keheningan alam Pegunungan Bromo di saat fajar menyingsing memberikan ketenangan batin yang absolut.", exif: "Canon EOS R5 / 24mm / f/8.0 / 1/100s / ISO 200" },
-  { id: 4, title: "Stage Echoes", photographer: "Rina Sari", category: "Stage", image: "https://images.unsplash.com/photo-1459749411175-04bf5292ceea?q=80&w=800", span: "md:col-span-1 md:row-span-1", description: "Keheningan alam Pegunungan Bromo di saat fajar menyingsing memberikan ketenangan batin yang absolut.", exif: "Canon EOS R5 / 24mm / f/8.0 / 1/100s / ISO 200" },
-  { id: 5, title: "Eyes of the City", photographer: "Reza Pahlevi", category: "Portrait", image: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?q=80&w=800", span: "md:col-span-2 md:row-span-2", description: "Menatap tajam, sebuah potret kedalaman emosi penduduk lokal di tengah derasnya modernisasi.", exif: "Sony A7RIV / 85mm / f/1.2 / 1/250s / ISO 100" },
-  { id: 6, title: "[Mockup] Morning Frame", photographer: "[Nama fotografer]", category: "Mockup", image: "https://images.unsplash.com/photo-1469474968028-56623f02e42e?q=80&w=800", span: "md:col-span-1 md:row-span-1", description: "Placeholder karya untuk pengujian tata letak galeri.", exif: "[DATA EXIF]" },
-  { id: 7, title: "[Mockup] In Between", photographer: "[Nama fotografer]", category: "Mockup", image: "https://images.unsplash.com/photo-1500534623283-312aade485b7?q=80&w=800", span: "md:col-span-1 md:row-span-2", description: "Placeholder karya untuk pengujian tata letak galeri.", exif: "[DATA EXIF]" },
-  { id: 8, title: "[Mockup] Quiet Motion", photographer: "[Nama fotografer]", category: "Mockup", image: "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?q=80&w=800", span: "md:col-span-2 md:row-span-1", description: "Placeholder karya untuk pengujian tata letak galeri.", exif: "[DATA EXIF]" },
-  { id: 9, title: "[Mockup] Concrete Light", photographer: "[Nama fotografer]", category: "Mockup", image: "https://images.unsplash.com/photo-1449824913935-59a10b8d2000?q=80&w=800", span: "md:col-span-1 md:row-span-1", description: "Placeholder karya untuk pengujian tata letak galeri.", exif: "[DATA EXIF]" },
-  { id: 10, title: "[Mockup] Late Afternoon", photographer: "[Nama fotografer]", category: "Mockup", image: "https://images.unsplash.com/photo-1497366754035-f200968a6e72?q=80&w=800", span: "md:col-span-2 md:row-span-2", description: "Placeholder karya untuk pengujian tata letak galeri.", exif: "[DATA EXIF]" },
-  { id: 11, title: "[Mockup] Passing Through", photographer: "[Nama fotografer]", category: "Mockup", image: "https://images.unsplash.com/photo-1494526585095-c41746248156?q=80&w=800", span: "md:col-span-1 md:row-span-1", description: "Placeholder karya untuk pengujian tata letak galeri.", exif: "[DATA EXIF]" },
-  { id: 12, title: "[Mockup] Blue Hour", photographer: "[Nama fotografer]", category: "Mockup", image: "https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?q=80&w=800", span: "md:col-span-1 md:row-span-2", description: "Placeholder karya untuk pengujian tata letak galeri.", exif: "[DATA EXIF]" },
-];
+// --- DATA PLACEHOLDER KOLEKSI (dinonaktifkan — data diambil dari backend) ---
+// const KOLEKSI_DATA = [
+//   { id: 1, title: "Urban Solitude", photographer: "Budi Santoso", category: "Street", image: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=800", span: "md:col-span-1 md:row-span-2", description: "...", exif: "..." },
+//   ... (12 items mockup dihapus, data diambil dari backend)
+// ];
 
-// --- DATA PLACEHOLDER ACARA ---
-const MOCK_EVENTS: Acara[] = [
-  {
-    id: "evt-1",
-    title: "Pameran Karya Tahunan: Lensa Kita",
-    description: "Pameran fotografi terbesar dari seluruh anggota aktif UFT tahun ini.",
-    waktu: "15 Agustus 2026",
-    tempat: "Galeri Ideal, Bandung",
-    image: "https://images.unsplash.com/photo-1531058020387-3be344556be6?q=80&w=800",
-    link: "#koleksi",
-    status: "Mendatang"
-  },
+// --- DATA PLACEHOLDER ACARA (dinonaktifkan — data diambil dari backend) ---
+// const MOCK_EVENTS: Acara[] = [ ... ];
 
-  {
-    id: "evt-3",
-    title: "Street Photography Hunting",
-    description: "Hunting bersama menyusuri jalanan bersejarah Braga.",
-    waktu: "25 September 2026",
-    tempat: "Jalan Braga, Bandung",
-    image: "https://images.unsplash.com/photo-1493246507139-91e8fad9978e?q=80&w=800",
-    link: "#koleksi",
-    status: "Aktif"
-  },
-  {
-    id: "mock-event-1",
-    title: "[Mockup] Diskusi Fotografi Dokumenter",
-    description: "Placeholder untuk acara diskusi yang akan diisi dari data resmi.",
-    waktu: "[Tanggal acara]",
-    tempat: "[Lokasi acara]",
-    image: "https://images.unsplash.com/photo-1516280440614-37939bbacd81?q=80&w=800",
-    link: "#acara",
-    status: "Mockup"
-  },
-  {
-    id: "mock-event-2",
-    title: "[Mockup] Kelas Penyuntingan Foto",
-    description: "Placeholder untuk kelas teknis yang akan diisi dari data resmi.",
-    waktu: "[Tanggal acara]",
-    tempat: "[Lokasi acara]",
-    image: "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?q=80&w=800",
-    link: "#acara",
-    status: "Mockup"
-  },
-  {
-    id: "mock-event-3",
-    title: "[Mockup] Pameran Kolaborasi Kampus",
-    description: "Placeholder untuk pameran yang akan diisi dari data resmi.",
-    waktu: "[Tanggal acara]",
-    tempat: "[Lokasi acara]",
-    image: "https://images.unsplash.com/photo-1513364776144-60967b0f800f?q=80&w=800",
-    link: "#acara",
-    status: "Mockup"
-  },
-  {
-    id: "mock-event-4",
-    title: "[Mockup] Hunting Foto Kota",
-    description: "Placeholder untuk agenda hunting yang akan diisi dari data resmi.",
-    waktu: "[Tanggal acara]",
-    tempat: "[Lokasi acara]",
-    image: "https://images.unsplash.com/photo-1444723121867-7a241cacace9?q=80&w=800",
-    link: "#acara",
-    status: "Mockup"
-  },
-  {
-    id: "mock-event-5",
-    title: "[Mockup] Bedah Portofolio Anggota",
-    description: "Placeholder untuk sesi ulasan karya yang akan diisi dari data resmi.",
-    waktu: "[Tanggal acara]",
-    tempat: "[Lokasi acara]",
-    image: "https://images.unsplash.com/photo-1452587925148-ce544e77e70d?q=80&w=800",
-    link: "#acara",
-    status: "Mockup"
-  },
-  {
-    id: "mock-event-6",
-    title: "[Mockup] Pameran Karya Anggota Baru",
-    description: "Placeholder untuk pameran internal yang akan diisi dari data resmi.",
-    waktu: "[Tanggal acara]",
-    tempat: "[Lokasi acara]",
-    image: "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?q=80&w=800",
-    link: "#acara",
-    status: "Mockup"
-  },
-  {
-    id: "mock-event-7",
-    title: "[Mockup] Kelas Cetak Foto",
-    description: "Placeholder untuk kelas produksi yang akan diisi dari data resmi.",
-    waktu: "[Tanggal acara]",
-    tempat: "[Lokasi acara]",
-    image: "https://images.unsplash.com/photo-1452780212940-6f5c0d14d848?q=80&w=800",
-    link: "#acara",
-    status: "Mockup"
-  },
-  {
-    id: "mock-event-8",
-    title: "[Mockup] Praktik Fotografi Malam",
-    description: "Placeholder untuk sesi praktik memotret dengan pencahayaan malam.",
-    waktu: "[Tanggal acara]",
-    tempat: "[Lokasi acara]",
-    image: "https://images.unsplash.com/photo-1519608487953-e999c86e7455?q=80&w=800",
-    link: "#acara",
-    status: "Mockup"
-  },
-  {
-    id: "mock-event-9",
-    title: "[Mockup] Diskusi Visual Storytelling",
-    description: "Placeholder untuk diskusi tentang membangun cerita melalui rangkaian foto.",
-    waktu: "[Tanggal acara]",
-    tempat: "[Lokasi acara]",
-    image: "https://images.unsplash.com/photo-1542744173-8e7e53415bb0?q=80&w=800",
-    link: "#acara",
-    status: "Mockup"
-  },
-  {
-    id: "mock-event-10",
-    title: "[Mockup] Sesi Review Karya",
-    description: "Placeholder untuk sesi review dan masukan portofolio anggota.",
-    waktu: "[Tanggal acara]",
-    tempat: "[Lokasi acara]",
-    image: "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=800",
-    link: "#acara",
-    status: "Mockup"
-  }
-];
-
-const CAROUSEL_PARTNERS = [
-  {
-    id: "partner-1",
-    label: "Ruang kolaborasi UFT",
-    title: "Media Partner 01",
-    description: "Tempat untuk memperkenalkan media partner yang mendukung cerita dan kegiatan fotografi UFT.",
-    image: "https://images.unsplash.com/photo-1497366754035-f200968a6e72?q=80&w=1600",
-  },
-  {
-    id: "partner-2",
-    label: "Dukungan program",
-    title: "Sponsor Utama",
-    description: "Sorotan untuk sponsor yang membantu menghadirkan kelas, pameran, dan kegiatan terbaru UFT.",
-    image: "https://images.unsplash.com/photo-1497366811353-6870744d04b2?q=80&w=1600",
-  },
-  {
-    id: "partner-3",
-    label: "Kolaborasi kreatif",
-    title: "Partner Kreatif",
-    description: "Ruang untuk mitra kreatif yang tumbuh bersama UFT melalui proyek dan pengalaman visual.",
-    image: "https://images.unsplash.com/photo-1497366216548-37526070297c?q=80&w=1600",
-  },
-];
+// --- DATA MEDIA PARTNER (dikosongkan sementara, uncomment saat data siap) ---
+// const CAROUSEL_PARTNERS = [
+//   {
+//     id: "partner-1",
+//     label: "Ruang kolaborasi UFT",
+//     title: "Media Partner 01",
+//     description: "Tempat untuk memperkenalkan media partner yang mendukung cerita dan kegiatan fotografi UFT.",
+//     image: "https://images.unsplash.com/photo-1497366754035-f200968a6e72?q=80&w=1600",
+//   },
+//   {
+//     id: "partner-2",
+//     label: "Dukungan program",
+//     title: "Sponsor Utama",
+//     description: "Sorotan untuk sponsor yang membantu menghadirkan kelas, pameran, dan kegiatan terbaru UFT.",
+//     image: "https://images.unsplash.com/photo-1497366811353-6870744d04b2?q=80&w=1600",
+//   },
+//   {
+//     id: "partner-3",
+//     label: "Kolaborasi kreatif",
+//     title: "Partner Kreatif",
+//     description: "Ruang untuk mitra kreatif yang tumbuh bersama UFT melalui proyek dan pengalaman visual.",
+//     image: "https://images.unsplash.com/photo-1497366216548-37526070297c?q=80&w=1600",
+//   },
+// ];
+const CAROUSEL_PARTNERS: { id: string; label: string; title: string; description: string; image: string }[] = [];
 
 const SERVICES = [
   { title: 'Kelas Fotografi', description: 'Belajar teknik kamera, cahaya, komposisi, dan proses kreatif bersama anggota.' },
@@ -201,9 +72,13 @@ const eventDetailHref = (event: Acara) => {
 };
 
 export default function LandingPage() {
-  const [events, setEvents] = useState<Acara[]>(MOCK_EVENTS);
-  const [isLoadingEvents, setIsLoadingEvents] = useState(false);
-    const [eventsError, setEventsError] = useState<string | null>(null);
+  const [events, setEvents] = useState<Acara[]>([]);
+  const [isLoadingEvents, setIsLoadingEvents] = useState(true);
+  const [eventsError, setEventsError] = useState<string | null>(null);
+
+  const [koleksiData, setKoleksiData] = useState<Koleksi[]>([]);
+  const [isLoadingGaleri, setIsLoadingGaleri] = useState(true);
+  const [galeriError, setGaleriError] = useState<string | null>(null);
 
   const [selectedEvent, setSelectedEvent] = useState<Acara | null>(null);
   const [selectedKoleksi, setSelectedKoleksi] = useState<Koleksi | null>(null);
@@ -315,6 +190,48 @@ export default function LandingPage() {
     }, 6000);
 
     return () => window.clearInterval(carouselTimer);
+  }, []);
+
+  // Fetch gallery data from backend
+  useEffect(() => {
+    let cancelled = false;
+
+    fetchGalleryData()
+      .then((data) => {
+        if (!cancelled) setKoleksiData(data);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          console.error('Gagal memuat galeri:', err);
+          setGaleriError(err instanceof Error ? err.message : 'Gagal memuat galeri dari server.');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingGaleri(false);
+      });
+
+    return () => { cancelled = true; };
+  }, []);
+
+  // Fetch events data from backend
+  useEffect(() => {
+    let cancelled = false;
+
+    fetchEventsData()
+      .then((data) => {
+        if (!cancelled) setEvents(data);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          console.error('Gagal memuat acara:', err);
+          setEventsError(err instanceof Error ? err.message : 'Gagal memuat daftar acara dari server.');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingEvents(false);
+      });
+
+    return () => { cancelled = true; };
   }, []);
 
   const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 0;
@@ -502,18 +419,52 @@ export default function LandingPage() {
             </div>
             </ScrollReveal>
 
-            <div className="grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-2 lg:grid-cols-3">
-              {KOLEKSI_DATA.slice(0, 3).map((item) => (
-                <ScrollReveal key={item.id} delay={Math.min(item.id * 80, 400)}>
-                  <GalleryCard item={item} onSelect={openKoleksiDetail} featured />
-                </ScrollReveal>
-              ))}
-            </div>
+            {isLoadingGaleri ? (
+              <div className="grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-2 lg:grid-cols-3">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="animate-pulse">
+                    <div className="aspect-[5/4] bg-stone-200" />
+                    <div className="pt-3 space-y-2">
+                      <div className="h-3 w-16 bg-stone-200 rounded" />
+                      <div className="h-5 w-3/4 bg-stone-200 rounded" />
+                      <div className="h-3 w-1/2 bg-stone-200 rounded" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : galeriError ? (
+              <div className="flex flex-col items-center justify-center rounded-xl border border-stone-200 bg-white p-10 text-center">
+                <p className="text-sm font-semibold text-red-600">Gagal Memuat Galeri</p>
+                <p className="mt-2 max-w-sm text-sm text-slate-500">{galeriError}</p>
+                <button
+                  type="button"
+                  onClick={() => window.location.reload()}
+                  className="mt-5 border border-slate-950 px-5 py-2.5 text-sm font-semibold text-slate-950 transition-colors hover:bg-slate-950 hover:text-white"
+                >
+                  Coba Lagi
+                </button>
+              </div>
+            ) : koleksiData.length === 0 ? (
+              <div className="flex flex-col items-center justify-center rounded-xl border border-stone-200 bg-white p-10 text-center">
+                <p className="text-lg font-bold text-slate-950">Belum Ada Karya</p>
+                <p className="mt-2 max-w-sm text-sm text-slate-500">Galeri karya anggota akan ditampilkan di sini setelah diupload melalui dashboard admin.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-2 lg:grid-cols-3">
+                {koleksiData.slice(0, 3).map((item) => (
+                  <ScrollReveal key={item.id} delay={Math.min(item.id * 80, 400)}>
+                    <GalleryCard item={item} onSelect={openKoleksiDetail} featured />
+                  </ScrollReveal>
+                ))}
+              </div>
+            )}
+            {!isLoadingGaleri && !galeriError && koleksiData.length > 3 && (
             <div className="mt-10">
               <button type="button" onClick={() => scrollToSection('galeri-lengkap')} className="inline-flex border border-slate-950 px-5 py-3 text-sm font-semibold text-slate-950 transition-colors hover:bg-slate-950 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-4">
                 Lihat galeri lengkap
               </button>
             </div>
+            )}
           </div>
         </section>
 
@@ -629,12 +580,16 @@ export default function LandingPage() {
               <p className="mt-2 text-xs font-medium text-stone-200 sm:mt-3 sm:text-base">
                 Karya oleh <span className="text-white">{selectedKoleksi.photographer}</span>
               </p>
-              <p className="mt-4 max-w-2xl text-xs leading-relaxed text-stone-200 sm:mt-6 sm:text-base">
-                {selectedKoleksi.description}
-              </p>
-              <p className="mt-3 max-w-2xl break-words font-mono text-[10px] text-stone-400 sm:mt-4 sm:text-sm">
-                {selectedKoleksi.exif}
-              </p>
+              {selectedKoleksi.description && (
+                <p className="mt-4 max-w-2xl text-xs leading-relaxed text-stone-200 sm:mt-6 sm:text-base">
+                  {selectedKoleksi.description}
+                </p>
+              )}
+              {selectedKoleksi.exif && (
+                <p className="mt-3 max-w-2xl break-words font-mono text-[10px] text-stone-400 sm:mt-4 sm:text-sm">
+                  {selectedKoleksi.exif}
+                </p>
+              )}
             </div>
 
             <button
@@ -712,13 +667,40 @@ export default function LandingPage() {
                 <p className="mt-4 text-base text-slate-600 sm:text-lg">Karya anggota UFT dalam berbagai pendekatan visual.</p>
               </div>
             </ScrollReveal>
-            <div className="mx-auto max-w-6xl columns-2 gap-3 sm:columns-3 sm:gap-4 lg:columns-4">
-              {KOLEKSI_DATA.map((item, index) => (
-                <ScrollReveal key={item.id} delay={Math.min(index * 70, 350)}>
-                  <GalleryCard item={item} onSelect={openKoleksiDetail} />
-                </ScrollReveal>
-              ))}
-            </div>
+            {isLoadingGaleri ? (
+              <div className="mx-auto max-w-6xl columns-2 gap-3 sm:columns-3 sm:gap-4 lg:columns-4">
+                {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                  <div key={i} className="mb-4 break-inside-avoid animate-pulse">
+                    <div className="bg-stone-200" style={{ height: `${150 + (i % 3) * 80}px` }} />
+                  </div>
+                ))}
+              </div>
+            ) : galeriError ? (
+              <div className="flex flex-col items-center justify-center rounded-xl border border-stone-200 bg-white p-12 text-center">
+                <p className="text-sm font-semibold text-red-600">Gagal Memuat Galeri</p>
+                <p className="mt-2 max-w-sm text-sm text-slate-500">{galeriError}</p>
+                <button
+                  type="button"
+                  onClick={() => window.location.reload()}
+                  className="mt-5 border border-slate-950 px-5 py-2.5 text-sm font-semibold text-slate-950 transition-colors hover:bg-slate-950 hover:text-white"
+                >
+                  Coba Lagi
+                </button>
+              </div>
+            ) : koleksiData.length === 0 ? (
+              <div className="flex flex-col items-center justify-center rounded-xl border border-stone-200 bg-white p-12 text-center">
+                <p className="text-lg font-bold text-slate-950">Belum Ada Karya</p>
+                <p className="mt-2 max-w-sm text-sm text-slate-500">Galeri karya anggota akan ditampilkan di sini setelah diupload melalui dashboard admin.</p>
+              </div>
+            ) : (
+              <div className="mx-auto max-w-6xl columns-2 gap-3 sm:columns-3 sm:gap-4 lg:columns-4">
+                {koleksiData.map((item, index) => (
+                  <ScrollReveal key={item.id} delay={Math.min(index * 70, 350)}>
+                    <GalleryCard item={item} onSelect={openKoleksiDetail} />
+                  </ScrollReveal>
+                ))}
+              </div>
+            )}
           </div>
         </section>
 
