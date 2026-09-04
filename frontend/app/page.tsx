@@ -349,8 +349,9 @@ export default function LandingPage() {
                 </div>
               </div>
             ) : (
-              <div className="flex min-h-[360px] items-center justify-center bg-stone-100 p-8 text-center">
-                <p className="text-slate-600">Belum ada acara untuk ditampilkan.</p>
+              <div className="flex min-h-[360px] flex-col items-center justify-center bg-stone-100 p-8 text-center gap-2">
+                <p className="text-base font-semibold text-slate-700">Belum ada Media Partner / Sponsor</p>
+                <p className="text-sm text-slate-500">Info kerja sama akan ditampilkan di sini.</p>
               </div>
             )}
           </div>
@@ -732,8 +733,7 @@ export default function LandingPage() {
               <Image src="/logo-uft.png" alt="Logo UFT" width={100} height={34} className="w-24 shrink-0 opacity-90 sm:w-28" unoptimized />
               <div className="min-w-0">
                 <address className="mt-4 text-sm not-italic leading-relaxed text-slate-300">
-                  Gedung Student Center,<br />
-                  Kampus Telkom University,<br />
+                  EB.01.08 Telkom University,<br />
                   Bandung, Jawa Barat.
                 </address>
               </div>
@@ -742,8 +742,9 @@ export default function LandingPage() {
           <div className="md:col-span-3">
             <h4 className="mb-5 font-bold text-white">Hubungi UFT</h4>
             <ul className="flex flex-col gap-3 text-sm">
-              <li><a href="mailto:halo@uft.telkomuniversity.ac.id" className="text-slate-300 transition-colors hover:text-white focus-visible:text-red-400 focus-visible:underline">halo@uft.telkomuniversity.ac.id</a></li>
-              <li><a href="https://wa.me/6281234567890" target="_blank" rel="noopener noreferrer" className="text-slate-300 transition-colors hover:text-white focus-visible:text-red-400 focus-visible:underline">WhatsApp Humas UFT</a></li>
+              <li><a href="mailto:ukmfotografitelkom2022@gmail.com" className="text-slate-300 transition-colors hover:text-white focus-visible:text-red-400 focus-visible:underline">ukmfotografitelkom2022@gmail.com</a></li>
+              <li><a href="https://wa.me/6282124792449" target="_blank" rel="noopener noreferrer" className="text-slate-300 transition-colors hover:text-white focus-visible:text-red-400 focus-visible:underline">082124792449 (Ysel)</a></li>
+              <li><a href="https://wa.me/6282111143392" target="_blank" rel="noopener noreferrer" className="text-slate-300 transition-colors hover:text-white focus-visible:text-red-400 focus-visible:underline">082111143392 (Amany)</a></li>
             </ul>
           </div>
           
