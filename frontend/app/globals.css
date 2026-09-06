@@ -1,26 +1,93 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/* ============================================================
+   UFT HR — Design Tokens (Design.md §8)
+   Theme: Merah & Hitam, dark-first
+   ============================================================ */
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  /* Font (dari next/font/google) */
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  /* ---- Brand ---- */
+  --color-primary: #E4232A;
+  --color-primary-dark: #A8181D;
+  --color-primary-light: #FF4B52;
+
+  /* ---- Base (dark theme) ---- */
+  --color-bg: #0E0E10;
+  --color-surface: #18181B;
+  --color-surface-alt: #26262A;
+  --color-surface-deep: #141416;
+  --color-border: #3A3A3F;
+
+  /* ---- Text ---- */
+  --color-text-primary: #FFFFFF;
+  --color-text-secondary: #A1A1AA;
+
+  /* ---- Status / Semantic ---- */
+  --color-success: #22C55E;
+  --color-warning: #F5A623;
+  --color-danger: #E4232A;
+  --color-info: #5B8DEF;
+  --color-neutral: #6B7280;
+
+  /* ---- Radius ---- */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-full: 9999px;
+
+  /* ---- Spacing unit ---- */
+  --spacing-unit: 8px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+/* ============================================================
+   Global base styles
+   ============================================================ */
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+/* ---- Scrollbar (dark themed) ---- */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-bg);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-surface-alt);
+  border-radius: var(--radius-full);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-border);
+}
+
+/* ---- Selection color ---- */
+::selection {
+  background: rgba(228, 35, 42, 0.3);
+  color: #fff;
+}
+
+/* ---- Focus ring (accessibility) ---- */
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* ---- Overdue row tint (Design.md §4.5b) ---- */
+.row-overdue {
+  border-left: 4px solid var(--color-danger);
+  background: rgba(228, 35, 42, 0.08);
+}
+
+/* ---- Selected row indicator (Design.md §4.6) ---- */
+.row-selected {
+  border-left: 2px solid var(--color-primary);
 }

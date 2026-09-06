@@ -5,6 +5,8 @@ const nextConfig: NextConfig = {
     process.env.NEXT_PUBLIC_SHORTLINK_DOMAIN || 'ukmfotografitelkom.com',
     `${process.env.NEXT_PUBLIC_SHORTLINK_SUBDOMAIN || 'link'}.${process.env.NEXT_PUBLIC_SHORTLINK_DOMAIN || 'ukmfotografitelkom.com'}`,
     `${process.env.NEXT_PUBLIC_SHORTLINK_SUBDOMAIN || 'link'}.localhost`,
+    'hr.localhost',
+    `${process.env.NEXT_PUBLIC_HR_SUBDOMAIN || 'hr'}.${process.env.NEXT_PUBLIC_SHORTLINK_DOMAIN || 'ukmfotografitelkom.com'}`,
   ],
   images: {
     remotePatterns: [

@@ -12,6 +12,7 @@ load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 # Import semua model agar metadata terdaftar, lalu ambil Base
 from app.core.database import Base  # noqa: E402
 import app.models.entities  # noqa: F401, E402 — pastikan semua tabel ter-register
+import app.models.hr  # noqa: F401, E402 — HR module tables
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

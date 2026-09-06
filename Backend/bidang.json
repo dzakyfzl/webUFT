@@ -3,4 +3,17 @@
  {"nama": "Kelola Migrasi"},
  {"nama": "Kelola Galeri"},
  {"nama": "Kelola Certificate"},
- {"nama": "Kelola Link"}]
+ {"nama": "Kelola Link"},
+ {"nama": "Kelola Medpart Masuk"},
+ {"nama": "Kelola Medpart Sebar"},
+ {"nama": "Kelola Jadwal Poster"},
+ {"nama": "Kelola Sponsorship"},
+ {"nama": "Kelola Offer Masuk"},
+ {"nama": "Kelola Template Chat"},
+ {"nama": "Kelola Undangan"},
+ {"nama": "Kelola Reminder"},
+ {"nama": "Kelola Aspirasi"},
+ {"nama": "Kelola Proker"},
+ {"nama": "Kelola Audit Log"},
+ {"nama": "Kelola Integrasi AI"},
+ {"nama": "Akses AI Chatbot"}]
