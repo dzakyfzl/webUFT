@@ -4,11 +4,10 @@ import zipfile
 import tempfile
 from datetime import datetime
 from fastapi import UploadFile
-from sqlalchemy import select
 from app.repositories.migrate_repository import MigrateRepository
 from app.repositories.file_repository import FileRepository
 from app.services.result import ServiceResult
-from app.models import File
+
 
 class MigrateService:
     def __init__(self, repository: MigrateRepository, file_repository: FileRepository):
@@ -46,6 +45,7 @@ class MigrateService:
         
         try:
             with zipfile.ZipFile(zip_filepath, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                zipf.setpassword()
                 if os.path.exists(self.media_dir):
                     for root, dirs, files in os.walk(self.media_dir):
                         for file in files:
@@ -91,8 +91,7 @@ class MigrateService:
             with open(zip_filepath, "wb+") as f:
                 shutil.copyfileobj(upload.file, f)
                 
-            db = self.file_repository.db
-            all_files_query = db.execute(select(File.direktori)).scalars().all()
+            all_files_query = self.file_repository.list_paths()
             # keep just the filename part from db records for easy matching
             valid_filenames = set([os.path.basename(p) for p in all_files_query])
             

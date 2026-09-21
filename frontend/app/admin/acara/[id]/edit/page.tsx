@@ -21,6 +21,9 @@ export default function EditAcara({ params }: { params: Promise<{ id: string }> 
   const [tanggal, setTanggal] = useState('');
   const [jam, setJam] = useState('08');
   const [menit, setMenit] = useState('00');
+  const [tanggalSelesai, setTanggalSelesai] = useState('');
+  const [jamSelesai, setJamSelesai] = useState('16');
+  const [menitSelesai, setMenitSelesai] = useState('00');
   const [status, setStatus] = useState('Draft');
   const [currentFileId, setCurrentFileId] = useState<number>(0);
 
@@ -76,12 +79,25 @@ export default function EditAcara({ params }: { params: Promise<{ id: string }> 
 
         // Memecah format "YYYY-MM-DD HH:MM:SS" menjadi Tanggal, Jam, dan Menit
         if (data.waktu) {
-          const [tglPart, waktuPart] = data.waktu.split(' ');
+          const cleanedWaktu = data.waktu.replace('T', ' ');
+          const [tglPart, waktuPart] = cleanedWaktu.split(' ');
           if (tglPart) setTanggal(tglPart);
           if (waktuPart) {
             const [j, m] = waktuPart.split(':');
             if (j) setJam(j);
             if (m) setMenit(m);
+          }
+        }
+
+        // Memecah format "YYYY-MM-DD HH:MM:SS" menjadi Tanggal Selesai, Jam Selesai, dan Menit Selesai
+        if (data.waktu_selesai) {
+          const cleanedWaktuSelesai = data.waktu_selesai.replace('T', ' ');
+          const [tglSelesaiPart, waktuSelesaiPart] = cleanedWaktuSelesai.split(' ');
+          if (tglSelesaiPart) setTanggalSelesai(tglSelesaiPart);
+          if (waktuSelesaiPart) {
+            const [j, m] = waktuSelesaiPart.split(':');
+            if (j) setJamSelesai(j);
+            if (m) setMenitSelesai(m);
           }
         }
       } catch (err: any) {
@@ -155,6 +171,7 @@ export default function EditAcara({ params }: { params: Promise<{ id: string }> 
 
       // TAHAP 2: SIMPAN DATA ACARA YANG TELAH DIEDIT
       const waktuFormatGabungan = `${tanggal} ${jam}:${menit}:00`;
+      const waktuSelesaiFormatGabungan = `${tanggalSelesai} ${jamSelesai}:${menitSelesai}:00`;
 
       const updateRes = await fetch(`/api/acara/edit/${acaraId}`, {
         method: 'POST',
@@ -167,6 +184,7 @@ export default function EditAcara({ params }: { params: Promise<{ id: string }> 
           deskripsi: deskripsi,
           tempat: tempat,
           waktu: waktuFormatGabungan,
+          waktu_selesai: waktuSelesaiFormatGabungan,
           fileID: finalFileId, // Menggunakan File ID yang baru (atau yang lama jika tak diubah)
           status: status
         })
@@ -264,6 +282,29 @@ export default function EditAcara({ params }: { params: Promise<{ id: string }> 
                     </select>
                     <span className="flex items-center text-xl font-bold">:</span>
                     <select value={menit} onChange={(e) => setMenit(e.target.value)} className="flex-1 px-4 py-3 rounded-xl border border-white/10 focus:ring-2 focus:ring-red-500 bg-[#0f0f11] text-white outline-none appearance-none">
+                      {menitOptions.map(m => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-5 border border-white/5 rounded-2xl bg-white/[0.02]">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-400 mb-2">Tanggal Selesai</label>
+                  <input 
+                    type="date" required value={tanggalSelesai} onChange={(e) => setTanggalSelesai(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl border border-white/10 focus:ring-2 focus:ring-red-500 bg-[#0f0f11] text-white outline-none transition-all color-scheme-dark"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-400 mb-2">Waktu Selesai (Jam & Menit)</label>
+                  <div className="flex gap-3">
+                    <select value={jamSelesai} onChange={(e) => setJamSelesai(e.target.value)} className="flex-1 px-4 py-3 rounded-xl border border-white/10 focus:ring-2 focus:ring-red-500 bg-[#0f0f11] text-white outline-none appearance-none">
+                      {jamOptions.map(j => <option key={j} value={j}>{j}</option>)}
+                    </select>
+                    <span className="flex items-center text-xl font-bold">:</span>
+                    <select value={menitSelesai} onChange={(e) => setMenitSelesai(e.target.value)} className="flex-1 px-4 py-3 rounded-xl border border-white/10 focus:ring-2 focus:ring-red-500 bg-[#0f0f11] text-white outline-none appearance-none">
                       {menitOptions.map(m => <option key={m} value={m}>{m}</option>)}
                     </select>
                   </div>

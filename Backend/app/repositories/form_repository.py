@@ -5,14 +5,19 @@ from app.repositories.base import BaseRepository
 
 
 class FormRepository(BaseRepository):
-    def submission_counts(self, token_id: str, nomor: str, nama: str, acara_id: int):
+    def submission_counts(self, token_id: str, nama: str, acara_id: int):
         token_count = self.db.execute(select(func.count("*")).select_from(Responden).where(Responden.tokenID == token_id, Responden.acaraID == acara_id)).scalar_one_or_none()
-        number_count = self.db.execute(select(func.count("*")).select_from(Responden).where(Responden.nomor == nomor, Responden.acaraID == acara_id)).scalar_one_or_none()
         name_count = self.db.execute(select(func.count("*")).select_from(Responden).where(Responden.nama == nama, Responden.acaraID == acara_id)).scalar_one_or_none()
-        return token_count, number_count, name_count
+        return token_count, name_count
 
     def acara_status(self, acara_id: int):
         return self.db.execute(select(Acara.status).where(Acara.acaraID == acara_id)).scalar_one_or_none()
+
+    def get_acara(self, acara_id: int):
+        return self.db.execute(select(Acara).where(Acara.acaraID == acara_id)).scalar_one_or_none()
+
+    def get_karya(self, karya_id: int, acara_id: int):
+        return self.db.execute(select(Karya).where(Karya.karyaID == karya_id, Karya.acaraID == acara_id)).scalar_one_or_none()
 
     def create_token(self, token: str):
         entity = Token(tokenID=token)
@@ -21,7 +26,7 @@ class FormRepository(BaseRepository):
         self.db.refresh(entity)
 
     def create_response_and_choice(self, acara_id: int, token: str, data):
-        entity = Responden(acaraID=acara_id, nama=data.nama.lower(), prodi_instansi=data.prodi_instansi.lower(), nomor=data.nomor, nim=data.nim, tokenID=token)
+        entity = Responden(acaraID=acara_id, nama=data.nama.lower(), prodi_instansi=data.prodi_instansi.lower(), nim=data.nim, tokenID=token)
         self.db.add(entity)
         self.db.commit()
         self.db.refresh(entity)
@@ -36,7 +41,7 @@ class FormRepository(BaseRepository):
         return self.db.execute(stmt).all()
 
     def csv_rows(self, acara_id: int):
-        stmt = select(Responden.nama, Responden.prodi_instansi, Responden.nomor, Responden.nim, Karya.nama.label("karya_nama")).join(Pilihan, Pilihan.respID == Responden.respID).join(Karya, Karya.karyaID == Pilihan.karyaID).where(Responden.acaraID == acara_id)
+        stmt = select(Responden.nama, Responden.prodi_instansi, Responden.nim, Karya.nama.label("karya_nama")).join(Pilihan, Pilihan.respID == Responden.respID).join(Karya, Karya.karyaID == Pilihan.karyaID).where(Responden.acaraID == acara_id)
         return self.db.execute(stmt).all()
 
     def acara_name(self, acara_id: int):

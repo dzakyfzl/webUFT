@@ -26,7 +26,6 @@ function KaryaContent() {
     nama: '',
     prodi_instansi: '',
     nim: '',
-    nomor: ''
   });
 
   // --- 1. FETCH DATA KARYA DARI BACKEND ---
@@ -83,7 +82,6 @@ function KaryaContent() {
         body: JSON.stringify({
           nama: formData.nama,
           prodi_instansi: formData.prodi_instansi,
-          nomor: formData.nomor,
           nim: formData.nim,
           karyaID: parseInt(karyaId || '0')
         })
@@ -106,7 +104,7 @@ function KaryaContent() {
       setTimeout(() => {
         setShowVoteForm(false);
         setIsSuccess(false);
-        setFormData({ nama: '', prodi_instansi: '', nim: '', nomor: '' });
+        setFormData({ nama: '', prodi_instansi: '', nim: '' });
       }, 3500);
 
     } catch (err: any) {
@@ -207,23 +205,18 @@ function KaryaContent() {
                 <form onSubmit={handleVoteSubmit} className="space-y-4">
                   <div>
                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Nama Lengkap</label>
-                    <input type="text" name="nama" value={formData.nama} onChange={handleInputChange} required placeholder="Sesuai KTM / KTP" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 outline-none focus:ring-2 focus:ring-red-600 transition-all font-medium" />
+                    <input type="text" name="nama" value={formData.nama} onChange={handleInputChange} required placeholder="Nama Saya..." className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 outline-none focus:ring-2 focus:ring-red-600 transition-all font-medium" />
                   </div>
                   
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Prodi / Instansi</label>
-                      <input type="text" name="prodi_instansi" value={formData.prodi_instansi} onChange={handleInputChange} required placeholder="S1 Informatika" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 outline-none focus:ring-2 focus:ring-red-600 transition-all font-medium" />
+                      <input type="text" name="prodi_instansi" value={formData.prodi_instansi} onChange={handleInputChange} required placeholder="S1 Informatika / Umum" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 outline-none focus:ring-2 focus:ring-red-600 transition-all font-medium" />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">NIM</label>
-                      <input type="text" name="nim" value={formData.nim} onChange={handleInputChange} required placeholder="NIM / Kosong" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 outline-none focus:ring-2 focus:ring-red-600 transition-all font-medium" />
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">NIM (Opsional)</label>
+                      <input type="text" name="nim" value={formData.nim} onChange={handleInputChange} placeholder="NIM / Kosong" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 outline-none focus:ring-2 focus:ring-red-600 transition-all font-medium" />
                     </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Nomor Telepon</label>
-                    <input type="text" name="nomor" value={formData.nomor} onChange={handleInputChange} required placeholder="08xxxxxxxx" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 outline-none focus:ring-2 focus:ring-red-600 transition-all font-medium" />
                   </div>
 
                   <button type="submit" disabled={isSubmitLoading} className="w-full bg-slate-900 hover:bg-black disabled:bg-slate-500 text-white font-bold py-4 rounded-xl mt-4 transition-all shadow-lg flex justify-center items-center">

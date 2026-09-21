@@ -6,7 +6,7 @@ from app.repositories.base import BaseRepository
 
 class KaryaRepository(BaseRepository):
     def get_public(self, acara_id: int, karya_id: int):
-        stmt = select(Karya).where(Karya.karyaID == karya_id and Karya.acaraID == acara_id and Acara.status == "Aktif").join(Acara, Acara.acaraID == Karya.acaraID)
+        stmt = select(Karya).where(Karya.karyaID == karya_id, Karya.acaraID == acara_id, Acara.status == "Aktif").join(Acara, Acara.acaraID == Karya.acaraID)
         return self.db.execute(stmt).scalar_one_or_none()
 
     def get(self, karya_id: int):

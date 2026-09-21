@@ -375,7 +375,16 @@ export default function KelolaAcara({ params }: { params: Promise<{ id: string }
             <h1 className="text-3xl md:text-5xl font-extrabold text-white tracking-tight line-clamp-2">
               {currentEvent.nama}
             </h1>
-            <p className="text-slate-400 mt-2 text-sm">{currentEvent.waktu}</p>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-slate-400 mt-2 text-sm">
+              <span className="flex items-center gap-1.5">
+                <span>🗓️</span> <span>Mulai: <strong className="text-slate-300 font-semibold">{currentEvent.waktu}</strong></span>
+              </span>
+              {currentEvent.waktu_selesai && (
+                <span className="flex items-center gap-1.5">
+                  <span>🏁</span> <span>Selesai: <strong className="text-slate-300 font-semibold">{currentEvent.waktu_selesai}</strong></span>
+                </span>
+              )}
+            </div>
           </div>
 
           <div className="flex gap-3 flex-shrink-0">
@@ -520,7 +529,6 @@ export default function KelolaAcara({ params }: { params: Promise<{ id: string }
                   <th className="p-4 text-[10px] uppercase tracking-widest text-slate-500 font-bold">Nama Lengkap</th>
                   <th className="p-4 text-[10px] uppercase tracking-widest text-slate-500 font-bold">NIM</th>
                   <th className="p-4 text-[10px] uppercase tracking-widest text-slate-500 font-bold">Program Studi</th>
-                  <th className="p-4 text-[10px] uppercase tracking-widest text-slate-500 font-bold">No. Telepon</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5 text-sm">
@@ -529,7 +537,6 @@ export default function KelolaAcara({ params }: { params: Promise<{ id: string }
                     <td className="p-4 text-white font-medium whitespace-nowrap">{voter.nama}</td>
                     <td className="p-4 text-slate-400 whitespace-nowrap">{voter.nim}</td>
                     <td className="p-4 text-slate-400 whitespace-nowrap">{voter.prodi_instansi}</td>
-                    <td className="p-4 text-slate-400 whitespace-nowrap">{voter.nomor}</td>
                   </tr>
                 ))}
               </tbody>
