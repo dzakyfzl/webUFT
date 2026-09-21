@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.database import SessionLocal, Base,engine
 from app.repositories.bootstrap_repository import BootstrapRepository
-from app.routers import acara, akun, album, file, form, foto, karya, shortlink, migrate
+from app.routers import acara, akun, album, file, form, foto, karya, partner, shortlink, migrate
 from app.services.bootstrap_service import BootstrapService
 
 @asynccontextmanager
@@ -34,3 +34,4 @@ app.include_router(album.router)
 app.include_router(foto.router)
 app.include_router(shortlink.router)
 app.include_router(migrate.router)
+app.include_router(partner.router)

@@ -7,6 +7,7 @@ from app.models.entities import (
     File,
     Foto,
     Karya,
+    Partner,
     Pilihan,
     Responden,
     Token,
@@ -15,5 +16,5 @@ from app.models.entities import (
 
 __all__ = [
     "Acara", "Akses", "Akun", "Album", "Bidang", "File", "Foto",
-    "Karya", "Pilihan", "Responden", "Token", "ShortLink"
+    "Karya", "Partner", "Pilihan", "Responden", "Token", "ShortLink"
 ]
