@@ -1,5 +1,10 @@
 # Memori Proyek
 
+## 2026-08-15 — Migrasi File
+- Tabel baru untuk mencatat histori migrasi dengan nama `last_migrate`
+- Migrasi dapapt diakses historinya
+
+
 ## 2026-07-15 — Migrasi dependency backend ke uv
 
 - Dependency backend didefinisikan melalui `Backend/pyproject.toml` dan dikunci dalam `Backend/uv.lock`.

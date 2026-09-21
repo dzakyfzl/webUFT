@@ -19,6 +19,7 @@ class Acara(Base):
     deskripsi = Column(Text)
     tempat = Column(String(255))
     waktu = Column(DateTime)
+    waktu_selesai = Column(DateTime)
     status = Column(String(50))
     file = relationship("File", back_populates="acaras")
     respondens = relationship("Responden", back_populates="acara")
@@ -44,8 +45,7 @@ class Responden(Base):
     tokenID = Column(Text, ForeignKey("token.tokenID"))
     nama = Column(String(255))
     prodi_instansi = Column(String(255))
-    nomor = Column(String(50))
-    nim = Column(String(50))
+    nim = Column(String(50), nullable=True)
     acara = relationship("Acara", back_populates="respondens")
     token = relationship("Token", back_populates="respondens")
     pilihans = relationship("Pilihan", back_populates="responden")
@@ -123,4 +123,11 @@ class ShortLink(Base):
     destinationUrl = Column(Text, nullable=False)
     slug = Column(String(255), nullable=False, unique=True)
 
-    
+
+class LastMigrate(Base):
+    __tablename__ = "last_migrate"
+    migrateID = Column(Integer, primary_key=True, index=True)
+    exported_at = Column(DateTime, nullable=False)
+    imported_at = Column(DateTime, nullable=True)
+    exporter_username = Column(String(255), nullable=False)
+    importer_username = Column(String(255), nullable=True)

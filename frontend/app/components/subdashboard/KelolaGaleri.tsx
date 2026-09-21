@@ -21,7 +21,31 @@ export default function KelolaGaleri() {
 
   const fetchAlbums = async () => {
     setIsLoading(true);
+    let accesstoken = localStorage.getItem('access_token');
+    const refreshtoken = localStorage.getItem('refresh_token');
+
+    if (!accesstoken || !refreshtoken) {
+      router.push('/admin/login');
+      return;
+    }
     try {
+      const meResponse = await fetch('/api/akun/me', {
+        headers: { 'Authorization': `Bearer ${accesstoken}` }
+      });
+
+      if (meResponse.status === 401) {
+        const refreshResponse = await fetch('/api/akun/access-token', {
+          headers: { 'Authorization': `Bearer ${refreshtoken}` }
+        });
+        if (refreshResponse.ok) {
+          const newData = await refreshResponse.json();
+          localStorage.setItem('access_token', newData.access_token);
+          accesstoken = newData.access_token; // Gunakan token baru
+        } else {
+          throw new Error("Sesi berakhir. Silakan login kembali.");
+        }
+      }
+
       const res = await fetch('/api/album/ambil-semua');
       if (res.ok) {
         const data = await res.json();
@@ -41,7 +65,30 @@ export default function KelolaGaleri() {
   }, []);
 
   const fetchAlbumDetail = async (id: number) => {
+    let accesstoken = localStorage.getItem('access_token');
+    const refreshtoken = localStorage.getItem('refresh_token');
+
+    if (!accesstoken || !refreshtoken) {
+      router.push('/admin/login');
+      return;
+    }
     try {
+      const meResponse = await fetch('/api/akun/me', {
+        headers: { 'Authorization': `Bearer ${accesstoken}` }
+      });
+
+      if (meResponse.status === 401) {
+        const refreshResponse = await fetch('/api/akun/access-token', {
+          headers: { 'Authorization': `Bearer ${refreshtoken}` }
+        });
+        if (refreshResponse.ok) {
+          const newData = await refreshResponse.json();
+          localStorage.setItem('access_token', newData.access_token);
+          accesstoken = newData.access_token; // Gunakan token baru
+        } else {
+          throw new Error("Sesi berakhir. Silakan login kembali.");
+        }
+      }
       const res = await fetch(`/api/album/ambil/${id}`);
       if (res.ok) {
         const data = await res.json();
@@ -57,7 +104,31 @@ export default function KelolaGaleri() {
   // handlers
   const handleDeleteAlbum = async (id: number) => {
     if (!confirm('Yakin ingin menghapus album ini beserta semua fotonya?')) return;
+    let accesstoken = localStorage.getItem('access_token');
+    const refreshtoken = localStorage.getItem('refresh_token');
+
+    if (!accesstoken || !refreshtoken) {
+      router.push('/admin/login');
+      return;
+    }
     try {
+      const meResponse = await fetch('/api/akun/me', {
+        headers: { 'Authorization': `Bearer ${accesstoken}` }
+      });
+
+      if (meResponse.status === 401) {
+        const refreshResponse = await fetch('/api/akun/access-token', {
+          headers: { 'Authorization': `Bearer ${refreshtoken}` }
+        });
+        if (refreshResponse.ok) {
+          const newData = await refreshResponse.json();
+          localStorage.setItem('access_token', newData.access_token);
+          accesstoken = newData.access_token; // Gunakan token baru
+        } else {
+          throw new Error("Sesi berakhir. Silakan login kembali.");
+        }
+      }
+
       const res = await fetch(`/api/album/hapus/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${getAuthToken()}` }
@@ -77,7 +148,30 @@ export default function KelolaGaleri() {
     const url = isEdit ? `/api/album/edit/${albumForm.id}` : '/api/album/tambah';
     const method = isEdit ? 'PUT' : 'POST';
 
+    let accesstoken = localStorage.getItem('access_token');
+    const refreshtoken = localStorage.getItem('refresh_token');
+
+    if (!accesstoken || !refreshtoken) {
+      router.push('/admin/login');
+      return;
+    }
     try {
+      const meResponse = await fetch('/api/akun/me', {
+        headers: { 'Authorization': `Bearer ${accesstoken}` }
+      });
+
+      if (meResponse.status === 401) {
+        const refreshResponse = await fetch('/api/akun/access-token', {
+          headers: { 'Authorization': `Bearer ${refreshtoken}` }
+        });
+        if (refreshResponse.ok) {
+          const newData = await refreshResponse.json();
+          localStorage.setItem('access_token', newData.access_token);
+          accesstoken = newData.access_token; // Gunakan token baru
+        } else {
+          throw new Error("Sesi berakhir. Silakan login kembali.");
+        }
+      }
       const res = await fetch(url, {
         method,
         headers: {
@@ -100,7 +194,30 @@ export default function KelolaGaleri() {
 
   const handleDeleteFoto = async (id: number, albumId: number) => {
     if (!confirm('Yakin ingin menghapus foto ini?')) return;
+    let accesstoken = localStorage.getItem('access_token');
+    const refreshtoken = localStorage.getItem('refresh_token');
+
+    if (!accesstoken || !refreshtoken) {
+      router.push('/admin/login');
+      return;
+    }
     try {
+      const meResponse = await fetch('/api/akun/me', {
+        headers: { 'Authorization': `Bearer ${accesstoken}` }
+      });
+
+      if (meResponse.status === 401) {
+        const refreshResponse = await fetch('/api/akun/access-token', {
+          headers: { 'Authorization': `Bearer ${refreshtoken}` }
+        });
+        if (refreshResponse.ok) {
+          const newData = await refreshResponse.json();
+          localStorage.setItem('access_token', newData.access_token);
+          accesstoken = newData.access_token; // Gunakan token baru
+        } else {
+          throw new Error("Sesi berakhir. Silakan login kembali.");
+        }
+      }
       const res = await fetch(`/api/foto/hapus/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${getAuthToken()}` }
@@ -119,7 +236,30 @@ export default function KelolaGaleri() {
     setIsUploading(true);
     let finalFileId = fotoForm.fileID;
 
+    let accesstoken = localStorage.getItem('access_token');
+    const refreshtoken = localStorage.getItem('refresh_token');
+
+    if (!accesstoken || !refreshtoken) {
+      router.push('/admin/login');
+      return;
+    }
     try {
+      const meResponse = await fetch('/api/akun/me', {
+        headers: { 'Authorization': `Bearer ${accesstoken}` }
+      });
+
+      if (meResponse.status === 401) {
+        const refreshResponse = await fetch('/api/akun/access-token', {
+          headers: { 'Authorization': `Bearer ${refreshtoken}` }
+        });
+        if (refreshResponse.ok) {
+          const newData = await refreshResponse.json();
+          localStorage.setItem('access_token', newData.access_token);
+          accesstoken = newData.access_token; // Gunakan token baru
+        } else {
+          throw new Error("Sesi berakhir. Silakan login kembali.");
+        }
+      }
       if (!isEdit && selectedFile) {
         const formData = new FormData();
         formData.append('file', selectedFile);

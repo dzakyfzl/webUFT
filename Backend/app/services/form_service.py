@@ -1,7 +1,8 @@
 import csv
+from datetime import datetime
 import io
 
-from app.core.tokens import create_refresh_token
+from app.core.tokens import create_guest_token, create_refresh_token
 from app.repositories.form_repository import FormRepository
 from app.services.result import ServiceResult
 
@@ -10,13 +11,55 @@ class FormService:
     def __init__(self, repository: FormRepository):
         self.repository = repository
 
+    @staticmethod
+    def _parse_datetime(val) -> datetime | None:
+        if val is None:
+            return None
+        if isinstance(val, datetime):
+            return val
+        if isinstance(val, str):
+            try:
+                return datetime.fromisoformat(val.replace(" ", "T"))
+            except Exception:
+                return None
+        return None
+
     def submit(self, acara_id: int, data, guest_token: str):
-        token_count, number_count, name_count = self.repository.submission_counts(guest_token, data.nomor, data.nama.lower(), acara_id)
-        if guest_token != "Baru" and token_count > 0 and number_count > 0 and name_count > 0:
+        token_count, name_count = self.repository.submission_counts(guest_token, data.nama.lower(), acara_id)
+        if guest_token != "Baru" and token_count > 0 and name_count > 0:
             return ServiceResult({"message": "Unauthorized"}, 403)
-        if self.repository.acara_status(acara_id) != "aktif":
-            return ServiceResult({"message": "Acara tidak sedang berlangsung"}, 403)
-        token = create_refresh_token(data.nama, "Pengguna", [])
+
+        if hasattr(self.repository, "get_acara"):
+            acara = self.repository.get_acara(acara_id)
+            if not acara:
+                return ServiceResult({"message": "Acara tidak sedang berlangsung"}, 403)
+            status = getattr(acara, "status", None)
+            if not status or str(status).lower() != "aktif":
+                return ServiceResult({"message": "Acara tidak sedang berlangsung"}, 403)
+
+            waktu_mulai = self._parse_datetime(getattr(acara, "waktu", None))
+            waktu_selesai = self._parse_datetime(getattr(acara, "waktu_selesai", None))
+
+            if waktu_mulai:
+                now = datetime.now(waktu_mulai.tzinfo) if waktu_mulai.tzinfo else datetime.now()
+                if now < waktu_mulai:
+                    return ServiceResult({"message": "Acara tidak sedang berlangsung"}, 403)
+
+            if waktu_selesai:
+                now = datetime.now(waktu_selesai.tzinfo) if waktu_selesai.tzinfo else datetime.now()
+                if now > waktu_selesai:
+                    return ServiceResult({"message": "Acara tidak sedang berlangsung"}, 403)
+        else:
+            status = self.repository.acara_status(acara_id)
+            if not status or str(status).lower() != "aktif":
+                return ServiceResult({"message": "Acara tidak sedang berlangsung"}, 403)
+            waktu_selesai = None
+
+        if waktu_selesai:
+            token = create_guest_token(data.nama, "Pengguna", [], expire=waktu_selesai)
+        else:
+            token = create_refresh_token(data.nama, "Pengguna", [])
+
         try:
             self.repository.create_token(token)
         except Exception as exc:
@@ -28,6 +71,7 @@ class FormService:
         except Exception as exc:
             print(f"Database error: {exc}")
             return ServiceResult({"message": "Database error"}, 500)
+
 
     def list(self, acara_id: int, user: dict):
         if user.get("role") != "Admin" and "Kelola Acara" not in user.get("access", []):
@@ -53,9 +97,9 @@ class FormService:
             rows = self.repository.csv_rows(acara_id)
             acara_name = self.repository.acara_name(acara_id)
             output = io.StringIO()
-            writer = csv.DictWriter(output, fieldnames=["nama", "prodi_instansi", "nomor", "nim", "karya"])
+            writer = csv.DictWriter(output, fieldnames=["nama", "prodi_instansi", "nim", "karya"])
             writer.writeheader()
-            writer.writerows([{"nama": row.nama, "prodi_instansi": row.prodi_instansi, "nomor": row.nomor, "nim": row.nim, "karya": row.karya_nama} for row in rows])
+            writer.writerows([{"nama": row.nama, "prodi_instansi": row.prodi_instansi, "nim": row.nim, "karya": row.karya_nama} for row in rows])
             output.seek(0)
             safe_name = str(acara_name).replace(" ", "_") if acara_name else f"Acara_{acara_id}"
             return ServiceResult({"content": output.getvalue(), "filename": f"data_absensi_{safe_name}.csv"})

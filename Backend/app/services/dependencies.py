@@ -17,6 +17,8 @@ from app.services.form_service import FormService
 from app.services.foto_service import FotoService
 from app.services.karya_service import KaryaService
 from app.services.shortlink import ShortLinkService
+from app.repositories.migrate_repository import MigrateRepository
+from app.services.migrate_service import MigrateService
 
 
 def get_acara_service(db=Depends(get_db)):
@@ -50,3 +52,6 @@ def get_foto_service(db=Depends(get_db)):
 
 def get_link_service(db=Depends(get_db)):
     return ShortLinkService(ShortLinkRepository(db))
+
+def get_migrate_service(db=Depends(get_db)):
+    return MigrateService(MigrateRepository(db), FileRepository(db))

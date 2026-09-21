@@ -12,6 +12,13 @@ services:
       MODULE_STORAGE_DIR: /app/storage/modules
       PUBLIC_FILE_BASE_URL: /static/modules
       DATABASE_URL: postgresql+psycopg2://${DATABASE_USERNAME}:${DATABASE_PASSWORD}@${DATABASE_HOST}:${DATABASE_PORT}/${DATABASE_DATABASE}
+      SECRET_KEY: ${SECRET_KEY}
+      ACCESS_TOKEN_EXPIRE_MINUTE: ${ACCESS_TOKEN_EXPIRE_MINUTE}
+      REFRESH_TOKEN_EXPIRE_DAYS: ${REFRESH_TOKEN_EXPIRE_DAYS}
+      ADMIN_USERNAME: ${ADMIN_USERNAME}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      IMAGE_QUALITY: ${IMAGE_QUALITY}
+      SHORTLINK_DOMAIN: ${SHORTLINK_DOMAIN} 
     volumes:
       - backend_storage:/app/storage
       - ./media:/media
@@ -61,6 +68,8 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+    ports:
+      - "5432:5432"
     volumes:
       - ./postgresql_data:/var/lib/postgresql/data
     networks:

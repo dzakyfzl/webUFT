@@ -11,6 +11,9 @@ class FileRepository(BaseRepository):
     def get_path(self, file_id: int):
         return self.db.execute(select(File.direktori).where(File.fileID == file_id)).scalar_one_or_none()
 
+    def list_paths(self):
+        return self.db.execute(select(File.direktori)).scalars().all()
+
     def create(self, **values):
         entity = File(**values)
         self.db.add(entity)

@@ -25,6 +25,7 @@ security = HTTPBearer()
 
 def validate_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
     token = credentials.credentials
+    print("Validate Token")
     try:
         payload = decode_token(token)
         username = payload.get("sub")

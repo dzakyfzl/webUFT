@@ -14,6 +14,9 @@ export default function BuatAcaraBaru() {
   const [tanggal, setTanggal] = useState('');
   const [jam, setJam] = useState('08');
   const [menit, setMenit] = useState('00');
+  const [tanggalSelesai, setTanggalSelesai] = useState('');
+  const [jamSelesai, setJamSelesai] = useState('16');
+  const [menitSelesai, setMenitSelesai] = useState('00');
   const [status, setStatus] = useState('Draft');
   
   // State khusus untuk File Poster
@@ -147,6 +150,7 @@ export default function BuatAcaraBaru() {
 
       // TAHAP 2: Simpan Data Acara
       const waktuFormatGabungan = `${tanggal} ${jam}:${menit}:00`;
+      const waktuSelesaiFormatGabungan = `${tanggalSelesai} ${jamSelesai}:${menitSelesai}:00`;
       
       // Karena token mungkin baru diperbarui di Tahap 1, kita ambil ulang
       const currentAccessToken = localStorage.getItem('access_token');
@@ -162,6 +166,7 @@ export default function BuatAcaraBaru() {
           deskripsi: deskripsi,
           tempat: tempat,
           waktu: waktuFormatGabungan,
+          waktu_selesai:waktuSelesaiFormatGabungan,
           fileID: finalFileId, 
           status: status
         })
@@ -270,6 +275,29 @@ export default function BuatAcaraBaru() {
                     </select>
                     <span className="flex items-center text-xl font-bold">:</span>
                     <select value={menit} onChange={(e) => setMenit(e.target.value)} className="flex-1 px-4 py-3 rounded-xl border border-white/10 focus:ring-2 focus:ring-red-500 bg-[#0f0f11] text-white outline-none appearance-none">
+                      {menitOptions.map(m => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-5 border border-white/5 rounded-2xl bg-white/[0.02]">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-400 mb-2">Tanggal Selesai</label>
+                  <input 
+                    type="date" required value={tanggalSelesai} onChange={(e) => setTanggalSelesai(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl border border-white/10 focus:ring-2 focus:ring-red-500 bg-[#0f0f11] text-white outline-none transition-all color-scheme-dark"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-400 mb-2">Waktu Selesai (Jam & Menit)</label>
+                  <div className="flex gap-3">
+                    <select value={jamSelesai} onChange={(e) => setJamSelesai(e.target.value)} className="flex-1 px-4 py-3 rounded-xl border border-white/10 focus:ring-2 focus:ring-red-500 bg-[#0f0f11] text-white outline-none appearance-none">
+                      {jamOptions.map(j => <option key={j} value={j}>{j}</option>)}
+                    </select>
+                    <span className="flex items-center text-xl font-bold">:</span>
+                    <select value={menitSelesai} onChange={(e) => setMenitSelesai(e.target.value)} className="flex-1 px-4 py-3 rounded-xl border border-white/10 focus:ring-2 focus:ring-red-500 bg-[#0f0f11] text-white outline-none appearance-none">
                       {menitOptions.map(m => <option key={m} value={m}>{m}</option>)}
                     </select>
                   </div>

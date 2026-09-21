@@ -32,7 +32,7 @@ class AcaraService:
         denied = self._authorize(user)
         if denied:
             return denied
-        entity = self.repository.create(nama=data.nama, deskripsi=data.deskripsi, tempat=data.tempat, waktu=data.waktu, fileID=data.fileID, status=data.status)
+        entity = self.repository.create(nama=data.nama, deskripsi=data.deskripsi, tempat=data.tempat, waktu=data.waktu, waktu_selesai=data.waktu_selesai, fileID=data.fileID, status=data.status)
         return ServiceResult(entity)
 
     def update(self, acara_id: int, data: AcaraCreate, user: dict):
@@ -42,7 +42,7 @@ class AcaraService:
         try:
             if self.repository.get(acara_id) is None:
                 return ServiceResult({"message": "Acara not found"}, 404)
-            self.repository.update(acara_id, nama=data.nama, deskripsi=data.deskripsi, tempat=data.tempat, waktu=data.waktu, fileID=data.fileID, status=data.status)
+            self.repository.update(acara_id, nama=data.nama, deskripsi=data.deskripsi, tempat=data.tempat, waktu=data.waktu, waktu_selesai=data.waktu_selesai, fileID=data.fileID, status=data.status)
             return ServiceResult({"message": "Acara updated successfully"})
         except Exception as exc:
             print(f"Database error: {exc}")
@@ -60,9 +60,6 @@ class AcaraService:
             karya_paths = self.repository.karya_paths(acara_id)
             karya_file_ids = self.repository.karya_file_ids(acara_id)
             self.repository.delete_pilihan(acara_id)
-            # Preserve the existing failure point caused by the removed legacy
-            # Jawaban/Pertanyaan models.
-            raise NameError("name 'Jawaban' is not defined")
             self.repository.delete_respondens(acara_id)
             self.repository.delete_karyas(acara_id)
             self.repository.delete_acara(acara_id)

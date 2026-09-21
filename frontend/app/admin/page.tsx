@@ -10,6 +10,7 @@ import KelolaMigrasi from '../components/subdashboard/KelolaMigrasi';
 import KelolaGaleri from '../components/subdashboard/KelolaGaleri';
 import KelolaSertifikat from '../components/subdashboard/KelolaSertifikat';
 import KelolaLink from '../components/subdashboard/KelolaLink';
+import MyUFT from '../components/widget/LogoMyUFT'
 
 interface CustomJwtPayload extends JwtPayload {
   access?: string[];
@@ -96,11 +97,8 @@ export default function AdminDashboardLayout() {
 
       {/* --- MOBILE NAVBAR --- */}
       <nav className="w-full md:hidden bg-[#18181b] border-b border-white/5 flex items-center px-6 h-[73px] flex-shrink-0 z-20">
-        <button onClick={() => setIsSidebarOpen(true)} className="flex items-center gap-3">
-          <img src="/logo-uft.png" alt="Logo UFT" className="w-8 h-8" />
-          <span className="font-bold text-white tracking-wide text-lg">
-            UFT<span className="text-red-500 font-normal">Admin</span>
-          </span>
+        <button onClick={() => setIsSidebarOpen(true)} className="">
+          <MyUFT/>
         </button>
       </nav>
 
@@ -116,12 +114,7 @@ export default function AdminDashboardLayout() {
       <aside className={`fixed md:sticky top-0 left-0 h-screen w-64 bg-[#18181b] border-r border-white/5 flex flex-col z-40 transform transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
         {/* Logo Brand */}
         <div className="p-6 flex items-center justify-between border-b border-white/5 h-[73px]">
-          <div className="flex items-center gap-3">
-            <img src="/logo-uft.png" alt="Logo UFT" className="w-8 h-8" />
-            <span className="font-bold text-white tracking-wide text-lg">
-              UFT<span className="text-red-500 font-normal">Admin</span>
-            </span>
-          </div>
+          <MyUFT/>
           {/* Close button on mobile */}
           <button className="md:hidden text-white/50 hover:text-white" onClick={() => setIsSidebarOpen(false)}>
             ✕

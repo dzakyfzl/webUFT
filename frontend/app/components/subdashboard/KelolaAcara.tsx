@@ -25,6 +25,7 @@ interface ScheduledAcara {
   acaraID: number;
   nama: string;
   waktu: string;
+  waktu_selesai?: string;
   tempat?: string;
   status: string;
 }
@@ -637,11 +638,25 @@ export default function KelolaAcara() {
                         )}
                       </td>
                       <td className="p-6 text-sm text-slate-400 hidden md:table-cell whitespace-nowrap">
-                        <span className="line-clamp-1">{acara.waktu.substring(11, 16)}</span>
-                        <span className="line-clamp-1">{acara.waktu.substring(8, 10)}-{acara.waktu.substring(5, 7)}-{acara.waktu.substring(0, 4)}</span>
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] font-bold text-slate-500 uppercase">Mulai:</span>
+                            <span className="text-slate-200 font-medium">{acara.waktu ? acara.waktu.substring(11, 16) : '-'}</span>
+                            {acara.waktu && (
+                              <span className="text-xs text-slate-500">({acara.waktu.substring(8, 10)}-{acara.waktu.substring(5, 7)}-{acara.waktu.substring(0, 4)})</span>
+                            )}
+                          </div>
+                          {acara.waktu_selesai && (
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] font-bold text-slate-500 uppercase">Selesai:</span>
+                              <span className="text-slate-200 font-medium">{acara.waktu_selesai.substring(11, 16)}</span>
+                              <span className="text-xs text-slate-500">({acara.waktu_selesai.substring(8, 10)}-{acara.waktu_selesai.substring(5, 7)}-{acara.waktu_selesai.substring(0, 4)})</span>
+                            </div>
+                          )}
+                        </div>
                         {/* Countdown untuk desktop */}
                         {isUpcoming && msLeft !== null && (
-                          <div className="flex items-center gap-1 mt-1">
+                          <div className="flex items-center gap-1 mt-1.5">
                             <span className="w-1 h-1 rounded-full bg-amber-500 animate-pulse inline-block" />
                             <span className="text-[10px] text-amber-500/80 font-medium">{formatCountdown(msLeft)}</span>
                           </div>

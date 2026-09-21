@@ -6,7 +6,7 @@ from app.repositories.base import BaseRepository
 
 class AcaraRepository(BaseRepository):
     def get_public(self, acara_id: int):
-        stmt = select(Acara).where(Acara.acaraID == acara_id and Acara.status == "Aktif")
+        stmt = select(Acara).where(Acara.acaraID == acara_id, Acara.status == "Aktif")
         return self.db.execute(stmt).scalar_one_or_none()
 
     def get(self, acara_id: int):
