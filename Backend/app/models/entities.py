@@ -36,6 +36,7 @@ class File(Base):
     acaras = relationship("Acara", back_populates="file")
     karyas = relationship("Karya", back_populates="file")
     fotos = relationship("Foto", back_populates="file")
+    partners = relationship("Partner", back_populates="file")
 
 
 class Responden(Base):
@@ -131,3 +132,16 @@ class LastMigrate(Base):
     imported_at = Column(DateTime, nullable=True)
     exporter_username = Column(String(255), nullable=False)
     importer_username = Column(String(255), nullable=True)
+
+
+class Partner(Base):
+    __tablename__ = "partner"
+    partnerID = Column(Integer, primary_key=True, index=True)
+    fileID = Column(Integer, ForeignKey("file.fileID"), nullable=True)
+    label = Column(String(255), nullable=False)
+    judul = Column(String(255), nullable=False)
+    deskripsi = Column(Text, nullable=True)
+    kategori = Column(String(50), nullable=False, default="sponsor")  # "sponsor" | "media_partner"
+    urutan = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True)
+    file = relationship("File", back_populates="partners")
