@@ -18,7 +18,15 @@ export default function BuatAcaraBaru() {
   const [jamSelesai, setJamSelesai] = useState('16');
   const [menitSelesai, setMenitSelesai] = useState('00');
   const [status, setStatus] = useState('Draft');
-  
+
+  // State untuk Geofence
+  const [geoAktif, setGeoAktif] = useState(false);
+  const [geoLat, setGeoLat] = useState('');
+  const [geoLon, setGeoLon] = useState('');
+  const [geoRadius, setGeoRadius] = useState('100');
+  const [geoToleransi, setGeoToleransi] = useState('20');
+  const [isGettingGps, setIsGettingGps] = useState(false);
+
   // State khusus untuk File Poster
   const [posterFile, setPosterFile] = useState<File | null>(null)
   const [posterPreview, setPosterPreview] = useState('');
@@ -26,7 +34,7 @@ export default function BuatAcaraBaru() {
   // State untuk UI
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [isCheckingAuth, setIsCheckingAuth] = useState(true); // Tambahan state untuk loading awal
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
   const jamOptions = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'));
   const menitOptions = Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, '0'));
@@ -90,6 +98,47 @@ export default function BuatAcaraBaru() {
       setPosterPreview(URL.createObjectURL(file));
       setError('');
     }
+  };
+
+  // Fungsi ambil GPS admin untuk set titik pusat geofence
+  const handleGpsClick = () => {
+    if (!navigator.geolocation) {
+      setError('Browser tidak mendukung Geolocation.');
+      return;
+    }
+    setIsGettingGps(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setGeoLat(pos.coords.latitude.toFixed(7));
+        setGeoLon(pos.coords.longitude.toFixed(7));
+        setIsGettingGps(false);
+      },
+      () => {
+        setError('Gagal mendapatkan lokasi. Pastikan GPS aktif dan izin diberikan.');
+        setIsGettingGps(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
+  const handleGpsClick = () => {
+    if (!navigator.geolocation) {
+      setError('Browser Anda tidak mendukung geolocation.');
+      return;
+    }
+    setIsGettingGps(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setGeoLat(pos.coords.latitude.toFixed(7));
+        setGeoLon(pos.coords.longitude.toFixed(7));
+        setIsGettingGps(false);
+      },
+      () => {
+        setError('Gagal mendapatkan lokasi. Pastikan izin lokasi diaktifkan di browser.');
+        setIsGettingGps(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -166,9 +215,16 @@ export default function BuatAcaraBaru() {
           deskripsi: deskripsi,
           tempat: tempat,
           waktu: waktuFormatGabungan,
-          waktu_selesai:waktuSelesaiFormatGabungan,
-          fileID: finalFileId, 
-          status: status
+          waktu_selesai: waktuSelesaiFormatGabungan,
+          fileID: finalFileId,
+          status: status,
+          // Geofence — hanya kirim jika diaktifkan dan lat/lon terisi
+          ...(geoAktif && geoLat && geoLon ? {
+            geo_latitude: parseFloat(geoLat),
+            geo_longitude: parseFloat(geoLon),
+            geo_radius: parseInt(geoRadius) || 100,
+            geo_toleransi: parseInt(geoToleransi) || 20,
+          } : {}),
         })
       });
 
@@ -352,6 +408,100 @@ export default function BuatAcaraBaru() {
                 />
               </div>
             </div>
+          </div>
+
+          {/* Seksi Geofence */}
+          <div className="mt-8 border border-white/5 rounded-2xl overflow-hidden">
+            <div className="px-6 py-4 bg-white/[0.02] flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-white">📍 Pembatasan Lokasi Voting</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Aktifkan agar vote hanya bisa dilakukan di area tertentu</p>
+              </div>
+              <button
+                type="button"
+                id="btn-toggle-geofence"
+                onClick={() => setGeoAktif(v => !v)}
+                className={`relative w-11 h-6 rounded-full transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#18181b] ${
+                  geoAktif ? 'bg-red-600 focus:ring-red-500' : 'bg-white/10 focus:ring-white/20'
+                }`}
+              >
+                <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-300 ${
+                  geoAktif ? 'translate-x-5' : 'translate-x-0'
+                }`} />
+              </button>
+            </div>
+
+            {geoAktif && (
+              <div className="p-6 space-y-5 border-t border-white/5">
+                {/* Koordinat */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Latitude</label>
+                    <input
+                      type="number" step="any"
+                      value={geoLat} onChange={e => setGeoLat(e.target.value)}
+                      placeholder="contoh: -6.9175"
+                      className="w-full px-4 py-3 rounded-xl border border-white/10 focus:ring-2 focus:ring-red-500 bg-[#0f0f11] text-white outline-none transition-all text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Longitude</label>
+                    <input
+                      type="number" step="any"
+                      value={geoLon} onChange={e => setGeoLon(e.target.value)}
+                      placeholder="contoh: 107.6191"
+                      className="w-full px-4 py-3 rounded-xl border border-white/10 focus:ring-2 focus:ring-red-500 bg-[#0f0f11] text-white outline-none transition-all text-sm"
+                    />
+                  </div>
+                </div>
+
+                {/* Tombol GPS */}
+                <button
+                  type="button"
+                  id="btn-gunakan-lokasi-saya"
+                  onClick={handleGpsClick}
+                  disabled={isGettingGps}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-sm font-semibold text-slate-300 transition-all disabled:opacity-50"
+                >
+                  {isGettingGps ? '⏳ Mendapatkan lokasi...' : '📍 Gunakan Lokasi Saya Sekarang'}
+                </button>
+
+                {/* Radius & Toleransi */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Radius (meter)</label>
+                    <select
+                      value={geoRadius} onChange={e => setGeoRadius(e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl border border-white/10 focus:ring-2 focus:ring-red-500 bg-[#0f0f11] text-white outline-none appearance-none text-sm"
+                    >
+                      <option value="50">50 meter</option>
+                      <option value="100">100 meter</option>
+                      <option value="200">200 meter</option>
+                      <option value="500">500 meter</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Toleransi GPS (meter)</label>
+                    <select
+                      value={geoToleransi} onChange={e => setGeoToleransi(e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl border border-white/10 focus:ring-2 focus:ring-red-500 bg-[#0f0f11] text-white outline-none appearance-none text-sm"
+                    >
+                      <option value="10">10 meter</option>
+                      <option value="20">20 meter (default)</option>
+                      <option value="50">50 meter</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Preview */}
+                {geoLat && geoLon && (
+                  <div className="flex items-start gap-2 p-4 bg-red-500/5 border border-red-500/15 rounded-xl text-xs text-red-300">
+                    <span className="text-base">🗺️</span>
+                    <span>Vote hanya bisa dilakukan dalam radius <strong>{geoRadius}m</strong> (+{geoToleransi}m toleransi) dari titik [{parseFloat(geoLat).toFixed(5)}, {parseFloat(geoLon).toFixed(5)}]</span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Tombol Aksi */}

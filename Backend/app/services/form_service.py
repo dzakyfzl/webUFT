@@ -1,10 +1,26 @@
 import csv
 from datetime import datetime
 import io
+import math
 
 from app.core.tokens import create_guest_token, create_refresh_token
 from app.repositories.form_repository import FormRepository
 from app.services.result import ServiceResult
+
+# Threshold accuracy maksimum (meter). Di atas ini dianggap sinyal buruk / potensi fake GPS.
+_MAX_GPS_ACCURACY = 200.0
+# Toleransi default jika admin tidak mengatur (meter)
+_DEFAULT_TOLERANSI = 20
+
+
+def _haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Hitung jarak dua titik koordinat dalam meter (Haversine formula)."""
+    R = 6_371_000  # radius bumi dalam meter
+    phi1, phi2 = math.radians(lat1), math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlam = math.radians(lon2 - lon1)
+    a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlam / 2) ** 2
+    return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 
 class FormService:
@@ -54,6 +70,45 @@ class FormService:
             if not status or str(status).lower() != "aktif":
                 return ServiceResult({"message": "Acara tidak sedang berlangsung"}, 403)
             waktu_selesai = None
+            acara = None  # fallback: tidak ada objek acara lengkap
+
+        # ── Validasi Geofence (STRICT) ─────────────────────────────────────────
+        # Ambil konfigurasi geo dari objek acara (jika tersedia)
+        geo_lat  = getattr(acara, "geo_latitude",  None) if acara else None
+        geo_lon  = getattr(acara, "geo_longitude", None) if acara else None
+        geo_r    = getattr(acara, "geo_radius",    None) if acara else None
+        geo_tol  = getattr(acara, "geo_toleransi", None) if acara else None
+
+        if geo_lat is not None and geo_lon is not None and geo_r is not None:
+            # Geofence aktif — GPS dari user wajib ada
+            if data.latitude is None or data.longitude is None:
+                return ServiceResult(
+                    {"message": "Vote hanya bisa dilakukan di lokasi acara. Aktifkan GPS di browser Anda."},
+                    403,
+                )
+
+            # Cek akurasi GPS (tolak jika > threshold → sinyal buruk / potensi fake GPS)
+            if data.accuracy is None or data.accuracy > _MAX_GPS_ACCURACY:
+                return ServiceResult(
+                    {"message": "Sinyal GPS tidak akurat. Pastikan GPS aktif dan coba di area terbuka."},
+                    403,
+                )
+
+            # Hitung jarak user ke titik pusat acara
+            jarak = _haversine_distance(data.latitude, data.longitude, geo_lat, geo_lon)
+            batas_maks = geo_r + (geo_tol if geo_tol is not None else _DEFAULT_TOLERANSI)
+
+            if jarak > batas_maks:
+                return ServiceResult(
+                    {
+                        "message": (
+                            f"Anda berada {round(jarak)} meter dari lokasi acara. "
+                            f"Batas maksimum: {batas_maks} meter."
+                        )
+                    },
+                    403,
+                )
+        # ── End Validasi Geofence ──────────────────────────────────────────────
 
         if waktu_selesai:
             token = create_guest_token(data.nama, "Pengguna", [], expire=waktu_selesai)

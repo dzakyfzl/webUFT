@@ -27,6 +27,14 @@ export default function EditAcara({ params }: { params: Promise<{ id: string }> 
   const [status, setStatus] = useState('Draft');
   const [currentFileId, setCurrentFileId] = useState<number | null>(null);
 
+  // --- STATES GEOFENCE ---
+  const [geoAktif, setGeoAktif] = useState(false);
+  const [geoLat, setGeoLat] = useState('');
+  const [geoLon, setGeoLon] = useState('');
+  const [geoRadius, setGeoRadius] = useState('100');
+  const [geoToleransi, setGeoToleransi] = useState('20');
+  const [isGettingGps, setIsGettingGps] = useState(false);
+
   // --- STATES FILE POSTER ---
   const [posterFile, setPosterFile] = useState<File | null>(null);
   const [posterPreview, setPosterPreview] = useState<string>('');
@@ -77,6 +85,15 @@ export default function EditAcara({ params }: { params: Promise<{ id: string }> 
         setStatus(data.status);
         setCurrentFileId(data.fileID);
 
+        // Populasi data geofence jika ada
+        if (data.geo_latitude != null && data.geo_longitude != null && data.geo_radius != null) {
+          setGeoAktif(true);
+          setGeoLat(String(data.geo_latitude));
+          setGeoLon(String(data.geo_longitude));
+          setGeoRadius(String(data.geo_radius));
+          if (data.geo_toleransi != null) setGeoToleransi(String(data.geo_toleransi));
+        }
+
         // Memecah format "YYYY-MM-DD HH:MM:SS" menjadi Tanggal, Jam, dan Menit
         if (data.waktu) {
           const cleanedWaktu = data.waktu.replace('T', ' ');
@@ -121,6 +138,27 @@ export default function EditAcara({ params }: { params: Promise<{ id: string }> 
       setPosterFile(file);
       setPosterPreview(URL.createObjectURL(file)); // Membuat URL lokal untuk preview file baru
     }
+  };
+
+  // Fungsi ambil GPS admin untuk set titik pusat geofence
+  const handleGpsClick = () => {
+    if (!navigator.geolocation) {
+      setError('Browser tidak mendukung Geolocation.');
+      return;
+    }
+    setIsGettingGps(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setGeoLat(pos.coords.latitude.toFixed(7));
+        setGeoLon(pos.coords.longitude.toFixed(7));
+        setIsGettingGps(false);
+      },
+      () => {
+        setError('Gagal mendapatkan lokasi. Pastikan GPS aktif dan izin diberikan.');
+        setIsGettingGps(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
   };
 
   // HANDLE SUBMIT PERUBAHAN
@@ -185,8 +223,13 @@ export default function EditAcara({ params }: { params: Promise<{ id: string }> 
           tempat: tempat,
           waktu: waktuFormatGabungan,
           waktu_selesai: waktuSelesaiFormatGabungan,
-          fileID: finalFileId, // Menggunakan File ID yang baru (atau yang lama jika tak diubah)
-          status: status
+          fileID: finalFileId,
+          status: status,
+          // Geofence — null kalau dinonaktifkan (untuk reset ke backward-compatible mode)
+          geo_latitude:  geoAktif && geoLat  ? parseFloat(geoLat)          : null,
+          geo_longitude: geoAktif && geoLon  ? parseFloat(geoLon)          : null,
+          geo_radius:    geoAktif && geoRadius ? (parseInt(geoRadius) || 100) : null,
+          geo_toleransi: geoAktif && geoToleransi ? (parseInt(geoToleransi) || 20) : null,
         })
       });
       const refreshtoken = localStorage.getItem('refresh_token');
@@ -313,7 +356,7 @@ export default function EditAcara({ params }: { params: Promise<{ id: string }> 
 
               <div>
                 <label className="block text-sm font-bold text-slate-400 mb-2">Status Publikasi Acara</label>
-                <select 
+                <select
                   value={status}
                   onChange={(e) => setStatus(e.target.value)}
                   className="w-full bg-[#0f0f11] border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:ring-2 focus:ring-red-600 transition-all appearance-none cursor-pointer"
@@ -327,8 +370,8 @@ export default function EditAcara({ params }: { params: Promise<{ id: string }> 
 
               <div>
                 <label className="block text-sm font-bold text-slate-400 mb-2">Deskripsi Acara</label>
-                <textarea 
-                  rows={4} 
+                <textarea
+                  rows={4}
                   value={deskripsi}
                   onChange={(e) => setDeskripsi(e.target.value)}
                   className="w-full bg-[#0f0f11] border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:ring-2 focus:ring-red-600 transition-all resize-none"
@@ -373,6 +416,190 @@ export default function EditAcara({ params }: { params: Promise<{ id: string }> 
                 />
               </div>
             </div>
+          </div>
+
+          {/* Seksi Geofence */}
+          <div className="mt-8 border border-white/5 rounded-2xl overflow-hidden">
+            <div className="px-6 py-4 bg-white/[0.02] flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-white">📍 Pembatasan Lokasi Voting</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Aktifkan agar vote hanya bisa dilakukan di area tertentu</p>
+              </div>
+              <button
+                type="button"
+                id="btn-toggle-geofence"
+                onClick={() => setGeoAktif(v => !v)}
+                className={`relative w-11 h-6 rounded-full transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#18181b] ${
+                  geoAktif ? 'bg-red-600 focus:ring-red-500' : 'bg-white/10 focus:ring-white/20'
+                }`}
+              >
+                <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-300 ${
+                  geoAktif ? 'translate-x-5' : 'translate-x-0'
+                }`} />
+              </button>
+            </div>
+
+            {geoAktif && (
+              <div className="p-6 space-y-5 border-t border-white/5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Latitude</label>
+                    <input
+                      type="number" step="any"
+                      value={geoLat} onChange={e => setGeoLat(e.target.value)}
+                      placeholder="contoh: -6.9175"
+                      className="w-full px-4 py-3 rounded-xl border border-white/10 focus:ring-2 focus:ring-red-500 bg-[#0f0f11] text-white outline-none transition-all text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Longitude</label>
+                    <input
+                      type="number" step="any"
+                      value={geoLon} onChange={e => setGeoLon(e.target.value)}
+                      placeholder="contoh: 107.6191"
+                      className="w-full px-4 py-3 rounded-xl border border-white/10 focus:ring-2 focus:ring-red-500 bg-[#0f0f11] text-white outline-none transition-all text-sm"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  id="btn-gunakan-lokasi-saya-edit"
+                  onClick={handleGpsClick}
+                  disabled={isGettingGps}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-sm font-semibold text-slate-300 transition-all disabled:opacity-50"
+                >
+                  {isGettingGps ? '⏳ Mendapatkan lokasi...' : '📍 Gunakan Lokasi Saya Sekarang'}
+                </button>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Radius (meter)</label>
+                    <select
+                      value={geoRadius} onChange={e => setGeoRadius(e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl border border-white/10 focus:ring-2 focus:ring-red-500 bg-[#0f0f11] text-white outline-none appearance-none text-sm"
+                    >
+                      <option value="50">50 meter</option>
+                      <option value="100">100 meter</option>
+                      <option value="200">200 meter</option>
+                      <option value="500">500 meter</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Toleransi GPS (meter)</label>
+                    <select
+                      value={geoToleransi} onChange={e => setGeoToleransi(e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl border border-white/10 focus:ring-2 focus:ring-red-500 bg-[#0f0f11] text-white outline-none appearance-none text-sm"
+                    >
+                      <option value="10">10 meter</option>
+                      <option value="20">20 meter (default)</option>
+                      <option value="50">50 meter</option>
+                    </select>
+                  </div>
+                </div>
+
+                {geoLat && geoLon && (
+                  <div className="flex items-start gap-2 p-4 bg-red-500/5 border border-red-500/15 rounded-xl text-xs text-red-300">
+                    <span className="text-base">🗺️</span>
+                    <span>Vote hanya bisa dilakukan dalam radius <strong>{geoRadius}m</strong> (+{geoToleransi}m toleransi) dari titik [{parseFloat(geoLat).toFixed(5)}, {parseFloat(geoLon).toFixed(5)}]</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Seksi Geofence */}
+          <div className="mt-8 border border-white/5 rounded-2xl overflow-hidden">
+            <div className="px-6 py-4 bg-white/[0.02] flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-white">📍 Pembatasan Lokasi Voting</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Aktifkan agar vote hanya bisa dilakukan di area tertentu</p>
+              </div>
+              <button
+                type="button"
+                id="btn-toggle-geofence-edit"
+                onClick={() => setGeoAktif(v => !v)}
+                className={`relative w-11 h-6 rounded-full transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#18181b] ${
+                  geoAktif ? 'bg-red-600 focus:ring-red-500' : 'bg-white/10 focus:ring-white/20'
+                }`}
+              >
+                <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-300 ${
+                  geoAktif ? 'translate-x-5' : 'translate-x-0'
+                }`} />
+              </button>
+            </div>
+
+            {geoAktif && (
+              <div className="p-6 space-y-5 border-t border-white/5">
+                {/* Koordinat */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Latitude</label>
+                    <input
+                      type="number" step="any"
+                      value={geoLat} onChange={e => setGeoLat(e.target.value)}
+                      placeholder="contoh: -6.9175"
+                      className="w-full px-4 py-3 rounded-xl border border-white/10 focus:ring-2 focus:ring-red-500 bg-[#0f0f11] text-white outline-none transition-all text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Longitude</label>
+                    <input
+                      type="number" step="any"
+                      value={geoLon} onChange={e => setGeoLon(e.target.value)}
+                      placeholder="contoh: 107.6191"
+                      className="w-full px-4 py-3 rounded-xl border border-white/10 focus:ring-2 focus:ring-red-500 bg-[#0f0f11] text-white outline-none transition-all text-sm"
+                    />
+                  </div>
+                </div>
+
+                {/* Tombol GPS */}
+                <button
+                  type="button"
+                  id="btn-gunakan-lokasi-saya-edit"
+                  onClick={handleGpsClick}
+                  disabled={isGettingGps}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-sm font-semibold text-slate-300 transition-all disabled:opacity-50"
+                >
+                  {isGettingGps ? '⏳ Mendapatkan lokasi...' : '📍 Gunakan Lokasi Saya Sekarang'}
+                </button>
+
+                {/* Radius & Toleransi */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Radius (meter)</label>
+                    <select
+                      value={geoRadius} onChange={e => setGeoRadius(e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl border border-white/10 focus:ring-2 focus:ring-red-500 bg-[#0f0f11] text-white outline-none appearance-none text-sm"
+                    >
+                      <option value="50">50 meter</option>
+                      <option value="100">100 meter</option>
+                      <option value="200">200 meter</option>
+                      <option value="500">500 meter</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Toleransi GPS (meter)</label>
+                    <select
+                      value={geoToleransi} onChange={e => setGeoToleransi(e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl border border-white/10 focus:ring-2 focus:ring-red-500 bg-[#0f0f11] text-white outline-none appearance-none text-sm"
+                    >
+                      <option value="10">10 meter</option>
+                      <option value="20">20 meter (default)</option>
+                      <option value="50">50 meter</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Preview */}
+                {geoLat && geoLon && (
+                  <div className="flex items-start gap-2 p-4 bg-red-500/5 border border-red-500/15 rounded-xl text-xs text-red-300">
+                    <span className="text-base">🗺️</span>
+                    <span>Vote hanya bisa dilakukan dalam radius <strong>{geoRadius}m</strong> (+{geoToleransi}m toleransi) dari titik [{parseFloat(geoLat).toFixed(5)}, {parseFloat(geoLon).toFixed(5)}]</span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="flex gap-4 pt-4 border-t border-white/5">

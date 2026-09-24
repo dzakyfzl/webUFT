@@ -385,6 +385,19 @@ export default function KelolaAcara({ params }: { params: Promise<{ id: string }
                 </span>
               )}
             </div>
+
+            {/* Badge Status Geofence */}
+            <div className="mt-3">
+              {currentEvent.geo_latitude != null && currentEvent.geo_longitude != null && currentEvent.geo_radius != null ? (
+                <span className="inline-flex items-center gap-1.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 px-3 py-1 rounded-full text-xs font-bold">
+                  📍 Geofence aktif — radius {currentEvent.geo_radius}m (+{currentEvent.geo_toleransi ?? 20}m toleransi)
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 bg-slate-500/10 text-slate-400 border border-slate-500/20 px-3 py-1 rounded-full text-xs font-bold">
+                  🌐 Vote bisa dari mana saja
+                </span>
+              )}
+            </div>
           </div>
 
           <div className="flex gap-3 flex-shrink-0">

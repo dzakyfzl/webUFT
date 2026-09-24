@@ -32,7 +32,13 @@ class AcaraService:
         denied = self._authorize(user)
         if denied:
             return denied
-        entity = self.repository.create(nama=data.nama, deskripsi=data.deskripsi, tempat=data.tempat, waktu=data.waktu, waktu_selesai=data.waktu_selesai, fileID=data.fileID, status=data.status)
+        entity = self.repository.create(
+            nama=data.nama, deskripsi=data.deskripsi, tempat=data.tempat,
+            waktu=data.waktu, waktu_selesai=data.waktu_selesai, fileID=data.fileID,
+            status=data.status,
+            geo_latitude=data.geo_latitude, geo_longitude=data.geo_longitude,
+            geo_radius=data.geo_radius, geo_toleransi=data.geo_toleransi,
+        )
         return ServiceResult(entity)
 
     def update(self, acara_id: int, data: AcaraCreate, user: dict):
@@ -42,7 +48,14 @@ class AcaraService:
         try:
             if self.repository.get(acara_id) is None:
                 return ServiceResult({"message": "Acara not found"}, 404)
-            self.repository.update(acara_id, nama=data.nama, deskripsi=data.deskripsi, tempat=data.tempat, waktu=data.waktu, waktu_selesai=data.waktu_selesai, fileID=data.fileID, status=data.status)
+            self.repository.update(
+                acara_id,
+                nama=data.nama, deskripsi=data.deskripsi, tempat=data.tempat,
+                waktu=data.waktu, waktu_selesai=data.waktu_selesai, fileID=data.fileID,
+                status=data.status,
+                geo_latitude=data.geo_latitude, geo_longitude=data.geo_longitude,
+                geo_radius=data.geo_radius, geo_toleransi=data.geo_toleransi,
+            )
             return ServiceResult({"message": "Acara updated successfully"})
         except Exception as exc:
             print(f"Database error: {exc}")

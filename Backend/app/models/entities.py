@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
@@ -21,6 +21,10 @@ class Acara(Base):
     waktu = Column(DateTime)
     waktu_selesai = Column(DateTime)
     status = Column(String(50))
+    geo_latitude  = Column(Float, nullable=True)   # Titik pusat latitude
+    geo_longitude = Column(Float, nullable=True)   # Titik pusat longitude
+    geo_radius    = Column(Integer, nullable=True)  # Radius dalam meter
+    geo_toleransi = Column(Integer, nullable=True)  # Toleransi tambahan dalam meter (default: 20m)
     file = relationship("File", back_populates="acaras")
     respondens = relationship("Responden", back_populates="acara")
     karyas = relationship("Karya", back_populates="acara")

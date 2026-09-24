@@ -130,12 +130,42 @@ export default function AcaraDetailPage() {
 
     setIsSubmitting(true);
     setMessage("");
+
     try {
       if (typeof event.id !== "number") {
         setMessage("Mode mockup: pilihan kamu berhasil dicatat untuk pengujian form.");
         setForm({ nama: "", nim: "", universitas: "" });
         return;
       }
+
+      // ── LANGKAH 1: Ambil GPS dari browser (STRICT) ──────────────────────────
+      let gpsPayload: { latitude?: number; longitude?: number; accuracy?: number } = {};
+
+      if (typeof navigator !== "undefined" && navigator.geolocation) {
+        try {
+          const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, {
+              enableHighAccuracy: true,
+              timeout: 10000,
+              maximumAge: 0,
+            });
+          });
+          gpsPayload = {
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            accuracy: position.coords.accuracy,
+          };
+        } catch (geoErr) {
+          const err = geoErr as GeolocationPositionError;
+          let msg = "Aktifkan akses lokasi di pengaturan browser untuk bisa vote.";
+          if (err.code === 2) msg = "Lokasi tidak dapat dideteksi. Pastikan GPS aktif.";
+          if (err.code === 3) msg = "Waktu pencarian lokasi habis. Coba lagi.";
+          setMessage(msg);
+          setIsSubmitting(false);
+          return; // STOP — tidak kirim request jika GPS gagal
+        }
+      }
+      // ── End GPS ─────────────────────────────────────────────────────────────
 
       const response = await fetch(`/api/form/isi/${event.id}`, {
         method: "POST",
@@ -144,8 +174,8 @@ export default function AcaraDetailPage() {
           nama: form.nama,
           nim: form.nim,
           prodi_instansi: form.universitas,
-          nomor: form.nim,
           karyaID: selectedWork.id,
+          ...gpsPayload,  // latitude, longitude, accuracy (jika berhasil didapat)
         }),
       });
       const data = await response.json().catch(() => null);
