@@ -350,8 +350,8 @@ export default function LandingPage() {
               </div>
             ) : (
               <div className="flex min-h-[360px] flex-col items-center justify-center bg-stone-100 p-8 text-center gap-2">
-                <p className="text-base font-semibold text-slate-700">Belum ada Media Partner / Sponsor</p>
-                <p className="text-sm text-slate-500">Info kerja sama akan ditampilkan di sini.</p>
+                <p className="text-base font-semibold text-slate-700">Belum ada Poster yang tersedia</p>
+                <p className="text-sm text-slate-500">Poster akan ditampilkan di sini.</p>
               </div>
             )}
           </div>

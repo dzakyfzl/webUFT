@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
+import Toast from "../../components/Toast";
 import type { Acara, Koleksi } from "../../components/types";
 
 type ApiAcara = {
@@ -65,6 +66,7 @@ export default function AcaraDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState("");
+  const [gpsError, setGpsError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!params.id) return;
@@ -158,9 +160,10 @@ export default function AcaraDetailPage() {
         } catch (geoErr) {
           const err = geoErr as GeolocationPositionError;
           let msg = "Aktifkan akses lokasi di pengaturan browser untuk bisa vote.";
-          if (err.code === 2) msg = "Lokasi tidak dapat dideteksi. Pastikan GPS aktif.";
-          if (err.code === 3) msg = "Waktu pencarian lokasi habis. Coba lagi.";
-          setMessage(msg);
+          if (err.code === 1) msg = "Izin lokasi ditolak. Aktifkan akses lokasi di pengaturan browser.";
+          if (err.code === 2) msg = "Lokasi tidak dapat dideteksi. Pastikan GPS aktif dan coba di area terbuka.";
+          if (err.code === 3) msg = "Waktu pencarian lokasi habis. Coba lagi dalam beberapa saat.";
+          setGpsError(msg);
           setIsSubmitting(false);
           return; // STOP — tidak kirim request jika GPS gagal
         }
@@ -199,6 +202,14 @@ export default function AcaraDetailPage() {
 
   return (
     <main className="min-h-screen bg-stone-50 text-slate-950">
+      {gpsError && (
+        <Toast
+          message={gpsError}
+          type="error"
+          duration={6000}
+          onClose={() => setGpsError(null)}
+        />
+      )}
       <section className="relative isolate flex min-h-[420px] items-end overflow-hidden bg-slate-950 px-4 py-10 sm:min-h-[520px] sm:px-8 sm:py-14">
         <Image src={event.image} alt="" fill aria-hidden="true" className="-z-20 scale-110 object-cover opacity-45 blur-2xl" unoptimized />
         <Image src={event.image} alt="" fill aria-hidden="true" className="-z-10 object-cover opacity-35" unoptimized />

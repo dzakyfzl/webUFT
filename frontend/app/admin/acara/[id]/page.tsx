@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, use } from 'react';
+import React, { useState, useEffect, use, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
@@ -21,12 +21,13 @@ export default function KelolaAcara({ params }: { params: Promise<{ id: string }
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingKarya, setEditingKarya] = useState<any>(null);
 
-  // --- STATES FORM TAMBAH KARYA ---
-  const [fotoKaryaBaru, setFotoKaryaBaru] = useState<File | null>(null);
-  const [judulBaru, setJudulBaru] = useState('');
-  const [pemilikBaru, setPemilikBaru] = useState('');
-  const [deskripsiBaru, setDeskripsiBaru] = useState('');
+  // --- STATES FORM TAMBAH KARYA (BATCH) ---
+  type KaryaEntry = { id: number; foto: File | null; judul: string; pemilik: string; deskripsi: string; preview: string | null };
+  const newEntry = (): KaryaEntry => ({ id: Date.now() + Math.random(), foto: null, judul: '', pemilik: '', deskripsi: '', preview: null });
+  const [karyaBatch, setKaryaBatch] = useState<KaryaEntry[]>([newEntry()]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitProgress, setSubmitProgress] = useState<{ done: number; total: number } | null>(null);
+  const [submitErrors, setSubmitErrors] = useState<string[]>([]);
 
   // --- KALKULASI VOTING ---
   const maxVotes = karyaList.length > 0 ? Math.max(...karyaList.map(k => k.jumlah_pilihan || 0)) : 0;
@@ -157,69 +158,85 @@ export default function KelolaAcara({ params }: { params: Promise<{ id: string }
   // =========================================================================
   // 3. FUNGSI CRUD MENGGUNAKAN karyaID SEBAGAI KEY UTAMA
   // =========================================================================
+  // Helper: update satu field di entri tertentu berdasarkan index
+  const updateEntry = (idx: number, patch: Partial<KaryaEntry>) => {
+    setKaryaBatch(prev => prev.map((e, i) => i === idx ? { ...e, ...patch } : e));
+  };
+
+  const removeEntry = (idx: number) => {
+    setKaryaBatch(prev => {
+      const next = prev.filter((_, i) => i !== idx);
+      return next.length === 0 ? [newEntry()] : next;
+    });
+  };
+
+  const handleFotoChange = (idx: number, file: File | null) => {
+    if (!file) return;
+    const preview = URL.createObjectURL(file);
+    updateEntry(idx, { foto: file, preview });
+  };
+
   const handleTambahKarya = async () => {
-    if (!fotoKaryaBaru || !judulBaru || !pemilikBaru) {
-      alert('Harap isi minimal Foto, Judul, dan Pemilik Karya.');
+    const valid = karyaBatch.filter(e => e.foto && e.judul && e.pemilik);
+    if (valid.length === 0) {
+      alert('Harap isi minimal Foto, Judul, dan Pemilik untuk setidaknya satu karya.');
       return;
     }
-    
+    const incomplete = karyaBatch.filter(e => !e.foto || !e.judul || !e.pemilik);
+    if (incomplete.length > 0) {
+      const ok = window.confirm(`${incomplete.length} entri belum lengkap dan akan dilewati. Lanjutkan upload ${valid.length} karya yang sudah lengkap?`);
+      if (!ok) return;
+    }
+
     setIsSubmitting(true);
+    setSubmitErrors([]);
+    setSubmitProgress({ done: 0, total: valid.length });
     const accesstoken = localStorage.getItem('access_token');
+    const errors: string[] = [];
 
-    try {
-      // Tahap 1: Upload File Gambar
-      const formData = new FormData();
-      formData.append('file', fotoKaryaBaru);
-      const uploadRes = await fetch('/api/file/tambah', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${accesstoken}` }, // Tanpa Content-Type manual
-        body: formData
-      });
-      const refreshtoken = localStorage.getItem('refresh_token');
-      if (uploadRes.status === 401) {
-        localStorage.removeItem('access_token');
-        const refreshResponse = await fetch('/api/akun/access-token', {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${refreshtoken}`
-          }
+    const uploadOne = async (entry: KaryaEntry): Promise<void> => {
+      try {
+        // Tahap 1: Upload Foto
+        const formData = new FormData();
+        formData.append('file', entry.foto!);
+        const uploadRes = await fetch('/api/file/tambah', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${accesstoken}` },
+          body: formData,
         });
-        const accessTokenResponse = await refreshResponse.json();
-        if (refreshResponse.ok) {
-          localStorage.setItem('access_token', accessTokenResponse.access_token);
-        } else {
-          router.push('/admin/login');
-          return;
-        }
+        if (!uploadRes.ok) throw new Error(`Foto "${entry.judul}" gagal diunggah`);
+        const { file_id: fileId } = await uploadRes.json();
+
+        // Tahap 2: Simpan Data Karya
+        const karyaRes = await fetch('/api/karya/tambah', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${accesstoken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            nama: entry.judul,
+            deskripsi: entry.deskripsi,
+            pemilik: entry.pemilik,
+            acaraID: parseInt(acaraId),
+            fileID: fileId,
+          }),
+        });
+        if (!karyaRes.ok) throw new Error(`Karya "${entry.judul}" gagal disimpan`);
+      } catch (err: any) {
+        errors.push(err.message);
+      } finally {
+        setSubmitProgress(prev => prev ? { ...prev, done: prev.done + 1 } : null);
       }
-      
-      if (!uploadRes.ok) throw new Error('Gagal mengunggah foto karya');
-      const uploadData = await uploadRes.json();
-      const fileId = uploadData.file_id;
+    };
 
-      // Tahap 2: Simpan Data Karya
-      const karyaRes = await fetch('/api/karya/tambah', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accesstoken}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          nama: judulBaru,
-          deskripsi: deskripsiBaru,
-          pemilik: pemilikBaru,
-          acaraID: parseInt(acaraId),
-          fileID: fileId
-        })
-      });
+    await Promise.all(valid.map(uploadOne));
 
-      if (!karyaRes.ok) throw new Error('Gagal menyimpan data karya');
-      
-      // Berhasil! Reload halaman agar mendapatkan urutan suara terbaru
+    setIsSubmitting(false);
+    setSubmitProgress(null);
+
+    if (errors.length > 0) {
+      setSubmitErrors(errors);
+      if (errors.length < valid.length) window.location.reload(); // sebagian berhasil
+    } else {
       window.location.reload();
-    } catch (err: any) {
-      alert(`Error: ${err.message}`);
-      setIsSubmitting(false);
     }
   };
 
@@ -415,55 +432,103 @@ export default function KelolaAcara({ params }: { params: Promise<{ id: string }
         {/* GRID UTAMA (Form & Daftar Karya) */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 mb-10">
           
-          {/* KOLOM KIRI: FORM TAMBAH KARYA */}
+          {/* KOLOM KIRI: FORM TAMBAH KARYA (BATCH) */}
           <div className="lg:col-span-1">
             <div className="bg-[#18181b] border border-white/5 p-6 rounded-3xl sticky top-24 shadow-2xl">
-              <h2 className="text-xl font-bold text-white mb-6 border-b border-white/5 pb-4">Tambah Karya Baru</h2>
-              <div className="space-y-4">
-                
-                {/* Input File Foto */}
-                <div className="relative border-2 border-dashed border-white/10 rounded-xl p-6 flex flex-col items-center justify-center bg-[#0f0f11]/50 h-32 group hover:border-red-600/50 transition-all cursor-pointer">
-                  <input 
-                    type="file" 
-                    accept="image/*" 
-                    onChange={(e) => setFotoKaryaBaru(e.target.files ? e.target.files[0] : null)} 
-                    className="absolute inset-0 opacity-0 cursor-pointer z-10" 
-                  />
-                  <div className="text-center">
-                    <p className="text-xs font-bold text-slate-400 group-hover:text-red-500">
-                      {fotoKaryaBaru ? fotoKaryaBaru.name : 'Pilih Foto Karya'}
-                    </p>
+              <div className="flex items-center justify-between mb-5 border-b border-white/5 pb-4">
+                <h2 className="text-xl font-bold text-white">Tambah Karya</h2>
+                <span className="bg-white/5 text-slate-400 text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg">{karyaBatch.length} entri</span>
+              </div>
+
+              {/* Error batch */}
+              {submitErrors.length > 0 && (
+                <div className="mb-4 bg-red-900/30 border border-red-500/30 rounded-xl p-3 space-y-1">
+                  <p className="text-[10px] font-black text-red-400 uppercase tracking-widest mb-1">Gagal diunggah:</p>
+                  {submitErrors.map((e, i) => <p key={i} className="text-xs text-red-300">• {e}</p>)}
+                </div>
+              )}
+
+              {/* Progress bar */}
+              {submitProgress && (
+                <div className="mb-4">
+                  <div className="flex justify-between text-[10px] text-slate-400 mb-1">
+                    <span>Mengunggah...</span>
+                    <span>{submitProgress.done}/{submitProgress.total}</span>
+                  </div>
+                  <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-red-600 transition-all duration-300"
+                      style={{ width: `${(submitProgress.done / submitProgress.total) * 100}%` }}
+                    />
                   </div>
                 </div>
+              )}
 
-                {/* Input Teks */}
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 ml-1">Judul Karya</label>
-                  <input type="text" value={judulBaru} onChange={(e) => setJudulBaru(e.target.value)} className="w-full bg-[#0f0f11] border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none focus:ring-1 focus:ring-red-600 transition-all" />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 ml-1">Pemilik Karya</label>
-                  <input type="text" value={pemilikBaru} onChange={(e) => setPemilikBaru(e.target.value)} className="w-full bg-[#0f0f11] border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none focus:ring-1 focus:ring-red-600 transition-all" />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 ml-1">Deskripsi / Makna</label>
-                  <textarea rows={3} value={deskripsiBaru} onChange={(e) => setDeskripsiBaru(e.target.value)} className="w-full bg-[#0f0f11] border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none focus:ring-1 focus:ring-red-600 transition-all resize-none"></textarea>
-                </div>
+              <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+                {karyaBatch.map((entry, idx) => (
+                  <div key={entry.id} className="bg-[#0f0f11] border border-white/5 rounded-2xl p-4 space-y-3 relative">
+                    {/* Nomor + Hapus */}
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Karya #{idx + 1}</span>
+                      {karyaBatch.length > 1 && (
+                        <button type="button" onClick={() => removeEntry(idx)}
+                          className="text-slate-600 hover:text-red-500 transition-colors text-base leading-none" title="Hapus entri">
+                          ✕
+                        </button>
+                      )}
+                    </div>
 
-                {/* Tombol Simpan */}
-                <button 
-                  onClick={handleTambahKarya} 
-                  disabled={isSubmitting || !fotoKaryaBaru || !judulBaru || !pemilikBaru}
-                  type="button" 
-                  className={`w-full font-bold py-3.5 rounded-xl transition-all mt-2 border ${
-                    !isSubmitting && fotoKaryaBaru && judulBaru && pemilikBaru 
-                      ? 'bg-red-600 text-white border-transparent hover:bg-red-700 shadow-[0_0_15px_rgba(220,38,38,0.3)]' 
-                      : 'bg-white/5 text-slate-500 border-white/5 cursor-not-allowed'
-                  }`}
-                >
-                  {isSubmitting ? 'Mengunggah...' : 'Simpan ke Galeri'}
-                </button>
+                    {/* Foto */}
+                    <label className="relative border-2 border-dashed border-white/10 rounded-xl flex items-center justify-center cursor-pointer hover:border-red-600/50 transition-all overflow-hidden"
+                      style={{ height: entry.preview ? 'auto' : '72px' }}>
+                      <input type="file" accept="image/*"
+                        onChange={(e) => handleFotoChange(idx, e.target.files?.[0] ?? null)}
+                        className="absolute inset-0 opacity-0 cursor-pointer z-10" />
+                      {entry.preview
+                        ? <img src={entry.preview} alt="preview" className="w-full object-cover rounded-xl max-h-32" />
+                        : <p className="text-[10px] font-bold text-slate-500 hover:text-red-400">📷 Pilih foto</p>
+                      }
+                    </label>
+
+                    {/* Judul */}
+                    <input type="text" placeholder="Judul karya*"
+                      value={entry.judul} onChange={(e) => updateEntry(idx, { judul: e.target.value })}
+                      className="w-full bg-[#18181b] border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white outline-none focus:ring-1 focus:ring-red-600 transition-all placeholder:text-slate-600" />
+
+                    {/* Pemilik */}
+                    <input type="text" placeholder="Nama pemilik*"
+                      value={entry.pemilik} onChange={(e) => updateEntry(idx, { pemilik: e.target.value })}
+                      className="w-full bg-[#18181b] border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white outline-none focus:ring-1 focus:ring-red-600 transition-all placeholder:text-slate-600" />
+
+                    {/* Deskripsi */}
+                    <textarea rows={2} placeholder="Deskripsi (opsional)"
+                      value={entry.deskripsi} onChange={(e) => updateEntry(idx, { deskripsi: e.target.value })}
+                      className="w-full bg-[#18181b] border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-red-600 transition-all resize-none placeholder:text-slate-600" />
+                  </div>
+                ))}
               </div>
+
+              {/* Tombol Tambah Entri */}
+              <button type="button" onClick={() => setKaryaBatch(prev => [...prev, newEntry()])}
+                className="w-full mt-3 py-2.5 rounded-xl border border-dashed border-white/10 text-slate-500 hover:border-red-600/40 hover:text-red-400 text-sm font-bold transition-all">
+                ＋ Tambah karya lain
+              </button>
+
+              {/* Tombol Upload Semua */}
+              <button
+                onClick={handleTambahKarya}
+                disabled={isSubmitting}
+                type="button"
+                className={`w-full font-bold py-3.5 rounded-xl transition-all mt-3 border ${
+                  !isSubmitting
+                    ? 'bg-red-600 text-white border-transparent hover:bg-red-700 shadow-[0_0_15px_rgba(220,38,38,0.3)]'
+                    : 'bg-white/5 text-slate-500 border-white/5 cursor-not-allowed'
+                }`}
+              >
+                {isSubmitting
+                  ? `Mengunggah ${submitProgress ? `${submitProgress.done}/${submitProgress.total}` : ''}...`
+                  : `Simpan ${karyaBatch.filter(e => e.foto && e.judul && e.pemilik).length > 0 ? karyaBatch.filter(e => e.foto && e.judul && e.pemilik).length : ''} Karya ke Galeri`}
+              </button>
             </div>
           </div>
 

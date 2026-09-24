@@ -3,6 +3,12 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
+import type { ComponentProps } from 'react';
+import Toast from '@/app/components/Toast';
+
+type MapPickerProps = { lat: string; lon: string; onPick: (lat: string, lon: string) => void };
+const MapPicker = dynamic<MapPickerProps>(() => import('@/app/components/MapPicker'), { ssr: false });
 
 export default function BuatAcaraBaru() {
   const router = useRouter();
@@ -26,6 +32,31 @@ export default function BuatAcaraBaru() {
   const [geoRadius, setGeoRadius] = useState('100');
   const [geoToleransi, setGeoToleransi] = useState('20');
   const [isGettingGps, setIsGettingGps] = useState(false);
+  const [gpsToast, setGpsToast] = useState<string | null>(null);
+
+  const handleGpsCurrent = () => {
+    if (!navigator.geolocation) {
+      setGpsToast('Browser tidak mendukung Geolocation.');
+      return;
+    }
+    setIsGettingGps(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setGeoLat(pos.coords.latitude.toFixed(7));
+        setGeoLon(pos.coords.longitude.toFixed(7));
+        setIsGettingGps(false);
+      },
+      (err) => {
+        const msg =
+          err.code === 1 ? 'Izin lokasi ditolak. Aktifkan izin lokasi di pengaturan browser.' :
+          err.code === 2 ? 'Lokasi tidak dapat dideteksi. Pastikan GPS aktif dan coba di area terbuka.' :
+          'Waktu habis saat mengambil lokasi. Coba lagi.';
+        setGpsToast(msg);
+        setIsGettingGps(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
 
   // State khusus untuk File Poster
   const [posterFile, setPosterFile] = useState<File | null>(null)
@@ -100,46 +131,7 @@ export default function BuatAcaraBaru() {
     }
   };
 
-  // Fungsi ambil GPS admin untuk set titik pusat geofence
-  const handleGpsClick = () => {
-    if (!navigator.geolocation) {
-      setError('Browser tidak mendukung Geolocation.');
-      return;
-    }
-    setIsGettingGps(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setGeoLat(pos.coords.latitude.toFixed(7));
-        setGeoLon(pos.coords.longitude.toFixed(7));
-        setIsGettingGps(false);
-      },
-      () => {
-        setError('Gagal mendapatkan lokasi. Pastikan GPS aktif dan izin diberikan.');
-        setIsGettingGps(false);
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
-  };
 
-  const handleGpsClick = () => {
-    if (!navigator.geolocation) {
-      setError('Browser Anda tidak mendukung geolocation.');
-      return;
-    }
-    setIsGettingGps(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setGeoLat(pos.coords.latitude.toFixed(7));
-        setGeoLon(pos.coords.longitude.toFixed(7));
-        setIsGettingGps(false);
-      },
-      () => {
-        setError('Gagal mendapatkan lokasi. Pastikan izin lokasi diaktifkan di browser.');
-        setIsGettingGps(false);
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
-  };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -264,6 +256,14 @@ export default function BuatAcaraBaru() {
   }
 
   return (
+    <>
+      {gpsToast && (
+        <Toast
+          message={gpsToast}
+          type="error"
+          onClose={() => setGpsToast(null)}
+        />
+      )}
     <main className="min-h-screen bg-[#0f0f11] text-slate-300 font-sans pb-12">
       <nav className="bg-[#18181b] border-b border-white/5 sticky top-0 z-50 px-6 py-4">
         <div className="max-w-4xl mx-auto flex items-center gap-4">
@@ -433,37 +433,22 @@ export default function BuatAcaraBaru() {
 
             {geoAktif && (
               <div className="p-6 space-y-5 border-t border-white/5">
-                {/* Koordinat */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Latitude</label>
-                    <input
-                      type="number" step="any"
-                      value={geoLat} onChange={e => setGeoLat(e.target.value)}
-                      placeholder="contoh: -6.9175"
-                      className="w-full px-4 py-3 rounded-xl border border-white/10 focus:ring-2 focus:ring-red-500 bg-[#0f0f11] text-white outline-none transition-all text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Longitude</label>
-                    <input
-                      type="number" step="any"
-                      value={geoLon} onChange={e => setGeoLon(e.target.value)}
-                      placeholder="contoh: 107.6191"
-                      className="w-full px-4 py-3 rounded-xl border border-white/10 focus:ring-2 focus:ring-red-500 bg-[#0f0f11] text-white outline-none transition-all text-sm"
-                    />
-                  </div>
-                </div>
+                {/* Peta pinpoint */}
+                <MapPicker
+                  lat={geoLat}
+                  lon={geoLon}
+                  onPick={(lat, lon) => { setGeoLat(lat); setGeoLon(lon); }}
+                />
 
-                {/* Tombol GPS */}
+                {/* Tombol GPS saat ini */}
                 <button
                   type="button"
                   id="btn-gunakan-lokasi-saya"
-                  onClick={handleGpsClick}
+                  onClick={handleGpsCurrent}
                   disabled={isGettingGps}
                   className="flex items-center gap-2 px-4 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-sm font-semibold text-slate-300 transition-all disabled:opacity-50"
                 >
-                  {isGettingGps ? '⏳ Mendapatkan lokasi...' : '📍 Gunakan Lokasi Saya Sekarang'}
+                  {isGettingGps ? '⏳ Mendapatkan lokasi...' : '📡 Gunakan Lokasi Saya (GPS)'}
                 </button>
 
                 {/* Radius & Toleransi */}
@@ -493,7 +478,7 @@ export default function BuatAcaraBaru() {
                   </div>
                 </div>
 
-                {/* Preview */}
+                {/* Summary */}
                 {geoLat && geoLon && (
                   <div className="flex items-start gap-2 p-4 bg-red-500/5 border border-red-500/15 rounded-xl text-xs text-red-300">
                     <span className="text-base">🗺️</span>
@@ -524,5 +509,6 @@ export default function BuatAcaraBaru() {
         </form>
       </div>
     </main>
+    </>
   );
 }
