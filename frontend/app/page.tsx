@@ -9,8 +9,7 @@ import { ServiceGrid } from './components/ServiceGrid';
 import { ArrowRightToLine } from 'lucide-react';
 import { ScrollArea, ScrollBar } from '@/app/components/ui/scroll-area';
 import type { Acara, Koleksi, KoleksiOrigin } from './components/types';
-import { fetchGalleryData, fetchEventsData, fetchPartnersData } from './lib/api';
-import type { CarouselPartner } from './lib/api';
+import { fetchGalleryData, fetchEventsData } from './lib/api';
 
 // --- DATA PLACEHOLDER KOLEKSI (dinonaktifkan — data diambil dari backend) ---
 // const KOLEKSI_DATA = [
@@ -21,8 +20,31 @@ import type { CarouselPartner } from './lib/api';
 // --- DATA PLACEHOLDER ACARA (dinonaktifkan — data diambil dari backend) ---
 // const MOCK_EVENTS: Acara[] = [ ... ];
 
-// --- CAROUSEL PARTNERS — data diambil dari backend secara dinamis ---
-// (data statis dihapus, digantikan state carouselPartners di bawah)
+// --- DATA MEDIA PARTNER (dikosongkan sementara, uncomment saat data siap) ---
+// const CAROUSEL_PARTNERS = [
+//   {
+//     id: "partner-1",
+//     label: "Ruang kolaborasi UFT",
+//     title: "Media Partner 01",
+//     description: "Tempat untuk memperkenalkan media partner yang mendukung cerita dan kegiatan fotografi UFT.",
+//     image: "https://images.unsplash.com/photo-1497366754035-f200968a6e72?q=80&w=1600",
+//   },
+//   {
+//     id: "partner-2",
+//     label: "Dukungan program",
+//     title: "Sponsor Utama",
+//     description: "Sorotan untuk sponsor yang membantu menghadirkan kelas, pameran, dan kegiatan terbaru UFT.",
+//     image: "https://images.unsplash.com/photo-1497366811353-6870744d04b2?q=80&w=1600",
+//   },
+//   {
+//     id: "partner-3",
+//     label: "Kolaborasi kreatif",
+//     title: "Partner Kreatif",
+//     description: "Ruang untuk mitra kreatif yang tumbuh bersama UFT melalui proyek dan pengalaman visual.",
+//     image: "https://images.unsplash.com/photo-1497366216548-37526070297c?q=80&w=1600",
+//   },
+// ];
+const CAROUSEL_PARTNERS: { id: string; label: string; title: string; description: string; image: string }[] = [];
 
 const SERVICES = [
   { title: 'Kelas Fotografi', description: 'Belajar teknik kamera, cahaya, komposisi, dan proses kreatif bersama anggota.' },
@@ -57,8 +79,6 @@ export default function LandingPage() {
   const [koleksiData, setKoleksiData] = useState<Koleksi[]>([]);
   const [isLoadingGaleri, setIsLoadingGaleri] = useState(true);
   const [galeriError, setGaleriError] = useState<string | null>(null);
-
-  const [carouselPartners, setCarouselPartners] = useState<CarouselPartner[]>([]);
 
   const [selectedEvent, setSelectedEvent] = useState<Acara | null>(null);
   const [selectedKoleksi, setSelectedKoleksi] = useState<Koleksi | null>(null);
@@ -163,14 +183,14 @@ export default function LandingPage() {
   }, [selectedEvent, selectedKoleksi]);
 
   useEffect(() => {
-    if (carouselPartners.length <= 1 || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    if (CAROUSEL_PARTNERS.length <= 1 || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
     const carouselTimer = window.setInterval(() => {
-      setHighlightIndex((current) => (current === carouselPartners.length - 1 ? 0 : current + 1));
+      setHighlightIndex((current) => (current === CAROUSEL_PARTNERS.length - 1 ? 0 : current + 1));
     }, 6000);
 
     return () => window.clearInterval(carouselTimer);
-  }, [carouselPartners.length]);
+  }, []);
 
   // Fetch gallery data from backend
   useEffect(() => {
@@ -214,26 +234,7 @@ export default function LandingPage() {
     return () => { cancelled = true; };
   }, []);
 
-  // Fetch partner data from backend
-  useEffect(() => {
-    let cancelled = false;
-
-    fetchPartnersData()
-      .then((data) => {
-        if (!cancelled) {
-          setCarouselPartners(data);
-          setHighlightIndex(0);
-        }
-      })
-      .catch((err) => {
-        // Non-critical: carousel simply stays empty
-        console.warn('Gagal memuat partner:', err);
-      });
-
-    return () => { cancelled = true; };
-  }, []);
-
- const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 0;
+  const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 0;
   const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 0;
   const koleksiImageStyle = isKoleksiDetailOpen || !koleksiOrigin
     ? {
@@ -311,9 +312,9 @@ export default function LandingPage() {
         {/* Sorotan acara ditempatkan lebih dulu agar pengunjung melihat kegiatan terkini sebelum mengenal komunitas. */}
         <section id="home" className="px-4 pb-4 pt-20 sm:px-6 sm:pb-5 sm:pt-24 md:pb-8">
           <div className="mx-auto max-w-7xl">
-            {carouselPartners.length > 0 ? (
+            {CAROUSEL_PARTNERS.length > 0 ? (
               <div className="relative min-h-[360px] overflow-hidden bg-stone-900 sm:min-h-[410px] md:min-h-[480px]">
-                {carouselPartners.map((partner, index) => (
+                {CAROUSEL_PARTNERS.map((partner, index) => (
                   <div
                     key={partner.id}
                     className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${index === highlightIndex ? 'opacity-100' : 'opacity-0'}`}
@@ -330,12 +331,12 @@ export default function LandingPage() {
                   </div>
                 ))}
                 <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/90 via-slate-950/45 to-transparent px-4 pb-12 pt-24 text-white sm:px-8 sm:pb-14">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-red-200 sm:text-sm">{carouselPartners[highlightIndex].label}</p>
-                  <h1 className="mt-3 max-w-3xl text-4xl font-extrabold leading-[0.95] sm:text-6xl md:text-7xl">{carouselPartners[highlightIndex].title}</h1>
-                  <p className="mt-5 max-w-xl text-sm text-slate-100 sm:text-base">{carouselPartners[highlightIndex].description}</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-red-200 sm:text-sm">{CAROUSEL_PARTNERS[highlightIndex].label}</p>
+                  <h1 className="mt-3 max-w-3xl text-4xl font-extrabold leading-[0.95] sm:text-6xl md:text-7xl">{CAROUSEL_PARTNERS[highlightIndex].title}</h1>
+                  <p className="mt-5 max-w-xl text-sm text-slate-100 sm:text-base">{CAROUSEL_PARTNERS[highlightIndex].description}</p>
                 </div>
                 <div className="absolute inset-x-0 bottom-5 flex justify-center gap-2">
-                  {carouselPartners.map((partner, index) => (
+                  {CAROUSEL_PARTNERS.map((partner, index) => (
                     <button
                       key={partner.id}
                       type="button"

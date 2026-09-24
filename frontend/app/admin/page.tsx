@@ -10,7 +10,6 @@ import KelolaMigrasi from '../components/subdashboard/KelolaMigrasi';
 import KelolaGaleri from '../components/subdashboard/KelolaGaleri';
 import KelolaSertifikat from '../components/subdashboard/KelolaSertifikat';
 import KelolaLink from '../components/subdashboard/KelolaLink';
-import KelolaPartner from '../components/subdashboard/KelolaPartner';
 import MyUFT from '../components/widget/LogoMyUFT'
 
 interface CustomJwtPayload extends JwtPayload {
@@ -35,7 +34,6 @@ export default function AdminDashboardLayout() {
     { id: 'Kelola Migrasi', icon: '🔄' },
     { id: 'Kelola Certificate', icon: '🎓' },
     { id: 'Kelola Link', icon: '🔗' },
-    { id: 'Kelola Partner', icon: '🤝' },
   ];
 
   useEffect(() => {
@@ -82,8 +80,6 @@ export default function AdminDashboardLayout() {
         return <KelolaSertifikat />;
       case 'Kelola Link':
         return <KelolaLink />;
-      case 'Kelola Partner':
-        return <KelolaPartner />;
       default:
         // Render kosong jika activeMenu belum di-set / user tidak punya akses apa-apa
         return <div className="p-8 text-slate-500">Silakan pilih menu...</div>;
