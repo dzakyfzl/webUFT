@@ -1,3 +1,5 @@
+from typing import Optional
+
 from pydantic import BaseModel
 
 
@@ -7,5 +9,5 @@ class AcaraCreate(BaseModel):
     tempat: str
     waktu: str
     waktu_selesai: str
-    fileID: int
+    fileID: Optional[int] = None
     status: str

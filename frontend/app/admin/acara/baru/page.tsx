@@ -106,7 +106,7 @@ export default function BuatAcaraBaru() {
       return;
     }
 
-    let finalFileId = 0; 
+    let finalFileId: number | null = null; 
 
     try {
       // TAHAP 1: Unggah Poster (Jika ada)

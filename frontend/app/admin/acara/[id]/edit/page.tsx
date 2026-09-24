@@ -25,7 +25,7 @@ export default function EditAcara({ params }: { params: Promise<{ id: string }> 
   const [jamSelesai, setJamSelesai] = useState('16');
   const [menitSelesai, setMenitSelesai] = useState('00');
   const [status, setStatus] = useState('Draft');
-  const [currentFileId, setCurrentFileId] = useState<number>(0);
+  const [currentFileId, setCurrentFileId] = useState<number | null>(null);
 
   // --- STATES FILE POSTER ---
   const [posterFile, setPosterFile] = useState<File | null>(null);
