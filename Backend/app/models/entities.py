@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, LargeBinary, String, Text, func
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
@@ -135,3 +135,70 @@ class LastMigrate(Base):
     imported_at = Column(DateTime, nullable=True)
     exporter_username = Column(String(255), nullable=False)
     importer_username = Column(String(255), nullable=True)
+
+
+# ─── Chatbot Angie ───────────────────────────────────────────────────────────
+
+class ChatbotApiKey(Base):
+    """Pool API key Gemini, disimpan terenkripsi AES-256-GCM."""
+    __tablename__ = "chatbot_api_key"
+    id             = Column(Integer, primary_key=True, index=True)
+    label          = Column(String(100), nullable=False)          # nama label, misal "Key 1"
+    encrypted_key  = Column(LargeBinary, nullable=False)           # AES-256-GCM ciphertext
+    nonce          = Column(LargeBinary, nullable=False)            # GCM nonce (12 bytes)
+    tag            = Column(LargeBinary, nullable=False)            # GCM auth tag (16 bytes)
+    key_preview    = Column(String(20), nullable=False)             # "AIza...7xQ" — display only
+    status         = Column(String(20), default="active", nullable=False)  # active|failed|exhausted|disabled
+    priority       = Column(Integer, default=0, nullable=False)     # urutan rotasi, 0 = tertinggi
+    fail_count     = Column(Integer, default=0, nullable=False)
+    last_used_at   = Column(DateTime, nullable=True)
+    last_failed_at = Column(DateTime, nullable=True)
+    cooldown_until = Column(DateTime, nullable=True)
+    total_requests = Column(Integer, default=0, nullable=False)
+    created_at     = Column(DateTime, server_default=func.now())
+
+
+class ChatbotKnowledge(Base):
+    """Knowledge base untuk RAG. Embedding 768-dim disimpan di pgvector."""
+    __tablename__ = "chatbot_knowledge"
+    id         = Column(Integer, primary_key=True, index=True)
+    category   = Column(String(100), nullable=False)               # "umum", "faq", dll
+    question   = Column(Text, nullable=False)
+    answer     = Column(Text, nullable=False)
+    # Kolom 'embedding' bertipe vector(768) — dideklarasikan via DDL di migration.
+    # Tidak ada kolom SQLAlchemy di sini agar tidak butuh sqlalchemy-pgvector saat dev.
+    is_active  = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, onupdate=func.now())
+
+
+class ChatbotUnanswered(Base):
+    """Pertanyaan yang tidak ditemukan jawabannya di knowledge base."""
+    __tablename__ = "chatbot_unanswered"
+    id                    = Column(Integer, primary_key=True, index=True)
+    question              = Column(Text, nullable=False)
+    user_ip               = Column(String(50), nullable=True)
+    asked_at              = Column(DateTime, server_default=func.now())
+    is_resolved           = Column(Boolean, default=False, nullable=False)
+    resolved_knowledge_id = Column(Integer, ForeignKey("chatbot_knowledge.id"), nullable=True)
+    resolved_knowledge    = relationship("ChatbotKnowledge")
+
+
+class ChatbotConversation(Base):
+    """Log percakapan per session (in-memory di frontend, disimpan di backend untuk context window)."""
+    __tablename__ = "chatbot_conversation"
+    id         = Column(Integer, primary_key=True, index=True)
+    session_id = Column(String(100), index=True, nullable=False)   # UUID per browser tab
+    role       = Column(String(10), nullable=False)                 # "user" | "assistant"
+    content    = Column(Text, nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+
+
+class ChatbotConfig(Base):
+    """Konfigurasi global chatbot: token limit harian, kill switch."""
+    __tablename__ = "chatbot_config"
+    id                = Column(Integer, primary_key=True)
+    daily_token_limit = Column(Integer, default=1_000_000, nullable=False)
+    tokens_used_today = Column(Integer, default=0, nullable=False)
+    last_reset_date   = Column(DateTime, nullable=True)
+    is_active         = Column(Boolean, default=True, nullable=False)  # kill switch

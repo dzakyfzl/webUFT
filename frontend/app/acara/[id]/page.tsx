@@ -62,11 +62,13 @@ export default function AcaraDetailPage() {
   const [event, setEvent] = useState<Acara | null>(null);
   const [works, setWorks] = useState<Koleksi[]>([]);
   const [selectedWork, setSelectedWork] = useState<Koleksi | null>(null);
+  const [hoveredId, setHoveredId] = useState<number | null>(null);
   const [form, setForm] = useState<VoteForm>({ nama: "", nim: "", universitas: "" });
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState("");
   const [gpsError, setGpsError] = useState<string | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
 
   useEffect(() => {
     if (!params.id) return;
@@ -242,15 +244,67 @@ export default function AcaraDetailPage() {
           </div>
           {works.length > 0 ? (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              {works.map((work) => (
-                <button key={work.id} type="button" onClick={() => setSelectedWork(work)} className={`group text-left outline-none focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-4 ${selectedWork?.id === work.id ? "ring-2 ring-red-600 ring-offset-4" : ""}`}>
-                  <div className="relative aspect-[4/5] overflow-hidden bg-stone-200">
-                    <Image src={work.image} alt={work.title} fill className="object-cover transition-transform duration-300 group-hover:scale-105" unoptimized />
+              {works.map((work) => {
+                const isHovered = hoveredId === work.id;
+                return (
+                <button
+                    key={work.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedWork(work);
+                      setMessage("");
+                      setModalOpen(true);
+                    }}
+                    onMouseEnter={() => setHoveredId(work.id)}
+                    onMouseLeave={() => setHoveredId(null)}
+                    className="cursor-pointer text-left outline-none focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-4"
+                  >
+                  {/* Container foto — tanpa rounded, shadow naik saat hover */}
+                  <div
+                    className="relative aspect-[4/5] overflow-hidden bg-stone-200"
+                    style={{
+                      boxShadow: isHovered
+                        ? '0 12px 32px rgba(0,0,0,0.32)'
+                        : '0 2px 8px rgba(0,0,0,0.10)',
+                      transform: isHovered ? 'translateY(-3px)' : 'translateY(0)',
+                      transition: 'box-shadow 0.22s ease, transform 0.22s ease',
+                    }}
+                  >
+                    <Image
+                      src={work.image}
+                      alt={work.title}
+                      fill
+                      className="object-cover"
+                      style={{
+                        transform: isHovered ? 'scale(1.06)' : 'scale(1)',
+                        transition: 'transform 0.3s ease',
+                      }}
+                      unoptimized
+                    />
+                    {/* Overlay gelap saat hover */}
+                    <div
+                      className="absolute inset-0"
+                      style={{
+                        background: isHovered ? 'rgba(15,23,42,0.42)' : 'rgba(15,23,42,0)',
+                        transition: 'background 0.22s ease',
+                      }}
+                    />
+
+
                   </div>
-                  <p className="mt-2 line-clamp-1 text-sm font-bold">{work.title}</p>
+                  <p
+                    className="mt-2 line-clamp-1 text-sm font-bold"
+                    style={{
+                      color: isHovered ? '#dc2626' : '',
+                      transition: 'color 0.18s ease',
+                    }}
+                  >
+                    {work.title}
+                  </p>
                   <p className="mt-1 line-clamp-1 text-xs text-slate-600">{work.photographer}</p>
                 </button>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <div className="border border-dashed border-stone-300 p-8 text-sm text-slate-600">Belum ada karya untuk acara ini.</div>
@@ -258,29 +312,106 @@ export default function AcaraDetailPage() {
         </div>
       </section>
 
-      {selectedWork && (
-        <section className="border-y border-stone-200 bg-white px-4 py-10 sm:px-8 sm:py-14">
-          <div className="mx-auto grid max-w-5xl gap-8 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:items-start">
-            <div className="relative aspect-[4/5] overflow-hidden bg-stone-100">
-              <Image src={selectedWork.image} alt={selectedWork.title} fill className="object-contain" unoptimized />
-            </div>
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-red-700">Pilihan kamu</p>
-              <h2 className="mt-3 text-3xl font-extrabold">{selectedWork.title}</h2>
-              <p className="mt-2 text-sm text-slate-600">{selectedWork.photographer}</p>
-              {selectedWork.description && <p className="mt-5 text-sm leading-relaxed text-slate-600">{selectedWork.description}</p>}
+      {/* ── MODAL POPUP KARYA ──────────────────────────────────────── */}
+      {modalOpen && selectedWork && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Detail karya: ${selectedWork.title}`}
+        >
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm"
+            onClick={() => setModalOpen(false)}
+          />
 
-              <form onSubmit={submitVote} className="mt-8 space-y-4">
-                <label className="block text-sm font-semibold">Nama lengkap<input required value={form.nama} onChange={(input) => setForm({ ...form, nama: input.target.value })} className="mt-2 block w-full border border-stone-300 px-3 py-3 font-normal outline-none focus:border-red-600 focus:ring-2 focus:ring-red-200" /></label>
-                <label className="block text-sm font-semibold">NIM mahasiswa<input required value={form.nim} onChange={(input) => setForm({ ...form, nim: input.target.value })} className="mt-2 block w-full border border-stone-300 px-3 py-3 font-normal outline-none focus:border-red-600 focus:ring-2 focus:ring-red-200" /></label>
-                <label className="block text-sm font-semibold">Asal universitas<input required value={form.universitas} onChange={(input) => setForm({ ...form, universitas: input.target.value })} className="mt-2 block w-full border border-stone-300 px-3 py-3 font-normal outline-none focus:border-red-600 focus:ring-2 focus:ring-red-200" /></label>
-                <button type="submit" disabled={isSubmitting} className="w-full bg-red-600 px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60">{isSubmitting ? "Mengirim..." : "Kirim vote"}</button>
-                {message && <p role="status" className="text-sm text-slate-600">{message}</p>}
-              </form>
+          {/* Panel */}
+          <div className="relative z-10 w-full max-w-4xl overflow-hidden bg-white shadow-2xl" style={{ maxHeight: "90vh" }}>
+            {/* Tombol tutup */}
+            <button
+              type="button"
+              onClick={() => setModalOpen(false)}
+              className="absolute right-4 top-4 z-20 flex h-9 w-9 items-center justify-center bg-white/90 text-slate-700 shadow transition-colors hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600"
+              aria-label="Tutup"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+
+            <div className="grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]" style={{ maxHeight: "90vh" }}>
+              {/* Gambar karya */}
+              <div className="relative min-h-[260px] bg-stone-100 lg:min-h-0">
+                <Image
+                  src={selectedWork.image}
+                  alt={selectedWork.title}
+                  fill
+                  className="object-contain"
+                  unoptimized
+                />
+              </div>
+
+              {/* Info + form vote */}
+              <div className="overflow-y-auto p-7 sm:p-9" style={{ maxHeight: "90vh" }}>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-red-700">Pilih karya ini</p>
+                <h2 className="mt-3 text-2xl font-extrabold leading-tight sm:text-3xl">{selectedWork.title}</h2>
+                <p className="mt-1 text-sm text-slate-500">{selectedWork.photographer}</p>
+                {selectedWork.description && (
+                  <p className="mt-4 text-sm leading-relaxed text-slate-600">{selectedWork.description}</p>
+                )}
+
+                <form
+                  onSubmit={async (e) => {
+                    await submitVote(e);
+                  }}
+                  className="mt-7 space-y-4"
+                >
+                  <label className="block text-sm font-semibold">
+                    Nama lengkap
+                    <input
+                      required
+                      value={form.nama}
+                      onChange={(input) => setForm({ ...form, nama: input.target.value })}
+                      className="mt-2 block w-full border border-stone-300 px-3 py-3 font-normal outline-none focus:border-red-600 focus:ring-2 focus:ring-red-200"
+                    />
+                  </label>
+                  <label className="block text-sm font-semibold">
+                    NIM mahasiswa
+                    <input
+                      required
+                      value={form.nim}
+                      onChange={(input) => setForm({ ...form, nim: input.target.value })}
+                      className="mt-2 block w-full border border-stone-300 px-3 py-3 font-normal outline-none focus:border-red-600 focus:ring-2 focus:ring-red-200"
+                    />
+                  </label>
+                  <label className="block text-sm font-semibold">
+                    Asal universitas
+                    <input
+                      required
+                      value={form.universitas}
+                      onChange={(input) => setForm({ ...form, universitas: input.target.value })}
+                      className="mt-2 block w-full border border-stone-300 px-3 py-3 font-normal outline-none focus:border-red-600 focus:ring-2 focus:ring-red-200"
+                    />
+                  </label>
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="w-full bg-red-600 px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {isSubmitting ? "Mengirim..." : "Kirim vote"}
+                  </button>
+                  {message && (
+                    <p role="status" className="text-sm text-slate-600">{message}</p>
+                  )}
+                </form>
+              </div>
             </div>
           </div>
-        </section>
+        </div>
       )}
+      {/* ── END MODAL ─────────────────────────────────────────────────── */}
     </main>
   );
 }

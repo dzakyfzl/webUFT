@@ -24,10 +24,8 @@ if config.config_file_name is not None:
 # Set target metadata untuk autogenerate
 target_metadata = Base.metadata
 
-# Override sqlalchemy.url dari environment variable
-database_url = os.getenv("DATABASE_URL")
-if not database_url:
-    raise ValueError("DATABASE_URL tidak ditemukan di environment. Pastikan file .env sudah ada.")
+# Override sqlalchemy.url — reuse logic yang sama dengan app
+from app.core.database import DATABASE_URL as database_url
 config.set_main_option("sqlalchemy.url", database_url)
 
 

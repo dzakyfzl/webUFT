@@ -18,7 +18,13 @@ services:
       ADMIN_USERNAME: ${ADMIN_USERNAME}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
       IMAGE_QUALITY: ${IMAGE_QUALITY}
-      SHORTLINK_DOMAIN: ${SHORTLINK_DOMAIN} 
+      SHORTLINK_DOMAIN: ${SHORTLINK_DOMAIN}
+      CHATBOT_MASTER_KEY: ${CHATBOT_MASTER_KEY}
+      CHATBOT_MODEL: ${CHATBOT_MODEL:-gemini-2.0-flash-lite}
+      CHATBOT_EMBEDDING_MODEL: ${CHATBOT_EMBEDDING_MODEL:-text-embedding-004}
+      CHATBOT_DAILY_TOKEN_LIMIT: ${CHATBOT_DAILY_TOKEN_LIMIT:-1000000}
+      CHATBOT_SIMILARITY_THRESHOLD: ${CHATBOT_SIMILARITY_THRESHOLD:-0.75}
+      CHATBOT_MAX_RETRIES: ${CHATBOT_MAX_RETRIES:-3}
     volumes:
       - backend_storage:/app/storage
       - ./media:/media
@@ -54,7 +60,7 @@ services:
       - uft_network
     
   database:
-    image: postgres:17
+    image: pgvector/pgvector:pg17
     container_name: uft_db
     environment:
       POSTGRES_USER: ${DATABASE_USERNAME}

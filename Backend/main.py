@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.database import SessionLocal, Base,engine
 from app.repositories.bootstrap_repository import BootstrapRepository
-from app.routers import acara, akun, album, file, form, foto, karya, shortlink, migrate
+from app.routers import acara, akun, album, chatbot, file, form, foto, karya, shortlink, migrate
 from app.services.bootstrap_service import BootstrapService
 
 @asynccontextmanager
@@ -27,6 +27,7 @@ async def health_check():
 
 app.include_router(acara.router)
 app.include_router(akun.router)
+app.include_router(chatbot.router)
 app.include_router(file.router)
 app.include_router(karya.router)
 app.include_router(form.router)

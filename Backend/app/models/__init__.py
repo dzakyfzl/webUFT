@@ -4,16 +4,25 @@ from app.models.entities import (
     Akun,
     Album,
     Bidang,
+    ChatbotApiKey,
+    ChatbotConfig,
+    ChatbotConversation,
+    ChatbotKnowledge,
+    ChatbotUnanswered,
     File,
     Foto,
     Karya,
+    LastMigrate,
     Pilihan,
     Responden,
+    ShortLink,
     Token,
-    ShortLink
 )
 
 __all__ = [
-    "Acara", "Akses", "Akun", "Album", "Bidang", "File", "Foto",
-    "Karya", "Pilihan", "Responden", "Token", "ShortLink"
+    "Acara", "Akses", "Akun", "Album", "Bidang",
+    "ChatbotApiKey", "ChatbotConfig", "ChatbotConversation",
+    "ChatbotKnowledge", "ChatbotUnanswered",
+    "File", "Foto", "Karya", "LastMigrate",
+    "Pilihan", "Responden", "ShortLink", "Token",
 ]

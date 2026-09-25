@@ -483,7 +483,7 @@ export default function LandingPage() {
               {isLoadingEvents ? (
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
                   {[1, 2, 3].map(i => (
-                    <div key={i} className="aspect-[3/2] bg-stone-100 flex items-center justify-center border border-stone-200">
+                    <div key={i} className="aspect-[4/5] bg-stone-100 flex items-center justify-center border border-stone-200">
                       <span className="text-slate-500 font-medium text-sm">Memuat jadwal...</span>
                     </div>
                   ))}
@@ -505,7 +505,7 @@ export default function LandingPage() {
                 </div>
               ) : (
                 <ScrollReveal>
-                  <ScrollArea className="-mx-4 h-[450px] px-4 sm:-mx-6 sm:h-[470px] sm:px-6 md:mx-0 md:h-[480px] md:px-0">
+                  <ScrollArea className="-mx-4 h-[580px] px-4 sm:-mx-6 sm:h-[600px] sm:px-6 md:mx-0 md:h-[620px] md:px-0">
                     <div className="flex min-w-max gap-4 pb-4 sm:gap-5">
                       {visibleEvents.map((event) => (
                         <EventCard key={event.id} event={event} onSelect={setSelectedEvent} href={eventDetailHref(event)} />

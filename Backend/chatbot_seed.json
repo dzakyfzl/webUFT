@@ -1,0 +1,62 @@
+[
+  {
+    "category": "umum",
+    "question": "Apa itu UFT?",
+    "answer": "UFT singkatan dari Unit Fotografi Telkom, yaitu Unit Kegiatan Mahasiswa (UKM) di Universitas Telkom yang bergerak di bidang fotografi. UFT menjadi wadah bagi mahasiswa yang memiliki minat dan bakat di dunia fotografi untuk belajar, berkarya, dan berkembang bersama."
+  },
+  {
+    "category": "umum",
+    "question": "Apa visi dan misi UFT?",
+    "answer": "Visi UFT adalah menjadi komunitas fotografi mahasiswa yang kreatif, profesional, dan berdampak positif. Misinya meliputi: mengembangkan kemampuan fotografi anggota, menghasilkan karya fotografi berkualitas, serta aktif dalam kegiatan seni dan dokumentasi di lingkungan kampus maupun masyarakat."
+  },
+  {
+    "category": "umum",
+    "question": "Apa saja bidang kegiatan UFT?",
+    "answer": "UFT memiliki beberapa bidang kegiatan utama: fotografi (portrait, street, landscape, dll), videografi, dan desain visual. Selain itu UFT juga aktif mengadakan kelas fotografi, pameran karya, dokumentasi acara kampus, dan lomba foto."
+  },
+  {
+    "category": "umum",
+    "question": "Bagaimana cara bergabung dengan UFT?",
+    "answer": "Untuk bergabung dengan UFT, kamu bisa mendaftar saat open recruitment yang biasanya diadakan di awal semester. Pantau terus media sosial UFT untuk info pendaftaran. Tidak perlu punya kamera mahal — yang terpenting adalah semangat belajar dan cinta terhadap fotografi!"
+  },
+  {
+    "category": "umum",
+    "question": "Dimana bisa menemukan UFT di media sosial?",
+    "answer": "Kamu bisa menemukan UFT di Instagram dan media sosial lainnya. Cari akun resmi UFT Telkom untuk mendapatkan update terbaru seputar kegiatan, karya anggota, dan informasi open recruitment."
+  },
+  {
+    "category": "umum",
+    "question": "Apa saja acara yang diadakan UFT?",
+    "answer": "UFT secara rutin mengadakan berbagai acara seperti: kelas fotografi (untuk anggota dan publik), pameran foto, hunting foto bersama, lomba foto, serta menjadi tim dokumentasi untuk acara kampus. Cek halaman Acara di website ini untuk melihat jadwal terkini."
+  },
+  {
+    "category": "faq",
+    "question": "Bagaimana cara voting karya di acara UFT?",
+    "answer": "Untuk voting karya: (1) Buka halaman acara yang sedang aktif, (2) Isi form pendaftaran dengan nama dan data yang diminta, (3) Kamu akan mendapatkan token voting, (4) Pilih karya favoritmu, (5) Klik tombol Vote. Setiap token hanya bisa digunakan satu kali per acara. Pastikan kamu berada di lokasi yang ditentukan jika acara mengaktifkan pembatasan lokasi GPS."
+  },
+  {
+    "category": "faq",
+    "question": "Kenapa voting harus mengizinkan akses GPS?",
+    "answer": "Beberapa acara UFT mengaktifkan fitur pembatasan lokasi (geofence) untuk memastikan peserta yang voting benar-benar hadir di lokasi acara. Jika acara mengaktifkan fitur ini, kamu perlu mengizinkan browser mengakses GPS-mu. Jika kamu tidak berada di radius lokasi yang ditentukan, voting tidak akan bisa dilakukan."
+  },
+  {
+    "category": "faq",
+    "question": "Bagaimana cara melihat galeri foto UFT?",
+    "answer": "Galeri foto UFT bisa dilihat di halaman Katalog/Galeri pada website ini. Di sana kamu bisa menjelajahi koleksi foto dari berbagai album dan acara yang pernah diadakan UFT. Klik foto untuk melihat detail dan informasi fotografer."
+  },
+  {
+    "category": "faq",
+    "question": "Bagaimana cara mendapatkan sertifikat dari acara UFT?",
+    "answer": "Setelah berpartisipasi dalam acara UFT (misalnya sebagai peserta voting), sertifikat kehadiran akan dikirimkan. Hubungi admin UFT atau pantau website untuk informasi lebih lanjut mengenai sertifikat dari acara tertentu."
+  },
+  {
+    "category": "faq",
+    "question": "Apa itu shortlink UFT?",
+    "answer": "Shortlink UFT adalah fitur pemendek URL yang memudahkan berbagi link acara, galeri, atau konten UFT lainnya dengan alamat yang lebih singkat dan mudah diingat. Link pendek UFT biasanya menggunakan domain khusus UFT."
+  },
+  {
+    "category": "faq",
+    "question": "Bagaimana cara mendaftar untuk mengikuti acara UFT?",
+    "answer": "Untuk mendaftar acara UFT: (1) Buka halaman Acara di website, (2) Pilih acara yang ingin diikuti, (3) Klik tombol Daftar/Ikuti, (4) Isi form pendaftaran dengan nama, prodi, dan data yang diminta, (5) Setelah berhasil, kamu akan mendapatkan token yang bisa digunakan untuk voting atau akses acara."
+  }
+]

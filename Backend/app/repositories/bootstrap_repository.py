@@ -6,6 +6,9 @@ class BootstrapRepository(BaseRepository):
     def bidang_count(self):
         return self.db.query(Bidang).count()
 
+    def existing_bidang_names(self) -> set:
+        return {row.nama for row in self.db.query(Bidang.nama).all()}
+
     def add_bidang(self, item: dict):
         self.db.add(Bidang(**item))
 

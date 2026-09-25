@@ -1,6 +1,42 @@
 import type { Acara, Koleksi } from "../components/types";
 
 // ---------------------------------------------------------------------------
+// CHATBOT — Angie AI Assistant
+// ---------------------------------------------------------------------------
+export type ChatMessage = {
+  role: "user" | "assistant";
+  content: string;
+};
+
+export type ChatResponse = {
+  reply: string;
+  session_id: string;
+  is_fallback?: boolean;
+  is_resting?: boolean;
+};
+
+/**
+ * Kirim pesan ke Angie via POST /api/chatbot/chat.
+ * session_id dibuat sekali per browser session dan disimpan di sessionStorage.
+ */
+export async function sendChatMessage(
+  message: string,
+  sessionId: string
+): Promise<ChatResponse> {
+  const res = await fetch("/api/chatbot/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message, session_id: sessionId }),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Gagal menghubungi Angie (status ${res.status})`);
+  }
+
+  return res.json() as Promise<ChatResponse>;
+}
+
+// ---------------------------------------------------------------------------
 // FAKE DATA — aktifkan dengan NEXT_PUBLIC_USE_FAKE_DATA=true di .env.local
 // Dipakai saat backend belum jalan / tidak bisa dijangkau untuk keperluan
 // development & testing tampilan.

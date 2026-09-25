@@ -12,8 +12,10 @@ class BootstrapService:
     def initialize(self, bidang_path: str):
         with open(bidang_path, "r") as handle:
             bidang_data = json.load(handle)
-        if self.repository.bidang_count() < len(bidang_data):
-            for item in bidang_data:
+        existing_names = self.repository.existing_bidang_names()
+        new_bidangs = [item for item in bidang_data if item["nama"] not in existing_names]
+        if new_bidangs:
+            for item in new_bidangs:
                 self.repository.add_bidang(item)
             self.repository.commit()
         if self.repository.account_count() == 0:

@@ -75,7 +75,6 @@ function KaryaContent() {
         headers['Authorization'] = `Bearer ${guestToken}`;
       }
 
-      // Pastikan acaraId berupa string yang aman dilempar ke URL
       const response = await fetch(`/api/form/isi/${acaraId || '0'}`, {
         method: 'POST',
         headers: headers,
@@ -180,61 +179,196 @@ function KaryaContent() {
                 className="w-full bg-red-600 hover:bg-red-700 text-white font-black py-5 rounded-2xl shadow-[0_10px_30px_rgba(220,38,38,0.3)] transition-all flex items-center justify-center gap-3 active:scale-95 text-lg"
               >
                 VOTE KARYA INI
-            </button>
-            <p className="text-center text-[10px] text-slate-400 mt-4 uppercase font-bold tracking-widest">Satu identitas, satu vote</p>
-          </div>)}
+              </button>
+              <p className="text-center text-[10px] text-slate-400 mt-4 uppercase font-bold tracking-widest">Satu identitas, satu vote</p>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* --- MODAL FORM VOTE --- */}
-      {showVoteForm && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-[2rem] overflow-hidden max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200 relative">
-            
-            {!isSuccess && (
-              <button onClick={() => setShowVoteForm(false)} className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-800 bg-slate-100 rounded-full font-bold">✕</button>
-            )}
-
-            {!isSuccess ? (
-              <div className="p-8 md:p-10">
-                <div className="mb-8">
-                  <h2 className="text-2xl font-black text-slate-800 tracking-tight mb-1">Konfirmasi Vote</h2>
-                  <p className="text-slate-500 text-xs">Anda akan memberikan suara untuk <strong>"{karya.title}"</strong>.</p>
-                </div>
-
-                <form onSubmit={handleVoteSubmit} className="space-y-4">
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Nama Lengkap</label>
-                    <input type="text" name="nama" value={formData.nama} onChange={handleInputChange} required placeholder="Nama Saya..." className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 outline-none focus:ring-2 focus:ring-red-600 transition-all font-medium" />
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Prodi / Instansi</label>
-                      <input type="text" name="prodi_instansi" value={formData.prodi_instansi} onChange={handleInputChange} required placeholder="S1 Informatika / Umum" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 outline-none focus:ring-2 focus:ring-red-600 transition-all font-medium" />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">NIM (Opsional)</label>
-                      <input type="text" name="nim" value={formData.nim} onChange={handleInputChange} placeholder="NIM / Kosong" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 outline-none focus:ring-2 focus:ring-red-600 transition-all font-medium" />
-                    </div>
-                  </div>
-
-                  <button type="submit" disabled={isSubmitLoading} className="w-full bg-slate-900 hover:bg-black disabled:bg-slate-500 text-white font-bold py-4 rounded-xl mt-4 transition-all shadow-lg flex justify-center items-center">
-                    {isSubmitLoading ? "Mengirim..." : "Kirim Vote Sekarang"}
-                  </button>
-                </form>
-              </div>
-            ) : (
-              <div className="p-12 text-center bg-slate-50">
-                <div className="w-20 h-20 bg-green-100 text-green-500 rounded-full flex items-center justify-center text-4xl mx-auto mb-6 shadow-inner">✓</div>
-                <h2 className="text-2xl font-black text-slate-800 mb-2">Vote Terkirim!</h2>
-                <p className="text-slate-500 text-sm">Terima kasih telah mendukung <strong>{karya.author}</strong> di pameran ini.</p>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      {/* --- MODAL FORM VOTE (Framer Motion) --- */}
+      <VoteModal
+        show={showVoteForm}
+        isSuccess={isSuccess}
+        isSubmitLoading={isSubmitLoading}
+        formData={formData}
+        karyaTitle={karya.title}
+        karyaAuthor={karya.author}
+        onClose={() => setShowVoteForm(false)}
+        onSubmit={handleVoteSubmit}
+        onInputChange={handleInputChange}
+      />
     </main>
+  );
+}
+
+// --- KOMPONEN MODAL TERPISAH DENGAN FRAMER MOTION ---
+function VoteModal({
+  show,
+  isSuccess,
+  isSubmitLoading,
+  formData,
+  karyaTitle,
+  karyaAuthor,
+  onClose,
+  onSubmit,
+  onInputChange,
+}: {
+  show: boolean;
+  isSuccess: boolean;
+  isSubmitLoading: boolean;
+  formData: { nama: string; prodi_instansi: string; nim: string };
+  karyaTitle: string;
+  karyaAuthor: string;
+  onClose: () => void;
+  onSubmit: (e: React.FormEvent) => void;
+  onInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+}) {
+  const [FM, setFM] = React.useState<any>(null);
+
+  React.useEffect(() => {
+    import('framer-motion').then((mod) => setFM(mod));
+  }, []);
+
+  if (!FM) return null;
+
+  const { AnimatePresence, motion } = FM;
+
+  return (
+    <AnimatePresence>
+      {show && (
+        <motion.div
+          key="backdrop"
+          className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-4"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.25, ease: 'easeOut' }}
+          style={{ backgroundColor: 'rgba(15, 23, 42, 0.78)', backdropFilter: 'blur(6px)' }}
+          onClick={!isSuccess ? onClose : undefined}
+        >
+          <motion.div
+            key="modal"
+            className="bg-white max-w-md w-full shadow-2xl overflow-hidden relative"
+            style={{ borderRadius: '1.75rem' }}
+            initial={{ opacity: 0, y: 64, scale: 0.94 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 40, scale: 0.96 }}
+            transition={{ type: 'spring', stiffness: 340, damping: 30, mass: 0.9 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <AnimatePresence mode="wait">
+              {!isSuccess ? (
+                <motion.div
+                  key="form"
+                  initial={{ opacity: 0, x: -12 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 12 }}
+                  transition={{ duration: 0.2, ease: 'easeInOut' }}
+                  className="p-8 md:p-10"
+                >
+                  <button
+                    onClick={onClose}
+                    className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-full font-bold transition-colors"
+                  >
+                    ✕
+                  </button>
+
+                  <div className="mb-8">
+                    <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-red-500 bg-red-50 px-3 py-1 rounded-full mb-3">
+                      <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse inline-block" />
+                      Voting Aktif
+                    </span>
+                    <h2 className="text-2xl font-black text-slate-800 tracking-tight mb-1">Konfirmasi Vote</h2>
+                    <p className="text-slate-500 text-xs">Anda akan memberikan suara untuk <strong>&ldquo;{karyaTitle}&rdquo;</strong>.</p>
+                  </div>
+
+                  <form onSubmit={onSubmit} className="space-y-4">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Nama Lengkap</label>
+                      <input
+                        type="text" name="nama" value={formData.nama}
+                        onChange={onInputChange} required placeholder="Nama Saya..."
+                        className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-slate-800 outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all font-medium"
+                      />
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Prodi / Instansi</label>
+                        <input
+                          type="text" name="prodi_instansi" value={formData.prodi_instansi}
+                          onChange={onInputChange} required placeholder="S1 Informatika"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-slate-800 outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all font-medium"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">NIM (Opsional)</label>
+                        <input
+                          type="text" name="nim" value={formData.nim}
+                          onChange={onInputChange} placeholder="NIM / Kosong"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-slate-800 outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all font-medium"
+                        />
+                      </div>
+                    </div>
+
+                    <motion.button
+                      type="submit"
+                      disabled={isSubmitLoading}
+                      className="w-full bg-slate-900 hover:bg-black disabled:bg-slate-400 text-white font-bold py-4 rounded-2xl mt-2 transition-colors shadow-lg flex justify-center items-center gap-2"
+                      whileTap={{ scale: 0.97 }}
+                      whileHover={{ scale: 1.01 }}
+                    >
+                      {isSubmitLoading ? (
+                        <>
+                          <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                          Mengirim...
+                        </>
+                      ) : (
+                        'Kirim Vote Sekarang →'
+                      )}
+                    </motion.button>
+                  </form>
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="success"
+                  initial={{ opacity: 0, scale: 0.92 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ type: 'spring', stiffness: 260, damping: 22 }}
+                  className="p-12 text-center"
+                >
+                  <motion.div
+                    initial={{ scale: 0, rotate: -20 }}
+                    animate={{ scale: 1, rotate: 0 }}
+                    transition={{ type: 'spring', stiffness: 300, damping: 18, delay: 0.1 }}
+                    className="w-20 h-20 bg-green-100 text-green-500 rounded-full flex items-center justify-center text-4xl mx-auto mb-6 shadow-inner"
+                  >
+                    ✓
+                  </motion.div>
+                  <motion.h2
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.22 }}
+                    className="text-2xl font-black text-slate-800 mb-2"
+                  >
+                    Vote Terkirim!
+                  </motion.h2>
+                  <motion.p
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.32 }}
+                    className="text-slate-500 text-sm"
+                  >
+                    Terima kasih telah mendukung <strong>{karyaAuthor}</strong> di pameran ini.
+                  </motion.p>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
 

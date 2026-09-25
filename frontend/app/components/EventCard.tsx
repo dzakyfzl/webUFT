@@ -15,7 +15,7 @@ type EventCardProps = {
 export function EventCard({ event, onSelect, className = "", compact = false, href }: EventCardProps) {
   const content = (
     <>
-      <div className="relative aspect-[4/3] overflow-hidden bg-stone-100">
+      <div className="relative aspect-[4/5] overflow-hidden bg-stone-100">
         <Image src={event.image} alt={event.title} fill className="object-cover transition-opacity duration-200 group-hover:opacity-90" unoptimized />
       </div>
       <div className={`flex flex-1 flex-col ${compact ? "pt-2 sm:pt-3" : "pt-4"}`}>
