@@ -248,18 +248,30 @@ class ChatbotRepository:
         return self._get_config()
 
     def increment_token_usage(self, tokens: int) -> None:
-        """Tambah jumlah token yang dipakai hari ini.
+        """Tambah jumlah token yang dipakai hari ini (atomic — race-condition safe).
         Reset otomatis jika hari sudah berganti.
         """
+        from sqlalchemy import update as sa_update
+
         config = self._get_config()
         today = date.today()
         last_reset = config.last_reset_date.date() if config.last_reset_date else None
 
         if last_reset != today:
-            config.tokens_used_today = 0
-            config.last_reset_date = datetime(today.year, today.month, today.day)
-
-        config.tokens_used_today = (config.tokens_used_today or 0) + tokens
+            # Hari berganti — reset counter lalu set nilai baru
+            self.db.execute(
+                sa_update(ChatbotConfig).values(
+                    tokens_used_today=tokens,
+                    last_reset_date=datetime(today.year, today.month, today.day),
+                )
+            )
+        else:
+            # Atomic increment di DB level — tidak bisa di-race antar thread
+            self.db.execute(
+                sa_update(ChatbotConfig).values(
+                    tokens_used_today=ChatbotConfig.tokens_used_today + tokens,
+                )
+            )
         self.db.commit()
 
     def is_token_available(self) -> bool:
