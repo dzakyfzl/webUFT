@@ -10,6 +10,7 @@ Flow utama:
 """
 import logging
 import os
+import threading
 from typing import Optional
 
 from google import genai
@@ -26,6 +27,36 @@ from app.services.chatbot_context_service import ChatbotContextService
 from app.utils.chat_sanitizer import sanitize_input, sanitize_output
 
 logger = logging.getLogger(__name__)
+
+# ── Global singleton API key pool ────────────────────────────────────────────
+# ApiKeyPool di-share antar semua request — cache key di-load sekali dari DB.
+# Setiap request chat membaca key dari MEMORY, bukan dari DB.
+_pool_lock = threading.Lock()
+_global_pool: ApiKeyPool | None = None
+
+
+def _get_global_pool(db: Session, encryption: KeyEncryption) -> ApiKeyPool:
+    """Return singleton ApiKeyPool. Di-inisialisasi sekali, di-share antar request.
+
+    Thread-safe via lock. Setelah init, get_active_key() tidak menyentuh DB.
+    """
+    global _global_pool
+    if _global_pool is None:
+        with _pool_lock:
+            if _global_pool is None:  # double-check setelah dapat lock
+                _global_pool = ApiKeyPool(db, encryption)
+                logger.info("[ApiKeyPool] Global singleton diinisialisasi")
+    else:
+        # Update DB session agar write operations (fail, flush) pakai session aktif
+        _global_pool.db = db
+    return _global_pool
+
+
+# Semaphore: batasi chatbot agar tidak memonopoli seluruh connection pool.
+# Pool size 10 + overflow 20 = 30 total. Chatbot boleh pakai maks 5 koneksi
+# bersamaan, sisanya tetap tersedia untuk endpoint lain (file, album, acara, dll).
+_CHATBOT_CONCURRENCY_LIMIT = int(os.getenv("CHATBOT_MAX_CONCURRENT", "5"))
+_chat_semaphore = threading.Semaphore(_CHATBOT_CONCURRENCY_LIMIT)
 
 # Pesan baku Angie
 MSG_RESTING = "Angie saat ini sedang beristirahat, tanyakan saat Angie sudah bangun yaa.. 😴"
@@ -104,7 +135,8 @@ class ChatbotService:
         self.repo = ChatbotRepository(db)
         master_key = os.getenv("CHATBOT_MASTER_KEY", "")
         self.encryption = KeyEncryption(master_key) if len(master_key) == 64 else None
-        self.pool = ApiKeyPool(db, self.encryption) if self.encryption else None
+        # Gunakan global singleton pool — cache key tidak di-reload tiap request
+        self.pool = _get_global_pool(db, self.encryption) if self.encryption else None
         self.model_name = os.getenv("CHATBOT_MODEL", "gemini-2.0-flash-lite")
         self.embedding_model = os.getenv("CHATBOT_EMBEDDING_MODEL", "text-embedding-004")
         # Threshold lebih rendah (0.70) agar knowledge yang baru ditambahkan
@@ -255,7 +287,29 @@ class ChatbotService:
                             NAMUN jika RAG punya konteks relevan, sertakan juga.
         - Tier 2 (spesifik): RAG via pgvector → Gemini. Jika tidak ada konteks,
                              simpan ke unanswered (dengan dedup similarity).
+
+        Semaphore _chat_semaphore memastikan chatbot tidak memonopoli connection pool
+        saat traffic spike. Jika slot penuh, request langsung ditolak (fail-fast).
         """
+        # Fail-fast: jika semua slot chatbot sedang dipakai, tolak segera
+        # tanpa menunggu — ini mencegah antrian panjang yang menumpuk koneksi DB.
+        if not _chat_semaphore.acquire(blocking=False):
+            logger.warning(
+                "[Chatbot] Semaphore penuh (%d slot). Request ditolak (fail-fast).",
+                _CHATBOT_CONCURRENCY_LIMIT,
+            )
+            return ChatResponse(
+                reply="Angie sedang melayani banyak pengguna sekarang. Coba lagi sebentar ya! 🙏",
+                session_id=session_id,
+                is_fallback=True,
+            )
+        try:
+            return self._chat_internal(message, session_id, user_ip)
+        finally:
+            _chat_semaphore.release()
+
+    def _chat_internal(self, message: str, session_id: str, user_ip: Optional[str] = None) -> ChatResponse:
+        """Implementasi chat — dipanggil dari chat() setelah semaphore acquired."""
         # 0. Sanitasi input sebelum diproses
         message = sanitize_input(message)
         if not message:
@@ -342,8 +396,7 @@ class ChatbotService:
                     reply = sanitize_output(reply)
                     self.pool.report_success(key_id)
                     self.repo.increment_token_usage(tokens_used)
-                    self.repo.save_conversation(session_id, "user", message)
-                    self.repo.save_conversation(session_id, "assistant", reply)
+                    self.repo.save_conversation_pair(session_id, message, reply)
                     return ChatResponse(reply=reply, session_id=session_id)
 
                 # ── Tier 2: Pertanyaan spesifik — RAG ───────────────────────────
@@ -361,8 +414,7 @@ class ChatbotService:
                         embedding=unanswered_embedding,
                         user_ip=user_ip,
                     )
-                    self.repo.save_conversation(session_id, "user", message)
-                    self.repo.save_conversation(session_id, "assistant", MSG_UNANSWERED)
+                    self.repo.save_conversation_pair(session_id, message, MSG_UNANSWERED)
                     return ChatResponse(
                         reply=MSG_UNANSWERED,
                         session_id=session_id,
@@ -377,8 +429,7 @@ class ChatbotService:
 
                 self.pool.report_success(key_id)
                 self.repo.increment_token_usage(tokens_used)
-                self.repo.save_conversation(session_id, "user", message)
-                self.repo.save_conversation(session_id, "assistant", reply)
+                self.repo.save_conversation_pair(session_id, message, reply)
 
                 return ChatResponse(reply=reply, session_id=session_id)
 

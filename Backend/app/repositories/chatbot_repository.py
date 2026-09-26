@@ -270,6 +270,14 @@ class ChatbotRepository:
         self.db.add(record)
         self.db.commit()
 
+    def save_conversation_pair(
+        self, session_id: str, user_message: str, assistant_reply: str
+    ) -> None:
+        """Simpan turn user + assistant dalam satu commit (mengurangi round-trip DB)."""
+        self.db.add(ChatbotConversation(session_id=session_id, role="user", content=user_message))
+        self.db.add(ChatbotConversation(session_id=session_id, role="assistant", content=assistant_reply))
+        self.db.commit()
+
     def get_conversation_history(self, session_id: str, limit: int = 6) -> list[dict]:
         """Ambil N pesan terakhir (untuk context window Gemini)."""
         rows = (
@@ -296,8 +304,13 @@ class ChatbotRepository:
     # ── Token Usage / Config ──────────────────────────────────────────────
 
     def _get_config(self) -> ChatbotConfig:
-        """Ambil baris config (selalu ada — di-seed saat migration)."""
-        self.db.expire_all()  # Pastikan baca dari DB, bukan identity map cache
+        """Ambil baris config (selalu ada — di-seed saat migration).
+
+        Tidak pakai expire_all() — setiap request chatbot sudah dapat Session
+        baru via get_db(), sehingga identity map tidak stale antar request.
+        expire_all() pada Session yang sama dalam satu request tidak diperlukan
+        dan justru menyebabkan N+1 query tambahan.
+        """
         config = self.db.query(ChatbotConfig).first()
         if not config:
             # Fallback kalau migration belum jalan

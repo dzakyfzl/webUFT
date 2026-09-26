@@ -1,0 +1,94 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches:
+      - production
+
+# Hanya satu deployment boleh berjalan sekaligus.
+# Jika ada push baru saat deploy sedang berjalan, yang lama dibatalkan.
+concurrency:
+  group: production-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Deploy via SSH
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      # ── 1. Checkout ────────────────────────────────────────────────────────
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── 2. Setup SSH agent ─────────────────────────────────────────────────
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      # ── 3. Tambah server ke known_hosts ────────────────────────────────────
+      - name: Add server to known hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+
+      # ── 4. Deploy ke server ────────────────────────────────────────────────
+      - name: Deploy
+        run: |
+          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} -p ${{ secrets.SSH_PORT }} << 'ENDSSH'
+            set -e
+
+            echo "========================================="
+            echo "  UFT Web Deploy — $(date '+%Y-%m-%d %H:%M:%S')"
+            echo "========================================="
+
+            cd ${{ secrets.PROJECT_PATH }}
+
+            # ── Git pull ──────────────────────────────────────────────────
+            echo "[1/4] Pulling latest code..."
+            git fetch origin production
+            git reset --hard origin/production
+            echo "      OK Code updated"
+
+            # ── Database migration ────────────────────────────────────────
+            echo "[2/4] Running alembic migrations..."
+            docker compose run --rm --no-deps backend \
+              sh -c "cd /app && uv run alembic upgrade head"
+            echo "      OK Migrations done"
+
+            # ── Build & restart containers ────────────────────────────────
+            echo "[3/4] Building & restarting containers..."
+            docker compose build --no-cache
+            docker compose up -d --remove-orphans
+            echo "      OK Containers started"
+
+            # ── Health check ──────────────────────────────────────────────
+            echo "[4/4] Waiting for backend health..."
+            attempt=0
+            max=24
+            until docker compose exec -T backend \
+                python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)" \
+                2>/dev/null; do
+              attempt=$((attempt + 1))
+              if [ $attempt -ge $max ]; then
+                echo "      FAIL Health check timeout"
+                docker compose logs --tail=50 backend
+                exit 1
+              fi
+              echo "      Waiting... ($attempt/$max)"
+              sleep 5
+            done
+
+            echo "      OK Backend healthy"
+            echo ""
+            echo "Deploy selesai!"
+            docker compose ps
+          ENDSSH
+
+      # ── 5. Notifikasi gagal ────────────────────────────────────────────────
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "Deploy GAGAL. Log: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
