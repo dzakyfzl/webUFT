@@ -165,8 +165,13 @@ class ChatbotService:
         context_chunks: list[dict],
         history: list[dict],
         user_message: str,
+        live_ctx: str = "",
     ) -> tuple[str, int]:
-        """Panggil Gemini API dan return (reply_text, total_tokens)."""
+        """Panggil Gemini API dan return (reply_text, total_tokens).
+
+        live_ctx harus sudah diambil dari DB sebelum memanggil method ini,
+        agar koneksi DB tidak tertahan selama Gemini API call yang lambat.
+        """
         client = self._make_client(api_key)
 
         # Bangun konteks dari hasil similarity search (knowledge base)
@@ -174,13 +179,6 @@ class ChatbotService:
             f"[{c['category'].upper()}] Q: {c['question']}\nA: {c['answer']}"
             for c in context_chunks
         )
-
-        # Sisipkan live context (acara real-time dari DB)
-        try:
-            live_ctx = self.context_service.build_live_context()
-        except Exception:
-            logger.exception("Gagal membangun live context — diabaikan")
-            live_ctx = ""
 
         # Gabungkan: live context ditempatkan lebih dahulu agar LLM prioritaskan
         parts: list[str] = []
@@ -258,6 +256,14 @@ class ChatbotService:
             logger.error("ChatbotService: CHATBOT_MASTER_KEY tidak dikonfigurasi")
             return ChatResponse(reply=MSG_ERROR, session_id=session_id, is_fallback=True)
 
+        # Pre-fetch live context SEBELUM loop retry, agar koneksi DB tidak
+        # tertahan saat menunggu response Gemini API (bisa beberapa detik).
+        try:
+            live_ctx = self.context_service.build_live_context()
+        except Exception:
+            logger.exception("Gagal membangun live context — diabaikan")
+            live_ctx = ""
+
         for attempt in range(self.max_retries):
             key_id, api_key = self.pool.get_active_key()
             if key_id is None:
@@ -275,7 +281,7 @@ class ChatbotService:
                 # ── Tier 1: Pertanyaan generic — jawab langsung tanpa KB ──────
                 if _is_generic_question(message):
                     logger.debug("[Chatbot] Tier-1 (generic): '%s'", message[:60])
-                    reply, tokens_used = self._call_gemini(api_key, [], history, message)
+                    reply, tokens_used = self._call_gemini(api_key, [], history, message, live_ctx)
                     reply = sanitize_output(reply)
                     self.pool.report_success(key_id)
                     self.repo.increment_token_usage(tokens_used)
@@ -308,7 +314,7 @@ class ChatbotService:
                     )
 
                 # 5b. Ada konteks → kirim ke Gemini dengan KB
-                reply, tokens_used = self._call_gemini(api_key, context_chunks, history, message)
+                reply, tokens_used = self._call_gemini(api_key, context_chunks, history, message, live_ctx)
 
                 # 5c. Output guardrail — scan sebelum dikirim ke user
                 reply = sanitize_output(reply)

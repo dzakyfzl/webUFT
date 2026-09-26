@@ -33,7 +33,15 @@ def _build_database_url() -> str:
 
 DATABASE_URL = _build_database_url()
 
-engine = create_engine(DATABASE_URL)
+engine = create_engine(
+    DATABASE_URL,
+    # Pool settings — ditingkatkan untuk handle concurrent requests
+    pool_size=10,           # jumlah koneksi persistent (dari 5 → 10)
+    max_overflow=20,        # koneksi overflow tambahan (dari 10 → 20)
+    pool_timeout=30,        # timeout tunggu koneksi dari pool
+    pool_recycle=1800,      # recycle koneksi setiap 30 menit (cegah stale)
+    pool_pre_ping=True,     # test koneksi sebelum pakai (cegah "connection closed" error)
+)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
@@ -42,6 +50,9 @@ def get_db():
     db = SessionLocal()
     try:
         yield db
-    finally:
+    except Exception:
+        # Hanya rollback saat ada error, bukan setiap request
         db.rollback()
+        raise
+    finally:
         db.close()
