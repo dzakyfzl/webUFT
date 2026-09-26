@@ -180,7 +180,7 @@ class ChatbotService:
         except Exception:
             logger.exception("Gagal mengambil soul dari DB, pakai default")
             soul = "Kamu adalah Angie, asisten AI milik UKM Fotografi Telkom (UFT)."
-        return soul + _SYSTEM_PROMPT_RAG_INSTRUCTION + _SYSTEM_PROMPT_SECURITY
+        return soul + _SYSTEM_PROMPT_SECURITY
 
     # ── Internal helpers ──────────────────────────────────────────────────
 
@@ -446,7 +446,7 @@ class ChatbotService:
         # Bagian ini bisa memakan 5-15 detik per request (embedding + Gemini).
         # Koneksi DB sudah dikembalikan, endpoint lain bisa pakai.
 
-        system_prompt = soul + _SYSTEM_PROMPT_RAG_INSTRUCTION + _SYSTEM_PROMPT_SECURITY
+        system_prompt = soul + _SYSTEM_PROMPT_SECURITY
         is_generic = _is_generic_question(message)
 
         for attempt in range(self.max_retries):
