@@ -32,11 +32,14 @@ from app.schemas.chatbot import (
     KnowledgeUpdate,
     SeedRequest,
     SeedResponse,
+    SoulResponse,
+    SoulUpdate,
     UnansweredResolve,
     UnansweredResponse,
 )
 from app.services.api_key_pool import ApiKeyPool
 from app.services.chatbot_service import ChatbotService
+from app.utils.rate_limiter import chat_rate_limiter
 
 router = APIRouter(prefix="/chatbot", tags=["Chatbot"])
 
@@ -70,12 +73,20 @@ def chat(
     service: ChatbotService = Depends(_get_chatbot_service),
 ):
     """Kirim pesan ke Angie. Endpoint ini terbuka untuk publik."""
+    # Rate limit per IP — 10 request per menit
+    client_ip = request.client.host if request.client else "unknown"
+    if not chat_rate_limiter.is_allowed(client_ip):
+        raise HTTPException(
+            status_code=429,
+            detail="Terlalu banyak permintaan. Tunggu sebentar sebelum bertanya lagi ya! 😅",
+        )
+
     # Sanitasi ringan: strip whitespace berlebih
     message = " ".join(payload.message.split())
     if not message:
         raise HTTPException(status_code=422, detail="Pesan tidak boleh kosong")
 
-    user_ip = request.client.host if request.client else None
+    user_ip = client_ip
     return service.chat(
         message=message,
         session_id=payload.session_id,
@@ -327,3 +338,30 @@ def toggle_chatbot(
     config = repo.get_token_usage()
     repo.set_chatbot_active(not config.is_active)
     return {"is_active": not config.is_active}
+
+
+# ─── ADMIN: Soul ─────────────────────────────────────────────────────────────────────
+
+@router.get("/soul", response_model=SoulResponse)
+def get_soul(
+    _: Annotated[str, Depends(validate_token)],
+    repo: ChatbotRepository = Depends(_get_repo),
+):
+    """Ambil soul (personalisasi) Angie saat ini. Hanya admin."""
+    return SoulResponse(soul=repo.get_soul())
+
+
+@router.put("/soul", response_model=SoulResponse)
+def update_soul(
+    payload: SoulUpdate,
+    _: Annotated[str, Depends(validate_token)],
+    repo: ChatbotRepository = Depends(_get_repo),
+):
+    """Update soul (personalisasi) Angie. Hanya admin.
+
+    Soul ditulis dalam Markdown dan diinjeksi ke system prompt LLM.
+    Aturan keamanan tetap ditambahkan secara otomatis oleh sistem
+    dan tidak bisa dihapus melalui soul.
+    """
+    updated = repo.update_soul(payload.soul)
+    return SoulResponse(soul=updated)

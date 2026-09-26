@@ -1,8 +1,9 @@
 """Pydantic schemas untuk chatbot Angie."""
+import uuid
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 # ── Chat ─────────────────────────────────────────────────────────────────────
@@ -10,6 +11,19 @@ from pydantic import BaseModel, Field
 class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=1000, description="Pesan dari user")
     session_id: str = Field(..., description="UUID sesi browser — di-generate frontend tiap load")
+
+    @field_validator("session_id")
+    @classmethod
+    def validate_session_id(cls, v: str) -> str:
+        """Pastikan session_id adalah UUID yang valid.
+
+        Mencegah user menebak session_id orang lain dengan string sembarang.
+        """
+        try:
+            parsed = uuid.UUID(v)
+            return str(parsed)  # Normalisasi ke lowercase canonical form
+        except (ValueError, AttributeError):
+            raise ValueError("session_id harus berupa UUID yang valid")
 
 
 class ChatResponse(BaseModel):
@@ -118,3 +132,13 @@ class SeedResponse(BaseModel):
     inserted: int
     skipped: int
     message: str
+
+
+# ── Soul ─────────────────────────────────────────────────────────────────────
+
+class SoulResponse(BaseModel):
+    soul: str
+
+
+class SoulUpdate(BaseModel):
+    soul: str = Field(..., min_length=1, description="Markdown personalisasi Angie")

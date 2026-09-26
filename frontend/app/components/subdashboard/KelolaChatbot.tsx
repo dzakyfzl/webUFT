@@ -2,9 +2,10 @@
 
 /**
  * KelolaChatbot — subdashboard panel untuk Chatbot Angie.
- * Tab: Knowledge Base | Tak Terjawab | API Keys | Statistik
+ * Tab: Knowledge Base | Tak Terjawab | API Keys | Statistik | Soul
  */
 import React, { useState, useEffect, useCallback } from "react";
+import Toast, { ToastType } from "../Toast";
 import { useRouter } from "next/navigation";
 
 // ─── Tipe Data ────────────────────────────────────────────────────────────────
@@ -72,6 +73,62 @@ function authHeaders(): Record<string, string> {
     "Content-Type": "application/json",
     Authorization: `Bearer ${token ?? ""}`,
   };
+}
+
+// ─── Toast Hook ───────────────────────────────────────────────────────────────
+type ToastState = { message: string; type: ToastType } | null;
+
+function useToast() {
+  const [toast, setToast] = useState<ToastState>(null);
+  const show = useCallback((message: string, type: ToastType = "error") => {
+    setToast({ message, type });
+  }, []);
+  const dismiss = useCallback(() => setToast(null), []);
+  return { toast, show, dismiss };
+}
+
+// ─── Modal Konfirmasi Delete ──────────────────────────────────────────────────
+function ConfirmModal({
+  title,
+  description,
+  confirmLabel = "Hapus",
+  onConfirm,
+  onCancel,
+  loading = false,
+}: {
+  title: string;
+  description: string;
+  confirmLabel?: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+  loading?: boolean;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+      <div className="bg-[#18181b] border border-white/10 rounded-2xl w-full max-w-sm shadow-2xl p-6 space-y-4">
+        <div>
+          <h3 className="font-bold text-white text-base">{title}</h3>
+          <p className="text-sm text-slate-400 mt-1">{description}</p>
+        </div>
+        <div className="flex justify-end gap-3 pt-1">
+          <button
+            onClick={onCancel}
+            disabled={loading}
+            className="px-5 py-2.5 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition-all text-sm font-semibold border border-white/10"
+          >
+            Batal
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={loading}
+            className="px-6 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-sm transition-all disabled:opacity-50"
+          >
+            {loading ? "Menghapus..." : confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // ─── Badge Status ─────────────────────────────────────────────────────────────
@@ -351,7 +408,9 @@ function TabKnowledge({ router }: { router: ReturnType<typeof useRouter> }) {
   const [loading, setLoading]           = useState(true);
   const [error, setError]               = useState("");
   const [modal, setModal]               = useState<Partial<Knowledge> | null | false>(false);
-  const [deleting, setDeleting]         = useState<number | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Knowledge | null>(null);
+  const [deleting, setDeleting]         = useState(false);
+  const { toast, show: showToast, dismiss } = useToast();
 
   useEffect(() => {
     const t = setTimeout(() => setDebounced(search), 400);
@@ -384,18 +443,20 @@ function TabKnowledge({ router }: { router: ReturnType<typeof useRouter> }) {
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => { setPage(1); }, [debouncedSearch]);
 
-  const handleDelete = async (id: number) => {
-    if (!confirm("Hapus knowledge ini? Tindakan tidak dapat dibatalkan.")) return;
-    setDeleting(id);
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
     try {
       // DELETE /api/chatbot/knowledge/{id}
-      const res = await fetch(`/api/chatbot/knowledge/${id}`, { method: "DELETE", headers: authHeaders() });
+      const res = await fetch(`/api/chatbot/knowledge/${deleteTarget.id}`, { method: "DELETE", headers: authHeaders() });
       if (!res.ok && res.status !== 204) throw new Error("Gagal menghapus.");
+      showToast("Knowledge berhasil dihapus.", "success");
+      setDeleteTarget(null);
       fetchData();
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Gagal menghapus.");
+      showToast(err instanceof Error ? err.message : "Gagal menghapus.", "error");
     } finally {
-      setDeleting(null);
+      setDeleting(false);
     }
   };
 
@@ -403,6 +464,8 @@ function TabKnowledge({ router }: { router: ReturnType<typeof useRouter> }) {
 
   return (
     <div className="space-y-5">
+      {toast && <Toast message={toast.message} type={toast.type} onClose={dismiss} />}
+
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
         <div>
           <h2 className="text-lg font-bold text-white">Knowledge Base</h2>
@@ -470,8 +533,12 @@ function TabKnowledge({ router }: { router: ReturnType<typeof useRouter> }) {
                     <td className="px-5 py-4">
                       <div className="flex justify-end gap-2">
                         <button onClick={() => setModal(item)} className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-all" title="Edit">✏️</button>
-                        <button onClick={() => handleDelete(item.id)} disabled={deleting === item.id} className="p-2 rounded-lg bg-white/5 hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition-all disabled:opacity-40" title="Hapus">
-                          {deleting === item.id ? "⏳" : "🗑️"}
+                        <button
+                          onClick={() => setDeleteTarget(item)}
+                          className="p-2 rounded-lg bg-white/5 hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition-all"
+                          title="Hapus"
+                        >
+                          🗑️
                         </button>
                       </div>
                     </td>
@@ -494,7 +561,26 @@ function TabKnowledge({ router }: { router: ReturnType<typeof useRouter> }) {
       </div>
 
       {modal !== false && (
-        <KnowledgeModal item={modal} onClose={() => setModal(false)} onSave={() => { setModal(false); fetchData(); }} />
+        <KnowledgeModal
+          item={modal}
+          onClose={() => setModal(false)}
+          onSave={() => {
+            setModal(false);
+            fetchData();
+            showToast(modal?.id ? "Knowledge berhasil diupdate." : "Knowledge berhasil ditambahkan.", "success");
+          }}
+        />
+      )}
+
+      {deleteTarget && (
+        <ConfirmModal
+          title="Hapus Knowledge?"
+          description={`"${deleteTarget.question}" akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.`}
+          confirmLabel="Hapus"
+          loading={deleting}
+          onConfirm={handleConfirmDelete}
+          onCancel={() => setDeleteTarget(null)}
+        />
       )}
     </div>
   );
@@ -507,6 +593,7 @@ function TabUnanswered({ router }: { router: ReturnType<typeof useRouter> }) {
   const [loading, setLoading]     = useState(true);
   const [error, setError]         = useState("");
   const [resolveTarget, setResolveTarget] = useState<Unanswered | null>(null);
+  const { toast, show: showToast, dismiss } = useToast();
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -530,6 +617,8 @@ function TabUnanswered({ router }: { router: ReturnType<typeof useRouter> }) {
 
   return (
     <div className="space-y-5">
+      {toast && <Toast message={toast.message} type={toast.type} onClose={dismiss} />}
+
       <div>
         <h2 className="text-lg font-bold text-white">Pertanyaan Tak Terjawab</h2>
         <p className="text-sm text-slate-500 mt-0.5">{total} pertanyaan — jawab untuk menyimpan ke Knowledge Base</p>
@@ -597,7 +686,11 @@ function TabUnanswered({ router }: { router: ReturnType<typeof useRouter> }) {
         <ResolveModal
           item={resolveTarget}
           onClose={() => setResolveTarget(null)}
-          onSave={() => { setResolveTarget(null); fetchData(); }}
+          onSave={() => {
+            setResolveTarget(null);
+            fetchData();
+            showToast("Jawaban berhasil disimpan ke Knowledge Base.", "success");
+          }}
         />
       )}
     </div>
@@ -606,11 +699,14 @@ function TabUnanswered({ router }: { router: ReturnType<typeof useRouter> }) {
 
 // ─── Tab: API Keys ────────────────────────────────────────────────────────────
 function TabApiKeys({ router }: { router: ReturnType<typeof useRouter> }) {
-  const [items, setItems]         = useState<ApiKey[]>([]);
-  const [loading, setLoading]     = useState(true);
-  const [error, setError]         = useState("");
-  const [showModal, setShowModal] = useState(false);
-  const [deleting, setDeleting]   = useState<number | null>(null);
+  const [items, setItems]               = useState<ApiKey[]>([]);
+  const [loading, setLoading]           = useState(true);
+  const [error, setError]               = useState("");
+  const [showModal, setShowModal]       = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<ApiKey | null>(null);
+  const [deleting, setDeleting]         = useState(false);
+  const [actionLoading, setActionLoading] = useState<number | null>(null);
+  const { toast, show: showToast, dismiss } = useToast();
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -632,23 +728,53 @@ function TabApiKeys({ router }: { router: ReturnType<typeof useRouter> }) {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const handleDelete = async (id: number) => {
-    if (!confirm("Hapus API Key ini?")) return;
-    setDeleting(id);
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
     try {
       // DELETE /api/chatbot/api-keys/{id} (plural!)
-      const res = await fetch(`/api/chatbot/api-keys/${id}`, { method: "DELETE", headers: authHeaders() });
+      const res = await fetch(`/api/chatbot/api-keys/${deleteTarget.id}`, { method: "DELETE", headers: authHeaders() });
       if (!res.ok && res.status !== 204) throw new Error("Gagal menghapus.");
+      showToast(`API Key "${deleteTarget.label}" berhasil dihapus.`, "success");
+      setDeleteTarget(null);
       fetchData();
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Gagal menghapus.");
-    } finally {
-      setDeleting(null);
-    }
+      showToast(err instanceof Error ? err.message : "Gagal menghapus.", "error");
+    } finally { setDeleting(false); }
   };
+
+  const handleToggle = async (item: ApiKey) => {
+    setActionLoading(item.id);
+    try {
+      // PATCH /api/chatbot/api-keys/{id}/toggle
+      const res = await fetch(`/api/chatbot/api-keys/${item.id}/toggle`, { method: "PATCH", headers: authHeaders() });
+      if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d?.detail ?? "Gagal mengubah status."); }
+      const updated: ApiKey = await res.json();
+      showToast(`Key "${item.label}" berhasil ${updated.status === "active" ? "diaktifkan" : "dinonaktifkan"}.`, "success");
+      fetchData();
+    } catch (err: unknown) {
+      showToast(err instanceof Error ? err.message : "Gagal mengubah status.", "error");
+    } finally { setActionLoading(null); }
+  };
+
+  const handleReset = async (item: ApiKey) => {
+    setActionLoading(item.id);
+    try {
+      // POST /api/chatbot/api-keys/{id}/reset
+      const res = await fetch(`/api/chatbot/api-keys/${item.id}/reset`, { method: "POST", headers: authHeaders() });
+      if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d?.detail ?? "Gagal mereset key."); }
+      showToast(`Fail count key "${item.label}" berhasil direset.`, "success");
+      fetchData();
+    } catch (err: unknown) {
+      showToast(err instanceof Error ? err.message : "Gagal mereset.", "error");
+    } finally { setActionLoading(null); }
+  };
+
 
   return (
     <div className="space-y-5">
+      {toast && <Toast message={toast.message} type={toast.type} onClose={dismiss} />}
+
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-bold text-white">API Keys Gemini</h2>
@@ -673,8 +799,8 @@ function TabApiKeys({ router }: { router: ReturnType<typeof useRouter> }) {
                 <th className="px-5 py-4 text-left font-semibold">Preview</th>
                 <th className="px-5 py-4 text-left font-semibold hidden sm:table-cell">Status</th>
                 <th className="px-5 py-4 text-left font-semibold hidden md:table-cell">Requests</th>
-                <th className="px-5 py-4 text-left font-semibold hidden md:table-cell">Prioritas</th>
-                <th className="px-5 py-4 text-right font-semibold w-20">Aksi</th>
+                <th className="px-5 py-4 text-left font-semibold hidden md:table-cell">Fail / P</th>
+                <th className="px-5 py-4 text-right font-semibold">Aksi</th>
               </tr>
             </thead>
             <tbody>
@@ -697,16 +823,42 @@ function TabApiKeys({ router }: { router: ReturnType<typeof useRouter> }) {
                     <td className="px-5 py-4 text-slate-400 font-mono text-xs">{item.key_preview}</td>
                     <td className="px-5 py-4 hidden sm:table-cell"><StatusBadge status={item.status} /></td>
                     <td className="px-5 py-4 text-slate-500 hidden md:table-cell">{item.total_requests.toLocaleString()}</td>
-                    <td className="px-5 py-4 text-slate-500 hidden md:table-cell">{item.priority}</td>
+                    <td className="px-5 py-4 text-slate-500 hidden md:table-cell">
+                      <span className={item.fail_count > 0 ? "text-orange-400" : ""}>{item.fail_count} fail</span>
+                      <span className="text-slate-700 mx-1">/</span>
+                      <span>P{item.priority}</span>
+                    </td>
                     <td className="px-5 py-4">
-                      <div className="flex justify-end">
+                      <div className="flex justify-end gap-2">
                         <button
-                          onClick={() => handleDelete(item.id)}
-                          disabled={deleting === item.id}
+                          onClick={() => handleToggle(item)}
+                          disabled={actionLoading === item.id}
+                          title={item.status === "disabled" ? "Aktifkan" : "Nonaktifkan"}
+                          className={`p-2 rounded-lg text-xs transition-all disabled:opacity-40 ${
+                            item.status === "disabled"
+                              ? "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400"
+                              : "bg-white/5 hover:bg-orange-500/20 text-slate-400 hover:text-orange-400"
+                          }`}
+                        >
+                          {actionLoading === item.id ? "⏳" : item.status === "disabled" ? "▶" : "⏸"}
+                        </button>
+                        {item.fail_count > 0 && (
+                          <button
+                            onClick={() => handleReset(item)}
+                            disabled={actionLoading === item.id}
+                            title="Reset fail count"
+                            className="p-2 rounded-lg bg-white/5 hover:bg-blue-500/20 text-slate-400 hover:text-blue-400 transition-all disabled:opacity-40 text-xs"
+                          >
+                            {actionLoading === item.id ? "⏳" : "↺"}
+                          </button>
+                        )}
+                        <button
+                          onClick={() => setDeleteTarget(item)}
+                          disabled={actionLoading === item.id}
                           className="p-2 rounded-lg bg-white/5 hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition-all disabled:opacity-40"
                           title="Hapus"
                         >
-                          {deleting === item.id ? "⏳" : "🗑️"}
+                          🗑️
                         </button>
                       </div>
                     </td>
@@ -718,7 +870,23 @@ function TabApiKeys({ router }: { router: ReturnType<typeof useRouter> }) {
         </div>
       </div>
 
-      {showModal && <ApiKeyModal onClose={() => setShowModal(false)} onSave={() => { setShowModal(false); fetchData(); }} />}
+      {showModal && (
+        <ApiKeyModal
+          onClose={() => setShowModal(false)}
+          onSave={() => { setShowModal(false); fetchData(); showToast("API Key berhasil ditambahkan.", "success"); }}
+        />
+      )}
+
+      {deleteTarget && (
+        <ConfirmModal
+          title="Hapus API Key?"
+          description={`Key "${deleteTarget.label}" (${deleteTarget.key_preview}) akan dihapus permanen.`}
+          confirmLabel="Hapus Key"
+          loading={deleting}
+          onConfirm={handleConfirmDelete}
+          onCancel={() => setDeleteTarget(null)}
+        />
+      )}
     </div>
   );
 }
@@ -729,6 +897,8 @@ function TabStats({ router }: { router: ReturnType<typeof useRouter> }) {
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState("");
   const [toggling, setToggling] = useState(false);
+  const { toast, show: showToast, dismiss } = useToast();
+
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -758,9 +928,11 @@ function TabStats({ router }: { router: ReturnType<typeof useRouter> }) {
         headers: authHeaders(),
       });
       if (!res.ok) throw new Error("Gagal mengubah status.");
+      const newActive = !stats.is_active;
+      showToast(`Chatbot Angie berhasil ${newActive ? "diaktifkan" : "dinonaktifkan"}.`, newActive ? "success" : "warning");
       fetchData();
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Error.");
+      showToast(err instanceof Error ? err.message : "Error.", "error");
     } finally {
       setToggling(false);
     }
@@ -784,6 +956,8 @@ function TabStats({ router }: { router: ReturnType<typeof useRouter> }) {
 
   return (
     <div className="space-y-6">
+      {toast && <Toast message={toast.message} type={toast.type} onClose={dismiss} />}
+
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-bold text-white">Statistik Chatbot</h2>
@@ -838,8 +1012,224 @@ function TabStats({ router }: { router: ReturnType<typeof useRouter> }) {
   );
 }
 
+// ─── Markdown Preview sederhana ──────────────────────────────────────────────
+function MarkdownPreview({ content }: { content: string }) {
+  const html = content
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/^### (.+)$/gm, '<h3 class="text-base font-bold text-white mt-5 mb-1">$1</h3>')
+    .replace(/^## (.+)$/gm, '<h2 class="text-lg font-bold text-red-400 mt-6 mb-2">$1</h2>')
+    .replace(/^# (.+)$/gm, '<h1 class="text-xl font-bold text-white mt-2 mb-3">$1</h1>')
+    .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong class="text-slate-200">$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em class="text-slate-300">$1</em>')
+    .replace(/^---$/gm, '<hr class="border-white/10 my-4"/>')
+    .replace(/^- (.+)$/gm, '<li class="ml-4 text-slate-300 list-disc">$1</li>')
+    .replace(/(<li[^>]*>.*<\/li>\n?)+/g, (m) => `<ul class="space-y-1 my-2">${m}</ul>`)
+    .replace(/\n\n/g, '</p><p class="text-slate-400 leading-relaxed my-2">')
+    .replace(/\n/g, "<br/>");
+  return (
+    <div
+      className="prose prose-invert max-w-none text-sm leading-relaxed"
+      dangerouslySetInnerHTML={{ __html: `<p class="text-slate-400 leading-relaxed my-2">${html}</p>` }}
+    />
+  );
+}
+
+// ─── Tab: Soul ────────────────────────────────────────────────────────────────
+function TabSoul({ router }: { router: ReturnType<typeof useRouter> }) {
+  const [soul, setSoul]             = useState("");
+  const [saved, setSaved]           = useState("");
+  const [loading, setLoading]       = useState(true);
+  const [saving, setSaving]         = useState(false);
+  const [error, setError]           = useState("");
+  const [tab, setTab]               = useState<"edit" | "preview">("edit");
+  const [resetConfirm, setResetConfirm] = useState(false);
+  const { toast, show: showToast, dismiss } = useToast();
+
+  const isDirty = soul !== saved;
+
+  const fetchSoul = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/chatbot/soul", { headers: authHeaders() });
+      if (res.status === 401) { router.push("/admin/login"); return; }
+      if (!res.ok) throw new Error(`Gagal memuat soul (${res.status})`);
+      const data = await res.json();
+      setSoul(data.soul ?? "");
+      setSaved(data.soul ?? "");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Gagal memuat soul.");
+    } finally {
+      setLoading(false);
+    }
+  }, [router]);
+
+  useEffect(() => { fetchSoul(); }, [fetchSoul]);
+
+  const handleSave = async () => {
+    if (!soul.trim()) { setError("Soul tidak boleh kosong."); return; }
+    setSaving(true);
+    setError("");
+    try {
+      const res = await fetch("/api/chatbot/soul", {
+        method: "PUT",
+        headers: authHeaders(),
+        body: JSON.stringify({ soul }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d?.detail ?? `Gagal menyimpan (${res.status})`);
+      }
+      const data = await res.json();
+      setSoul(data.soul);
+      setSaved(data.soul);
+      showToast("Soul berhasil disimpan! Angie akan menggunakan kepribadian baru mulai pesan berikutnya. ✨", "success");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Gagal menyimpan.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleReset = () => {
+    setSoul(saved);
+    setResetConfirm(false);
+  };
+
+  return (
+    <div className="space-y-5">
+      {toast && <Toast message={toast.message} type={toast.type} onClose={dismiss} />}
+
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+        <div>
+          <h2 className="text-lg font-bold text-white flex items-center gap-2">
+            ✨ Soul Angie
+            {isDirty && (
+              <span className="text-xs px-2.5 py-1 bg-amber-500/10 border border-amber-500/30 text-amber-400 rounded-lg font-semibold">
+                Belum disimpan
+              </span>
+            )}
+          </h2>
+          <p className="text-sm text-slate-500 mt-0.5">Kepribadian, gaya bicara, dan karakter Angie. Ditulis dalam Markdown.</p>
+        </div>
+        <div className="flex gap-3 sm:ml-auto">
+          {isDirty && (
+            <button
+              onClick={() => setResetConfirm(true)}
+              className="px-4 py-2.5 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition-all text-sm font-semibold border border-white/10"
+            >
+              Reset
+            </button>
+          )}
+          <button
+            onClick={handleSave}
+            disabled={saving || !isDirty || loading}
+            className="px-6 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-[0_0_15px_rgba(220,38,38,0.25)]"
+          >
+            {saving ? "Menyimpan..." : "💾 Simpan Soul"}
+          </button>
+        </div>
+      </div>
+
+      {/* Alerts */}
+      {error && (
+        <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm">{error}</div>
+      )}
+
+      {/* Info keamanan */}
+      <div className="p-4 bg-blue-500/5 border border-blue-500/15 rounded-xl text-sm text-slate-400 leading-relaxed">
+        <span className="font-semibold text-blue-400">ℹ️ Catatan keamanan: </span>
+        Aturan keamanan inti (anti-jailbreak, no-leak) selalu ditambahkan otomatis oleh sistem dan{" "}
+        <strong className="text-slate-300">tidak bisa dihapus</strong> melalui editor ini — hanya gaya bicara dan kepribadian yang bisa dikustomisasi.
+      </div>
+
+      {/* Edit / Preview tabs */}
+      <div className="flex gap-1 bg-[#18181b] border border-white/5 rounded-xl p-1 w-fit">
+        {(["edit", "preview"] as const).map((t) => (
+          <button
+            key={t}
+            onClick={() => setTab(t)}
+            className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all ${
+              tab === t ? "bg-red-600 text-white shadow" : "text-slate-400 hover:text-white"
+            }`}
+          >
+            {t === "edit" ? "✏️ Edit" : "👁 Preview"}
+          </button>
+        ))}
+      </div>
+
+      {/* Editor */}
+      <div className="bg-[#18181b] border border-white/5 rounded-2xl overflow-hidden">
+        {loading ? (
+          <div className="p-6 animate-pulse space-y-3">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className={`h-4 bg-white/5 rounded ${i % 3 === 0 ? "w-1/3" : "w-full"}`} />
+            ))}
+          </div>
+        ) : tab === "edit" ? (
+          <div className="relative">
+            <textarea
+              value={soul}
+              onChange={(e) => setSoul(e.target.value)}
+              rows={20}
+              spellCheck={false}
+              className="w-full bg-transparent text-slate-200 font-mono text-sm p-6 resize-none outline-none leading-relaxed placeholder:text-slate-600"
+              placeholder="Tulis soul Angie di sini dalam format Markdown..."
+            />
+            <div className="absolute bottom-4 right-4 text-xs text-slate-700 font-mono select-none">
+              {soul.length} karakter
+            </div>
+          </div>
+        ) : (
+          <div className="p-6 min-h-[300px]">
+            {soul.trim() ? (
+              <MarkdownPreview content={soul} />
+            ) : (
+              <p className="text-slate-600 text-sm">Soul masih kosong. Tulis dulu di tab Edit.</p>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Tips */}
+      <div className="bg-[#18181b] border border-white/5 rounded-2xl p-5">
+        <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">💡 Tips Penulisan Soul</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-slate-500">
+          {[
+            { label: "# Heading 1",     desc: "Judul utama soul" },
+            { label: "## Heading 2",    desc: "Bagian seperti 'Gaya Bicara'" },
+            { label: "**teks tebal**",  desc: "Penekanan penting" },
+            { label: "- item",          desc: "Poin-poin instruksi" },
+            { label: "---",             desc: "Garis pemisah bagian" },
+            { label: "Contoh respons",  desc: "Tambahkan contoh Q&A untuk konsistensi gaya" },
+          ].map((tip) => (
+            <div key={tip.label} className="flex items-start gap-3">
+              <code className="font-mono text-red-400 bg-red-500/10 px-1.5 py-0.5 rounded text-xs shrink-0">{tip.label}</code>
+              <span>{tip.desc}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {resetConfirm && (
+        <ConfirmModal
+          title="Reset Soul?"
+          description="Semua perubahan yang belum disimpan akan dikembalikan ke versi tersimpan terakhir."
+          confirmLabel="Reset"
+          onConfirm={handleReset}
+          onCancel={() => setResetConfirm(false)}
+        />
+      )}
+    </div>
+  );
+}
+
 // ─── Komponen Utama ───────────────────────────────────────────────────────────
-type ChatbotTab = "knowledge" | "unanswered" | "apikeys" | "stats";
+type ChatbotTab = "knowledge" | "unanswered" | "apikeys" | "stats" | "soul";
 
 export default function KelolaChatbot() {
   const router = useRouter();
@@ -850,6 +1240,7 @@ export default function KelolaChatbot() {
     { id: "unanswered", label: "Tak Terjawab",   icon: "❓" },
     { id: "apikeys",    label: "API Keys",        icon: "🔑" },
     { id: "stats",      label: "Statistik",       icon: "📊" },
+    { id: "soul",       label: "Soul Angie",      icon: "✨" },
   ];
 
   return (
@@ -857,7 +1248,7 @@ export default function KelolaChatbot() {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-white flex items-center gap-2">🤖 Kelola Chatbot Angie</h1>
-        <p className="text-sm text-slate-500 mt-1">Manajemen knowledge base, API keys, dan monitoring chatbot</p>
+        <p className="text-sm text-slate-500 mt-1">Manajemen knowledge base, API keys, soul, dan monitoring chatbot</p>
       </div>
 
       {/* Tab Bar */}
@@ -883,6 +1274,7 @@ export default function KelolaChatbot() {
       {activeTab === "unanswered" && <TabUnanswered router={router} />}
       {activeTab === "apikeys"    && <TabApiKeys    router={router} />}
       {activeTab === "stats"      && <TabStats      router={router} />}
+      {activeTab === "soul"       && <TabSoul       router={router} />}
     </div>
   );
 }

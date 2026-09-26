@@ -7,10 +7,12 @@ import { sendChatMessage, type ChatMessage } from "../lib/api";
 
 function getOrCreateSessionId(): string {
   const KEY = "angie_session_id";
-  if (typeof window === "undefined") return `sess_${Date.now()}`;
+  if (typeof window === "undefined") return crypto.randomUUID();
   let id = sessionStorage.getItem(KEY);
-  if (!id) {
-    id = `sess_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+  // Validasi: pastikan value yang tersimpan adalah UUID canonical (format xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!id || !uuidRegex.test(id)) {
+    id = crypto.randomUUID();
     sessionStorage.setItem(KEY, id);
   }
   return id;
@@ -18,7 +20,7 @@ function getOrCreateSessionId(): string {
 
 function resetSessionId(): string {
   const KEY = "angie_session_id";
-  const newId = `sess_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+  const newId = crypto.randomUUID();
   if (typeof window !== "undefined") {
     sessionStorage.setItem(KEY, newId);
   }

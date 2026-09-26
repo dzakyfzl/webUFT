@@ -195,10 +195,11 @@ class ChatbotConversation(Base):
 
 
 class ChatbotConfig(Base):
-    """Konfigurasi global chatbot: token limit harian, kill switch."""
+    """Konfigurasi global chatbot: token limit harian, kill switch, dan soul (personalisasi)."""
     __tablename__ = "chatbot_config"
     id                = Column(Integer, primary_key=True)
     daily_token_limit = Column(Integer, default=1_000_000, nullable=False)
     tokens_used_today = Column(Integer, default=0, nullable=False)
     last_reset_date   = Column(DateTime, nullable=True)
     is_active         = Column(Boolean, default=True, nullable=False)  # kill switch
+    soul              = Column(Text, nullable=True)   # Markdown personalisasi Angie
