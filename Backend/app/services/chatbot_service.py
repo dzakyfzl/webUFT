@@ -226,6 +226,26 @@ class ChatbotService:
         live_ctx harus sudah diambil dari DB sebelum memanggil method ini,
         agar koneksi DB tidak tertahan selama Gemini API call yang lambat.
         """
+        return self._call_gemini_with_prompt(
+            api_key, context_chunks, history, user_message, live_ctx,
+            self._build_system_prompt(),
+        )
+
+    def _call_gemini_with_prompt(
+        self,
+        api_key: str,
+        context_chunks: list[dict],
+        history: list[dict],
+        user_message: str,
+        live_ctx: str,
+        system_prompt: str,
+    ) -> tuple[str, int]:
+        """Panggil Gemini API dengan system_prompt yang sudah di-build.
+
+        Versi ini menerima system_prompt langsung, sehingga tidak perlu
+        akses DB (soul sudah di-fetch sebelumnya). Dipakai oleh _chat_internal
+        yang melepas koneksi DB sebelum API call.
+        """
         client = self._make_client(api_key)
 
         # Bangun konteks dari hasil similarity search (knowledge base)
@@ -263,7 +283,7 @@ class ChatbotService:
                 types.Content(role="user", parts=[types.Part(text=final_message)])
             ],
             config=types.GenerateContentConfig(
-                system_instruction=self._build_system_prompt(),
+                system_instruction=system_prompt,
             ),
         )
 
@@ -309,7 +329,17 @@ class ChatbotService:
             _chat_semaphore.release()
 
     def _chat_internal(self, message: str, session_id: str, user_ip: Optional[str] = None) -> ChatResponse:
-        """Implementasi chat — dipanggil dari chat() setelah semaphore acquired."""
+        """Implementasi chat — dipanggil dari chat() setelah semaphore acquired.
+
+        Strategi koneksi DB:
+        1. Buka session → baca (kill switch, quota, history, RAG search)
+        2. TUTUP session → panggil Gemini API (bisa 5-15 detik, tanpa tahan koneksi)
+        3. Buka session baru → tulis (token usage, conversation pair)
+
+        Ini mencegah chatbot memonopoli connection pool saat menunggu Gemini response.
+        """
+        from app.core.database import SessionLocal
+
         # 0. Sanitasi input sebelum diproses
         message = sanitize_input(message)
         if not message:
@@ -319,34 +349,61 @@ class ChatbotService:
                 is_fallback=True,
             )
 
-        # 1. Cek kill switch + token quota
-        if not self.repo.is_chatbot_active():
-            return ChatResponse(
-                reply=MSG_RESTING,
-                session_id=session_id,
-                is_fallback=True,
-                is_resting=True,
-            )
-        if not self.repo.is_token_available():
-            return ChatResponse(
-                reply=MSG_RESTING,
-                session_id=session_id,
-                is_fallback=True,
-                is_resting=True,
-            )
-
-        # 2. Ambil API key dari pool (dengan retry antar key)
-        if not self.pool:
-            logger.error("ChatbotService: CHATBOT_MASTER_KEY tidak dikonfigurasi")
-            return ChatResponse(reply=MSG_ERROR, session_id=session_id, is_fallback=True)
-
-        # Pre-fetch live context SEBELUM loop retry, agar koneksi DB tidak
-        # tertahan saat menunggu response Gemini API (bisa beberapa detik).
+        # ── FASE 1: Baca dari DB (cepat, ~10-50ms) ──────────────────────────
+        # Buka session, ambil semua data yang dibutuhkan, lalu tutup segera.
+        db_read = SessionLocal()
         try:
-            live_ctx = self.context_service.build_live_context()
-        except Exception:
-            logger.exception("Gagal membangun live context — diabaikan")
-            live_ctx = ""
+            repo_read = ChatbotRepository(db_read)
+
+            # 1. Cek kill switch + token quota
+            if not repo_read.is_chatbot_active():
+                return ChatResponse(
+                    reply=MSG_RESTING,
+                    session_id=session_id,
+                    is_fallback=True,
+                    is_resting=True,
+                )
+            if not repo_read.is_token_available():
+                return ChatResponse(
+                    reply=MSG_RESTING,
+                    session_id=session_id,
+                    is_fallback=True,
+                    is_resting=True,
+                )
+
+            # 2. Cek API key pool
+            if not self.pool:
+                logger.error("ChatbotService: CHATBOT_MASTER_KEY tidak dikonfigurasi")
+                return ChatResponse(reply=MSG_ERROR, session_id=session_id, is_fallback=True)
+
+            # 3. Pre-fetch live context
+            try:
+                context_repo = ChatbotContextRepository(db_read)
+                ctx_svc = ChatbotContextService(context_repo)
+                live_ctx = ctx_svc.build_live_context()
+            except Exception:
+                logger.exception("Gagal membangun live context — diabaikan")
+                live_ctx = ""
+
+            # 4. Ambil conversation history
+            history = repo_read.get_conversation_history(session_id, limit=6)
+
+            # 5. Ambil soul untuk system prompt
+            try:
+                soul = repo_read.get_soul()
+            except Exception:
+                logger.exception("Gagal mengambil soul dari DB, pakai default")
+                soul = "Kamu adalah Angie, asisten AI milik UKM Fotografi Telkom (UFT)."
+
+        finally:
+            db_read.close()  # ← Koneksi dikembalikan ke pool SEBELUM API call
+
+        # ── FASE 2: External API calls (TANPA menahan koneksi DB) ────────────
+        # Bagian ini bisa memakan 5-15 detik per request (embedding + Gemini).
+        # Koneksi DB sudah dikembalikan, endpoint lain bisa pakai.
+
+        system_prompt = soul + _SYSTEM_PROMPT_SECURITY
+        is_generic = _is_generic_question(message)
 
         for attempt in range(self.max_retries):
             key_id, api_key = self.pool.get_active_key()
@@ -360,103 +417,113 @@ class ChatbotService:
                 )
 
             try:
-                history = self.repo.get_conversation_history(session_id, limit=6)
-
-                is_generic = _is_generic_question(message)
-
-                # ── Selalu generate embedding (dipakai untuk RAG + unanswered dedup) ──
-                # RETRIEVAL_QUERY adalah task type yang tepat untuk query saat search.
+                # Generate embedding (API call, ~1-3 detik)
                 query_embedding = self._get_embedding(message, api_key)
 
-                # ── Cek RAG untuk semua pertanyaan (termasuk generic) ────────────
-                # Generic questions juga boleh diperkaya KB jika relevan.
-                # Untuk generic, gunakan threshold lebih rendah agar lebih inklusif.
-                rag_threshold = (
-                    max(0.60, self.similarity_threshold - 0.10)
-                    if is_generic
-                    else self.similarity_threshold
-                )
-                context_chunks = self.repo.search_similar(
-                    query_embedding,
-                    threshold=rag_threshold,
-                    limit=5,
-                )
+                # Buka session singkat HANYA untuk similarity search
+                db_search = SessionLocal()
+                try:
+                    repo_search = ChatbotRepository(db_search)
+                    rag_threshold = (
+                        max(0.60, self.similarity_threshold - 0.10)
+                        if is_generic
+                        else self.similarity_threshold
+                    )
+                    context_chunks = repo_search.search_similar(
+                        query_embedding,
+                        threshold=rag_threshold,
+                        limit=5,
+                    )
+                finally:
+                    db_search.close()  # ← Tutup segera setelah search
 
                 if is_generic:
-                    # ── Tier 1: Generic / perkenalan ────────────────────────────
-                    # Kirim ke Gemini DENGAN context KB jika ada,
-                    # tanpa context jika tidak ada (jawab bebas dengan soul).
+                    # ── Tier 1: Generic / perkenalan ──────────────────────────
                     logger.debug(
                         "[Chatbot] Tier-1 (generic, %d kb-chunks): '%s'",
                         len(context_chunks), message[:60],
                     )
-                    reply, tokens_used = self._call_gemini(
-                        api_key, context_chunks, history, message, live_ctx
+                    reply, tokens_used = self._call_gemini_with_prompt(
+                        api_key, context_chunks, history, message, live_ctx, system_prompt
                     )
                     reply = sanitize_output(reply)
                     self.pool.report_success(key_id)
-                    self.repo.increment_token_usage(tokens_used)
-                    self.repo.save_conversation_pair(session_id, message, reply)
+
+                    # Buka session singkat untuk write
+                    db_write = SessionLocal()
+                    try:
+                        repo_write = ChatbotRepository(db_write)
+                        repo_write.increment_token_usage(tokens_used)
+                        repo_write.save_conversation_pair(session_id, message, reply)
+                    finally:
+                        db_write.close()
+
                     return ChatResponse(reply=reply, session_id=session_id)
 
-                # ── Tier 2: Pertanyaan spesifik — RAG ───────────────────────────
+                # ── Tier 2: Pertanyaan spesifik — RAG ────────────────────────
                 logger.debug(
                     "[Chatbot] Tier-2 (spesifik, %d kb-chunks): '%s'",
                     len(context_chunks), message[:60],
                 )
 
                 if not context_chunks:
-                    # Tidak ada konteks → simpan ke unanswered (dengan dedup)
-                    # Gunakan RETRIEVAL_DOCUMENT embedding untuk disimpan ke unanswered
+                    # Tidak ada konteks → simpan ke unanswered
                     unanswered_embedding = self._get_embedding_for_storage(message, api_key)
-                    self.repo.add_unanswered(
-                        question=message,
-                        embedding=unanswered_embedding,
-                        user_ip=user_ip,
-                    )
-                    self.repo.save_conversation_pair(session_id, message, MSG_UNANSWERED)
+
+                    db_write = SessionLocal()
+                    try:
+                        repo_write = ChatbotRepository(db_write)
+                        repo_write.add_unanswered(
+                            question=message,
+                            embedding=unanswered_embedding,
+                            user_ip=user_ip,
+                        )
+                        repo_write.save_conversation_pair(session_id, message, MSG_UNANSWERED)
+                    finally:
+                        db_write.close()
+
                     return ChatResponse(
                         reply=MSG_UNANSWERED,
                         session_id=session_id,
                         is_fallback=True,
                     )
 
-                # Ada konteks → kirim ke Gemini dengan KB
-                reply, tokens_used = self._call_gemini(
-                    api_key, context_chunks, history, message, live_ctx
+                # Ada konteks → kirim ke Gemini (API call, ~2-10 detik)
+                reply, tokens_used = self._call_gemini_with_prompt(
+                    api_key, context_chunks, history, message, live_ctx, system_prompt
                 )
                 reply = sanitize_output(reply)
-
                 self.pool.report_success(key_id)
-                self.repo.increment_token_usage(tokens_used)
-                self.repo.save_conversation_pair(session_id, message, reply)
+
+                # Write ke DB
+                db_write = SessionLocal()
+                try:
+                    repo_write = ChatbotRepository(db_write)
+                    repo_write.increment_token_usage(tokens_used)
+                    repo_write.save_conversation_pair(session_id, message, reply)
+                finally:
+                    db_write.close()
 
                 return ChatResponse(reply=reply, session_id=session_id)
 
             except ClientError as e:
-                # 4xx errors: invalid key (401/403) or bad request
                 status = getattr(e, "status_code", None) or getattr(e, "code", 0)
                 if status in (401, 403):
                     logger.error("Key #%d: %d (key invalid)", key_id, status)
-                    self.db.rollback()
                     self.pool.report_failure(key_id, "invalid")
                 elif status == 429:
                     logger.warning("Key #%d: 429 rate limit", key_id)
-                    self.db.rollback()
                     self.pool.report_failure(key_id, "rate_limit")
                 else:
                     logger.error("Key #%d: ClientError %s: %s", key_id, status, str(e))
-                    self.db.rollback()
                     self.pool.report_failure(key_id, "invalid")
 
             except APIError as e:
                 logger.warning("Key #%d: APIError: %s", key_id, str(e))
-                self.db.rollback()
                 self.pool.report_failure(key_id, "server_error")
 
             except Exception as e:
                 logger.exception("Key #%d: unexpected error: %s", key_id, str(e))
-                self.db.rollback()
                 self.pool.report_failure(key_id, "server_error")
 
         # Semua retry habis

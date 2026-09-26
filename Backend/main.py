@@ -10,14 +10,16 @@ from app.services.bootstrap_service import BootstrapService
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    Base.metadata.create_all(bind=engine);
+    Base.metadata.create_all(bind=engine)
+    # Bootstrap pakai session terpisah — tutup segera setelah selesai,
+    # jangan tahan selama app hidup (buang-buang koneksi pool).
     db = SessionLocal()
     try:
         BootstrapService(BootstrapRepository(db)).initialize("bidang.json")
-        yield
     finally:
         db.close()
-        print("App Shutdown")
+    yield
+    print("App Shutdown")
 
 app = FastAPI(root_path="/api", docs_url="/docs", lifespan=lifespan)
 
