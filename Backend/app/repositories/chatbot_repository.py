@@ -83,6 +83,66 @@ class ChatbotRepository:
                 })
         return result
 
+    def search_by_keyword(
+        self,
+        keywords: list[str],
+        limit: int = 3,
+    ) -> list[dict]:
+        """Keyword fallback search: ILIKE matching pada question/answer/content.
+
+        Dipakai saat vector similarity search tidak menemukan hasil di atas threshold.
+        Return format sama dengan search_similar agar kompatibel dengan context builder.
+
+        Args:
+            keywords : Daftar kata kunci (lowercase) yang diekstrak dari pesan user.
+            limit    : Jumlah baris maksimum yang dikembalikan.
+        """
+        if not keywords:
+            return []
+
+        from sqlalchemy import or_
+
+        conditions = []
+        for kw in keywords:
+            pattern = f"%{kw}%"
+            conditions.append(
+                or_(
+                    ChatbotKnowledge.question.ilike(pattern),
+                    ChatbotKnowledge.answer.ilike(pattern),
+                    ChatbotKnowledge.content.ilike(pattern),
+                )
+            )
+
+        rows = (
+            self.db.query(ChatbotKnowledge)
+            .filter(ChatbotKnowledge.is_active == True, or_(*conditions))
+            .limit(limit)
+            .all()
+        )
+
+        result = []
+        for r in rows:
+            if r.content_type == "text":
+                result.append({
+                    "id": r.id,
+                    "category": r.category,
+                    "content_type": "text",
+                    "question": "[Informasi Umum]",
+                    "answer": r.content or "",
+                    "similarity": 0.50,  # Skor arbitrary untuk keyword match
+                })
+            else:
+                result.append({
+                    "id": r.id,
+                    "category": r.category,
+                    "content_type": "qa",
+                    "question": r.question or "",
+                    "answer": r.answer or "",
+                    "similarity": 0.50,  # Skor arbitrary untuk keyword match
+                })
+        return result
+
+
     def add_knowledge(
         self,
         category: str,
