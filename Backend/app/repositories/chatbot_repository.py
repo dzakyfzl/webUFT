@@ -33,25 +33,24 @@ class ChatbotRepository:
     def search_similar(
         self,
         embedding: list[float],
-        threshold: float = 0.75,
-        limit: int = 3,
+        threshold: float = 0.70,
+        limit: int = 5,
     ) -> list[dict]:
         """Cosine similarity search di pgvector.
 
-        Args:
-            embedding: 768-dim float list dari Gemini text-embedding-004.
-            threshold: Batas minimum similarity (0–1). Makin tinggi = makin ketat.
-            limit: Jumlah konteks teratas yang diambil.
+        Mendukung dua content_type:
+        - 'qa'  : return {category, question, answer, similarity}
+        - 'text': return {category, question='[teks]', answer='[isi]', similarity}
+                  (diformat agar kompatibel dengan _call_gemini context builder)
 
-        Returns:
-            List dict {id, category, question, answer, similarity}
+        Args:
+            embedding : 768-dim float list (RETRIEVAL_DOCUMENT task type).
+            threshold : Batas minimum similarity (0–1). Default 0.70 (lebih lebar dari 0.75).
+            limit     : Jumlah konteks teratas yang diambil.
         """
         embedding_str = "[" + ",".join(str(v) for v in embedding) + "]"
-        # psycopg2's parameter scanner gets confused by the large '...'::vector literal
-        # combined with %(param)s placeholders. Inline all values as typed SQL literals:
-        # threshold is a Python float, limit is a Python int, embedding is float-only (safe).
         sql = text(f"""
-            SELECT id, category, question, answer,
+            SELECT id, category, content_type, question, answer, content,
                    1 - (embedding <=> '{embedding_str}'::vector) AS similarity
             FROM chatbot_knowledge
             WHERE is_active = true
@@ -60,37 +59,55 @@ class ChatbotRepository:
             LIMIT {int(limit)}
         """)
         rows = self.db.execute(sql).fetchall()
-        return [
-            {
-                "id": r.id,
-                "category": r.category,
-                "question": r.question,
-                "answer": r.answer,
-                "similarity": round(float(r.similarity), 4),
-            }
-            for r in rows
-        ]
+        result = []
+        for r in rows:
+            sim = round(float(r.similarity), 4)
+            if r.content_type == "text":
+                # Free-text: gunakan content sebagai "answer" agar context builder bisa pakai
+                result.append({
+                    "id": r.id,
+                    "category": r.category,
+                    "content_type": "text",
+                    "question": "[Informasi Umum]",
+                    "answer": r.content or "",
+                    "similarity": sim,
+                })
+            else:
+                result.append({
+                    "id": r.id,
+                    "category": r.category,
+                    "content_type": "qa",
+                    "question": r.question or "",
+                    "answer": r.answer or "",
+                    "similarity": sim,
+                })
+        return result
 
     def add_knowledge(
         self,
         category: str,
-        question: str,
-        answer: str,
         embedding: list[float],
+        content_type: str = "qa",
+        question: str | None = None,
+        answer: str | None = None,
+        content: str | None = None,
     ) -> ChatbotKnowledge:
-        """Insert knowledge baru + embedding ke DB."""
+        """Insert knowledge baru + embedding ke DB.
+
+        content_type='qa'  : simpan question + answer (format klasik)
+        content_type='text': simpan content (teks bebas, question/answer None)
+        """
         record = ChatbotKnowledge(
             category=category,
+            content_type=content_type,
             question=question,
             answer=answer,
+            content=content,
             is_active=True,
         )
         self.db.add(record)
         self.db.flush()  # Dapat ID sebelum update embedding
 
-        # Update embedding via raw SQL (kolom vector tidak di-map SQLAlchemy)
-        # NOTE: :param::vector conflicts with SQLAlchemy's bind-param scanner, so
-        # we inline the float array literal (safe: values are Python floats only).
         embedding_str = "[" + ",".join(str(v) for v in embedding) + "]"
         self.db.execute(
             text(f"UPDATE chatbot_knowledge SET embedding = '{embedding_str}'::vector WHERE id = :id"),
@@ -162,9 +179,55 @@ class ChatbotRepository:
 
     # ── Unanswered Questions ──────────────────────────────────────────────
 
-    def add_unanswered(self, question: str, user_ip: Optional[str] = None) -> ChatbotUnanswered:
+    def find_similar_unanswered(
+        self,
+        embedding: list[float],
+        threshold: float = 0.88,
+    ) -> bool:
+        """Return True jika sudah ada pertanyaan tak terjawab yang mirip (belum resolved).
+
+        Dipakai sebelum insert untuk mencegah duplikat pertanyaan serupa.
+        Threshold tinggi (0.88) karena kita ingin dedup yang benar-benar mirip,
+        bukan hanya topik yang sama.
+        """
+        embedding_str = "[" + ",".join(str(v) for v in embedding) + "]"
+        sql = text(f"""
+            SELECT EXISTS (
+                SELECT 1 FROM chatbot_unanswered
+                WHERE is_resolved = false
+                  AND embedding IS NOT NULL
+                  AND 1 - (embedding <=> '{embedding_str}'::vector) >= {float(threshold)}
+            )
+        """)
+        result = self.db.execute(sql).scalar()
+        return bool(result)
+
+    def add_unanswered(
+        self,
+        question: str,
+        embedding: list[float],
+        user_ip: Optional[str] = None,
+    ) -> ChatbotUnanswered | None:
+        """Simpan pertanyaan tak terjawab ke DB.
+
+        Sebelum insert, cek similarity terhadap unanswered yang belum resolved.
+        Return None jika pertanyaan terlalu mirip dengan yang sudah ada (dedup).
+        """
+        if self.find_similar_unanswered(embedding, threshold=0.88):
+            logger.info("[Unanswered] Dedup: pertanyaan mirip sudah ada, skip insert")
+            return None
+
         record = ChatbotUnanswered(question=question, user_ip=user_ip)
         self.db.add(record)
+        self.db.flush()  # Dapat ID dulu
+
+        # Simpan embedding untuk dedup check berikutnya
+        embedding_str = "[" + ",".join(str(v) for v in embedding) + "]"
+        self.db.execute(
+            text("UPDATE chatbot_unanswered SET embedding = :emb::vector WHERE id = :id"
+                 .replace(":emb", f"'{embedding_str}'")),
+            {"id": record.id},
+        )
         self.db.commit()
         self.db.refresh(record)
         return record

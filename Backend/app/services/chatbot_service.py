@@ -107,7 +107,9 @@ class ChatbotService:
         self.pool = ApiKeyPool(db, self.encryption) if self.encryption else None
         self.model_name = os.getenv("CHATBOT_MODEL", "gemini-2.0-flash-lite")
         self.embedding_model = os.getenv("CHATBOT_EMBEDDING_MODEL", "text-embedding-004")
-        self.similarity_threshold = float(os.getenv("CHATBOT_SIMILARITY_THRESHOLD", "0.75"))
+        # Threshold lebih rendah (0.70) agar knowledge yang baru ditambahkan
+        # lebih mudah ditemukan; false positive diminimalisir oleh LLM.
+        self.similarity_threshold = float(os.getenv("CHATBOT_SIMILARITY_THRESHOLD", "0.70"))
         self.max_retries = int(os.getenv("CHATBOT_MAX_RETRIES", "3"))
         # Context service — menggunakan repo yang terisolasi (hanya baca Acara)
         context_repo = ChatbotContextRepository(db)
@@ -140,7 +142,7 @@ class ChatbotService:
         )
 
     def _get_embedding(self, text: str, api_key: str) -> list[float]:
-        """Generate embedding 768-dim dari Gemini text-embedding-004."""
+        """Generate query embedding (untuk mencari di knowledge base)."""
         client = self._make_client(api_key)
         result = client.models.embed_content(
             model=self.embedding_model,
@@ -150,7 +152,11 @@ class ChatbotService:
         return result.embeddings[0].values
 
     def _get_embedding_for_storage(self, text: str, api_key: str) -> list[float]:
-        """Generate embedding untuk disimpan ke knowledge base."""
+        """Generate document embedding (untuk menyimpan ke knowledge base / unanswered).
+
+        Task type RETRIEVAL_DOCUMENT menghasilkan embedding yang dioptimalkan
+        untuk dicari dengan RETRIEVAL_QUERY. Wajib dipakai saat menyimpan ke DB.
+        """
         client = self._make_client(api_key)
         result = client.models.embed_content(
             model=self.embedding_model,
@@ -158,6 +164,22 @@ class ChatbotService:
             config=types.EmbedContentConfig(task_type="RETRIEVAL_DOCUMENT", output_dimensionality=768),
         )
         return result.embeddings[0].values
+
+    @staticmethod
+    def _build_embedding_text_for_knowledge(
+        content_type: str,
+        question: str | None,
+        answer: str | None,
+        content: str | None,
+    ) -> str:
+        """Bangun teks yang akan di-embed saat menyimpan knowledge baru.
+
+        Untuk Q&A: gabungkan question + answer agar embedding mewakili konteks penuh.
+        Untuk text: langsung pakai content.
+        """
+        if content_type == "text":
+            return (content or "").strip()
+        return f"{question or ''} {answer or ''}".strip()
 
     def _call_gemini(
         self,
@@ -225,7 +247,15 @@ class ChatbotService:
     # ── Public API ────────────────────────────────────────────────────────
 
     def chat(self, message: str, session_id: str, user_ip: Optional[str] = None) -> ChatResponse:
-        """Proses pesan user dan return jawaban Angie."""
+        """Proses pesan user dan return jawaban Angie.
+
+        Tiga tier:
+        - Tier 0: Kill switch / quota check
+        - Tier 1 (generic): Pertanyaan sapaan/perkenalan — gunakan Gemini + live context.
+                            NAMUN jika RAG punya konteks relevan, sertakan juga.
+        - Tier 2 (spesifik): RAG via pgvector → Gemini. Jika tidak ada konteks,
+                             simpan ke unanswered (dengan dedup similarity).
+        """
         # 0. Sanitasi input sebelum diproses
         message = sanitize_input(message)
         if not message:
@@ -278,10 +308,37 @@ class ChatbotService:
             try:
                 history = self.repo.get_conversation_history(session_id, limit=6)
 
-                # ── Tier 1: Pertanyaan generic — jawab langsung tanpa KB ──────
-                if _is_generic_question(message):
-                    logger.debug("[Chatbot] Tier-1 (generic): '%s'", message[:60])
-                    reply, tokens_used = self._call_gemini(api_key, [], history, message, live_ctx)
+                is_generic = _is_generic_question(message)
+
+                # ── Selalu generate embedding (dipakai untuk RAG + unanswered dedup) ──
+                # RETRIEVAL_QUERY adalah task type yang tepat untuk query saat search.
+                query_embedding = self._get_embedding(message, api_key)
+
+                # ── Cek RAG untuk semua pertanyaan (termasuk generic) ────────────
+                # Generic questions juga boleh diperkaya KB jika relevan.
+                # Untuk generic, gunakan threshold lebih rendah agar lebih inklusif.
+                rag_threshold = (
+                    max(0.60, self.similarity_threshold - 0.10)
+                    if is_generic
+                    else self.similarity_threshold
+                )
+                context_chunks = self.repo.search_similar(
+                    query_embedding,
+                    threshold=rag_threshold,
+                    limit=5,
+                )
+
+                if is_generic:
+                    # ── Tier 1: Generic / perkenalan ────────────────────────────
+                    # Kirim ke Gemini DENGAN context KB jika ada,
+                    # tanpa context jika tidak ada (jawab bebas dengan soul).
+                    logger.debug(
+                        "[Chatbot] Tier-1 (generic, %d kb-chunks): '%s'",
+                        len(context_chunks), message[:60],
+                    )
+                    reply, tokens_used = self._call_gemini(
+                        api_key, context_chunks, history, message, live_ctx
+                    )
                     reply = sanitize_output(reply)
                     self.pool.report_success(key_id)
                     self.repo.increment_token_usage(tokens_used)
@@ -289,22 +346,21 @@ class ChatbotService:
                     self.repo.save_conversation(session_id, "assistant", reply)
                     return ChatResponse(reply=reply, session_id=session_id)
 
-                # ── Tier 2: Pertanyaan spesifik — RAG via pgvector + KB ───────
-                logger.debug("[Chatbot] Tier-2 (spesifik/RAG): '%s'", message[:60])
-
-                # 3. Generate embedding dari pesan user
-                embedding = self._get_embedding(message, api_key)
-
-                # 4. Similarity search di knowledge base
-                context_chunks = self.repo.search_similar(
-                    embedding,
-                    threshold=self.similarity_threshold,
-                    limit=3,
+                # ── Tier 2: Pertanyaan spesifik — RAG ───────────────────────────
+                logger.debug(
+                    "[Chatbot] Tier-2 (spesifik, %d kb-chunks): '%s'",
+                    len(context_chunks), message[:60],
                 )
 
-                # 5a. Tidak ada konteks → catat ke unanswered, kembalikan fallback
                 if not context_chunks:
-                    self.repo.add_unanswered(question=message, user_ip=user_ip)
+                    # Tidak ada konteks → simpan ke unanswered (dengan dedup)
+                    # Gunakan RETRIEVAL_DOCUMENT embedding untuk disimpan ke unanswered
+                    unanswered_embedding = self._get_embedding_for_storage(message, api_key)
+                    self.repo.add_unanswered(
+                        question=message,
+                        embedding=unanswered_embedding,
+                        user_ip=user_ip,
+                    )
                     self.repo.save_conversation(session_id, "user", message)
                     self.repo.save_conversation(session_id, "assistant", MSG_UNANSWERED)
                     return ChatResponse(
@@ -313,13 +369,12 @@ class ChatbotService:
                         is_fallback=True,
                     )
 
-                # 5b. Ada konteks → kirim ke Gemini dengan KB
-                reply, tokens_used = self._call_gemini(api_key, context_chunks, history, message, live_ctx)
-
-                # 5c. Output guardrail — scan sebelum dikirim ke user
+                # Ada konteks → kirim ke Gemini dengan KB
+                reply, tokens_used = self._call_gemini(
+                    api_key, context_chunks, history, message, live_ctx
+                )
                 reply = sanitize_output(reply)
 
-                # 6. Update state
                 self.pool.report_success(key_id)
                 self.repo.increment_token_usage(tokens_used)
                 self.repo.save_conversation(session_id, "user", message)
@@ -356,16 +411,33 @@ class ChatbotService:
         # Semua retry habis
         return ChatResponse(reply=MSG_ERROR, session_id=session_id, is_fallback=True)
 
-    def generate_embedding_for_knowledge(self, text: str) -> list[float]:
-        """Generate embedding untuk menyimpan knowledge baru.
-        Menggunakan key pertama yang aktif dari pool.
+    def generate_embedding_for_knowledge(
+        self,
+        content_type: str,
+        question: str | None,
+        answer: str | None,
+        content: str | None,
+    ) -> list[float]:
+        """Generate DOCUMENT embedding untuk menyimpan knowledge baru ke RAG.
+
+        Teks yang di-embed disesuaikan per content_type:
+        - 'qa'  : "question answer" (gabungan)
+        - 'text': isi content langsung
+
+        Menggunakan RETRIEVAL_DOCUMENT agar cocok dipasangkan dengan
+        RETRIEVAL_QUERY saat search. Wajib konsisten.
         """
         if not self.pool:
             raise RuntimeError("CHATBOT_MASTER_KEY tidak dikonfigurasi")
         key_id, api_key = self.pool.get_active_key()
         if api_key is None:
             raise RuntimeError("Tidak ada API key aktif di pool")
-        embedding = self._get_embedding_for_storage(text, api_key)
+        embed_text = self._build_embedding_text_for_knowledge(
+            content_type, question, answer, content
+        )
+        if not embed_text:
+            raise ValueError("Teks untuk embedding kosong")
+        embedding = self._get_embedding_for_storage(embed_text, api_key)
         self.pool.report_success(key_id)
         return embedding
 

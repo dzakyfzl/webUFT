@@ -159,21 +159,31 @@ class ChatbotApiKey(Base):
 
 
 class ChatbotKnowledge(Base):
-    """Knowledge base untuk RAG. Embedding 768-dim disimpan di pgvector."""
+    """Knowledge base untuk RAG. Embedding 768-dim disimpan di pgvector.
+
+    Dua mode:
+    - content_type='qa' : format Q&A klasik (question + answer wajib)
+    - content_type='text': teks bebas (content wajib, question/answer nullable)
+    Kolom 'embedding' bertipe vector(768) — dideklarasikan via DDL di migration.
+    """
     __tablename__ = "chatbot_knowledge"
-    id         = Column(Integer, primary_key=True, index=True)
-    category   = Column(String(100), nullable=False)               # "umum", "faq", dll
-    question   = Column(Text, nullable=False)
-    answer     = Column(Text, nullable=False)
-    # Kolom 'embedding' bertipe vector(768) — dideklarasikan via DDL di migration.
-    # Tidak ada kolom SQLAlchemy di sini agar tidak butuh sqlalchemy-pgvector saat dev.
-    is_active  = Column(Boolean, default=True, nullable=False)
-    created_at = Column(DateTime, server_default=func.now())
-    updated_at = Column(DateTime, onupdate=func.now())
+    id           = Column(Integer, primary_key=True, index=True)
+    category     = Column(String(100), nullable=False)              # "umum", "faq", dll
+    content_type = Column(String(10), nullable=False, default="qa") # "qa" | "text"
+    question     = Column(Text, nullable=True)                      # wajib jika content_type='qa'
+    answer       = Column(Text, nullable=True)                      # wajib jika content_type='qa'
+    content      = Column(Text, nullable=True)                      # wajib jika content_type='text'
+    is_active    = Column(Boolean, default=True, nullable=False)
+    created_at   = Column(DateTime, server_default=func.now())
+    updated_at   = Column(DateTime, onupdate=func.now())
 
 
 class ChatbotUnanswered(Base):
-    """Pertanyaan yang tidak ditemukan jawabannya di knowledge base."""
+    """Pertanyaan yang tidak ditemukan jawabannya di knowledge base.
+
+    Kolom 'embedding' (vector 768) disimpan untuk dedup similarity check
+    — mencegah pertanyaan serupa masuk berulang kali.
+    """
     __tablename__ = "chatbot_unanswered"
     id                    = Column(Integer, primary_key=True, index=True)
     question              = Column(Text, nullable=False)
@@ -182,6 +192,7 @@ class ChatbotUnanswered(Base):
     is_resolved           = Column(Boolean, default=False, nullable=False)
     resolved_knowledge_id = Column(Integer, ForeignKey("chatbot_knowledge.id"), nullable=True)
     resolved_knowledge    = relationship("ChatbotKnowledge")
+    # embedding disimpan untuk similarity dedup — dideclare via DDL di migration
 
 
 class ChatbotConversation(Base):

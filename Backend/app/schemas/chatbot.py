@@ -36,26 +36,55 @@ class ChatResponse(BaseModel):
 # ── Knowledge Base ────────────────────────────────────────────────────────────
 
 class KnowledgeCreate(BaseModel):
-    category: str = Field(..., min_length=1, max_length=100)
-    question: str = Field(..., min_length=1)
-    answer: str = Field(..., min_length=1)
+    """Buat knowledge baru.
+
+    content_type='qa'   : wajib isi question + answer.
+    content_type='text' : wajib isi content (teks bebas).
+    """
+    category:     str           = Field(..., min_length=1, max_length=100)
+    content_type: str           = Field(default="qa", pattern="^(qa|text)$")
+    question:     Optional[str] = None
+    answer:       Optional[str] = None
+    content:      Optional[str] = None  # untuk content_type='text'
+
+    @field_validator("question", "answer", mode="before")
+    @classmethod
+    def check_qa_fields(cls, v):
+        return v  # validasi silang dilakukan di model_validator
+
+    @classmethod
+    def model_validate_with_type(cls, data):
+        return cls.model_validate(data)
+
+    def validate_required_fields(self) -> None:
+        """Panggil setelah konstruksi untuk cek konsistensi fields."""
+        if self.content_type == "qa":
+            if not self.question or not self.answer:
+                raise ValueError("content_type='qa' membutuhkan question dan answer")
+        elif self.content_type == "text":
+            if not self.content:
+                raise ValueError("content_type='text' membutuhkan content")
 
 
 class KnowledgeUpdate(BaseModel):
-    category: Optional[str] = None
-    question: Optional[str] = None
-    answer: Optional[str] = None
-    is_active: Optional[bool] = None
+    category:     Optional[str]  = None
+    content_type: Optional[str]  = Field(default=None, pattern="^(qa|text)$")
+    question:     Optional[str]  = None
+    answer:       Optional[str]  = None
+    content:      Optional[str]  = None
+    is_active:    Optional[bool] = None
 
 
 class KnowledgeResponse(BaseModel):
-    id: int
-    category: str
-    question: str
-    answer: str
-    is_active: bool
-    created_at: datetime
-    updated_at: Optional[datetime] = None
+    id:           int
+    category:     str
+    content_type: str
+    question:     Optional[str] = None
+    answer:       Optional[str] = None
+    content:      Optional[str] = None
+    is_active:    bool
+    created_at:   datetime
+    updated_at:   Optional[datetime] = None
 
     model_config = {"from_attributes": True}
 
@@ -119,9 +148,11 @@ class ChatbotStats(BaseModel):
 # ── Seed ─────────────────────────────────────────────────────────────────────
 
 class SeedEntry(BaseModel):
-    category: str
-    question: str
-    answer: str
+    category:     str           = Field(..., min_length=1)
+    content_type: str           = Field(default="qa", pattern="^(qa|text)$")
+    question:     Optional[str] = None
+    answer:       Optional[str] = None
+    content:      Optional[str] = None
 
 
 class SeedRequest(BaseModel):

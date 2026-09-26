@@ -121,18 +121,29 @@ def add_knowledge(
     service: ChatbotService = Depends(_get_chatbot_service),
     repo: ChatbotRepository = Depends(_get_repo),
 ):
-    # Generate embedding dari question + answer gabungan
-    combined = f"{payload.question} {payload.answer}"
+    # Validasi konsistensi field sesuai content_type
     try:
-        embedding = service.generate_embedding_for_knowledge(combined)
+        payload.validate_required_fields()
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+    try:
+        embedding = service.generate_embedding_for_knowledge(
+            content_type=payload.content_type,
+            question=payload.question,
+            answer=payload.answer,
+            content=payload.content,
+        )
     except RuntimeError as e:
         raise HTTPException(status_code=503, detail=str(e))
 
     record = repo.add_knowledge(
         category=payload.category,
+        embedding=embedding,
+        content_type=payload.content_type,
         question=payload.question,
         answer=payload.answer,
-        embedding=embedding,
+        content=payload.content,
     )
     return KnowledgeResponse.model_validate(record)
 
@@ -149,13 +160,29 @@ def update_knowledge(
     if not existing:
         raise HTTPException(status_code=404, detail="Knowledge tidak ditemukan")
 
-    # Re-embed jika question atau answer berubah
+    # Tentukan content_type akhir (pakai existing jika tidak diubah)
+    new_content_type = payload.content_type or existing.content_type or "qa"
+
+    # Re-embed jika ada field konten yang berubah
     new_embedding = None
-    if payload.question or payload.answer:
-        q = payload.question or existing.question
-        a = payload.answer or existing.answer
+    content_changed = any([
+        payload.question is not None,
+        payload.answer is not None,
+        payload.content is not None,
+        payload.content_type is not None,
+    ])
+    if content_changed:
+        # Gunakan nilai baru jika ada, fallback ke existing
+        q = payload.question if payload.question is not None else existing.question
+        a = payload.answer if payload.answer is not None else existing.answer
+        c = payload.content if payload.content is not None else existing.content
         try:
-            new_embedding = service.generate_embedding_for_knowledge(f"{q} {a}")
+            new_embedding = service.generate_embedding_for_knowledge(
+                content_type=new_content_type,
+                question=q,
+                answer=a,
+                content=c,
+            )
         except RuntimeError as e:
             raise HTTPException(status_code=503, detail=str(e))
 
@@ -189,9 +216,20 @@ def seed_knowledge(
     skipped = 0
     for entry in payload.entries:
         try:
-            combined = f"{entry.question} {entry.answer}"
-            embedding = service.generate_embedding_for_knowledge(combined)
-            repo.add_knowledge(entry.category, entry.question, entry.answer, embedding)
+            embedding = service.generate_embedding_for_knowledge(
+                content_type=entry.content_type,
+                question=entry.question,
+                answer=entry.answer,
+                content=entry.content,
+            )
+            repo.add_knowledge(
+                category=entry.category,
+                embedding=embedding,
+                content_type=entry.content_type,
+                question=entry.question,
+                answer=entry.answer,
+                content=entry.content,
+            )
             inserted += 1
         except Exception:
             skipped += 1
@@ -230,31 +268,34 @@ def resolve_unanswered(
     service: ChatbotService = Depends(_get_chatbot_service),
     repo: ChatbotRepository = Depends(_get_repo),
 ):
-    """Jawab pertanyaan yang belum terjawab → simpan ke knowledge base."""
-    unanswered = repo.list_unanswered(page=1, limit=1)[0]  # ambil via ID
-    # Cari berdasarkan ID langsung
-    from app.models.entities import ChatbotUnanswered
-    from sqlalchemy.orm import Session
-    from app.core.database import get_db as _get_db
+    """Jawab pertanyaan yang belum terjawab → simpan ke knowledge base sebagai Q&A.
 
-    # Ambil record unanswered
-    from sqlalchemy.orm import Session
-    db_session: Session = service.db
+    Setelah disimpan, embedding yang benar (RETRIEVAL_DOCUMENT) akan dibuat
+    sehingga pertanyaan ini langsung bisa ditemukan di RAG pada request berikutnya.
+    """
+    from app.models.entities import ChatbotUnanswered
+    db_session = service.db
     record = db_session.get(ChatbotUnanswered, unanswered_id)
     if not record:
         raise HTTPException(status_code=404, detail="Pertanyaan tidak ditemukan")
 
     try:
-        combined = f"{record.question} {payload.answer}"
-        embedding = service.generate_embedding_for_knowledge(combined)
+        embedding = service.generate_embedding_for_knowledge(
+            content_type="qa",
+            question=record.question,
+            answer=payload.answer,
+            content=None,
+        )
     except RuntimeError as e:
         raise HTTPException(status_code=503, detail=str(e))
 
     knowledge = repo.add_knowledge(
         category=payload.category,
+        embedding=embedding,
+        content_type="qa",
         question=record.question,
         answer=payload.answer,
-        embedding=embedding,
+        content=None,
     )
     repo.resolve_unanswered(unanswered_id, knowledge.id)
     return KnowledgeResponse.model_validate(knowledge)
