@@ -47,43 +47,16 @@ jobs:
             cd ${{ secrets.PROJECT_PATH }}
 
             # ── Git pull ──────────────────────────────────────────────────
-            echo "[1/4] Pulling latest code..."
+            echo "[1/2] Pulling latest code..."
             git fetch origin production
             git reset --hard origin/production
             echo "      OK Code updated"
 
-            # ── Database migration ────────────────────────────────────────
-            echo "[2/4] Running alembic migrations..."
-            docker compose run --rm --no-deps backend \
-              sh -c "cd /app && uv run alembic upgrade head"
-            echo "      OK Migrations done"
+            # ── Build & restart containers ─────────────────────────────────
+            echo "[2/2] Building & restarting containers..."
+            docker compose up -d --build --remove-orphans
+            echo "      OK Done"
 
-            # ── Build & restart containers ────────────────────────────────
-            echo "[3/4] Building & restarting containers..."
-            docker compose build --no-cache
-            docker compose up -d --remove-orphans
-            echo "      OK Containers started"
-
-            # ── Health check ──────────────────────────────────────────────
-            echo "[4/4] Waiting for backend health..."
-            attempt=0
-            max=24
-            until docker compose exec -T backend \
-                python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)" \
-                2>/dev/null; do
-              attempt=$((attempt + 1))
-              if [ $attempt -ge $max ]; then
-                echo "      FAIL Health check timeout"
-                docker compose logs --tail=50 backend
-                exit 1
-              fi
-              echo "      Waiting... ($attempt/$max)"
-              sleep 5
-            done
-
-            echo "      OK Backend healthy"
-            echo ""
-            echo "Deploy selesai!"
             docker compose ps
           ENDSSH
 
