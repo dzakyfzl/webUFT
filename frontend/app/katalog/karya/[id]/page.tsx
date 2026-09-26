@@ -255,7 +255,7 @@ function VoteModal({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 40, scale: 0.96 }}
             transition={{ type: 'spring', stiffness: 340, damping: 30, mass: 0.9 }}
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e: React.MouseEvent) => e.stopPropagation()}
           >
             <AnimatePresence mode="wait">
               {!isSuccess ? (
