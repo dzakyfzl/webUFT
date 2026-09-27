@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { memo } from "react";
 import type { Acara } from "./types";
 
 type EventCardProps = {
@@ -12,7 +13,7 @@ type EventCardProps = {
   href?: string;
 };
 
-export function EventCard({ event, onSelect, className = "", compact = false, href }: EventCardProps) {
+export const EventCard = memo(function EventCard({ event, onSelect, className = "", compact = false, href }: EventCardProps) {
   const content = (
     <>
       <div className="relative aspect-[4/5] overflow-hidden bg-stone-100">
@@ -40,4 +41,4 @@ export function EventCard({ event, onSelect, className = "", compact = false, hr
       )}
     </article>
   );
-}
+});

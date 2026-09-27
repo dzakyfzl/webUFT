@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import React from "react";
+import React, { memo } from "react";
 import type { Koleksi } from "./types";
 
 type GalleryCardProps = {
@@ -10,7 +10,7 @@ type GalleryCardProps = {
   featured?: boolean;
 };
 
-export function GalleryCard({ item, onSelect, featured = false }: GalleryCardProps) {
+export const GalleryCard = memo(function GalleryCard({ item, onSelect, featured = false }: GalleryCardProps) {
   return (
     <article className={`group ${featured ? "" : "mb-4 break-inside-avoid"}`}>
       <button
@@ -23,7 +23,13 @@ export function GalleryCard({ item, onSelect, featured = false }: GalleryCardPro
           {featured ? (
             <Image src={item.image} alt={`Karya foto ${item.title}`} fill className="object-cover transition-opacity duration-200 group-hover:opacity-90" unoptimized />
           ) : (
-            <img src={item.image} alt={`Karya foto ${item.title}`} className="block h-auto w-full transition-opacity duration-200 group-hover:opacity-90" />
+            <img
+              src={item.image}
+              alt={`Karya foto ${item.title}`}
+              loading="lazy"
+              decoding="async"
+              className="block h-auto w-full transition-opacity duration-200 group-hover:opacity-90"
+            />
           )}
         </div>
         {featured ? (
@@ -45,4 +51,4 @@ export function GalleryCard({ item, onSelect, featured = false }: GalleryCardPro
       </button>
     </article>
   );
-}
+});

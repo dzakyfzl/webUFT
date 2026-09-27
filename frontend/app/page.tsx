@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import Image from 'next/image';
 import { ScrollReveal } from './components/ScrollReveal';
 import { EventCard } from './components/EventCard';
@@ -11,39 +11,12 @@ import { ScrollArea, ScrollBar } from '@/app/components/ui/scroll-area';
 import type { Acara, Koleksi, KoleksiOrigin } from './components/types';
 import { fetchGalleryData, fetchEventsData } from './lib/api';
 
-// --- DATA PLACEHOLDER KOLEKSI (dinonaktifkan — data diambil dari backend) ---
-// const KOLEKSI_DATA = [
-//   { id: 1, title: "Urban Solitude", photographer: "Budi Santoso", category: "Street", image: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=800", span: "md:col-span-1 md:row-span-2", description: "...", exif: "..." },
-//   ... (12 items mockup dihapus, data diambil dari backend)
-// ];
+// --- Extracted section components (self-contained state) ---
+import { Navbar } from './components/sections/Navbar';
+import { HeroCarousel } from './components/sections/HeroCarousel';
+import { GalleryFull } from './components/sections/GalleryFull';
 
-// --- DATA PLACEHOLDER ACARA (dinonaktifkan — data diambil dari backend) ---
-// const MOCK_EVENTS: Acara[] = [ ... ];
-
-// --- DATA MEDIA PARTNER (dikosongkan sementara, uncomment saat data siap) ---
-// const CAROUSEL_PARTNERS = [
-//   {
-//     id: "partner-1",
-//     label: "Ruang kolaborasi UFT",
-//     title: "Media Partner 01",
-//     description: "Tempat untuk memperkenalkan media partner yang mendukung cerita dan kegiatan fotografi UFT.",
-//     image: "https://images.unsplash.com/photo-1497366754035-f200968a6e72?q=80&w=1600",
-//   },
-//   {
-//     id: "partner-2",
-//     label: "Dukungan program",
-//     title: "Sponsor Utama",
-//     description: "Sorotan untuk sponsor yang membantu menghadirkan kelas, pameran, dan kegiatan terbaru UFT.",
-//     image: "https://images.unsplash.com/photo-1497366811353-6870744d04b2?q=80&w=1600",
-//   },
-//   {
-//     id: "partner-3",
-//     label: "Kolaborasi kreatif",
-//     title: "Partner Kreatif",
-//     description: "Ruang untuk mitra kreatif yang tumbuh bersama UFT melalui proyek dan pengalaman visual.",
-//     image: "https://images.unsplash.com/photo-1497366216548-37526070297c?q=80&w=1600",
-//   },
-// ];
+// --- STATIC DATA ---
 const CAROUSEL_PARTNERS: { id: string; label: string; title: string; description: string; image: string }[] = [];
 
 const SERVICES = [
@@ -51,13 +24,6 @@ const SERVICES = [
   { title: 'Hunting Foto', description: 'Membaca ruang dan cerita kota melalui praktik memotret di berbagai lokasi.' },
   { title: 'Pameran Karya', description: 'Membawa karya anggota ke ruang publik dan merayakan proses di baliknya.' },
   { title: 'Kolaborasi', description: 'Bekerja lintas minat untuk menghasilkan dokumentasi dan proyek visual yang bermakna.' },
-];
-
-const NAV_ITEMS = [
-  { label: 'Beranda', sectionId: 'home', targetId: 'home' },
-  { label: 'Tentang', sectionId: 'tentang', targetId: 'tentang' },
-  { label: 'Galeri', sectionId: 'galeri-lengkap', targetId: 'galeri-lengkap' },
-  { label: 'Acara', sectionId: 'acara', targetId: 'acara-lengkap' },
 ];
 
 const eventDetailHref = (event: Acara) => {
@@ -71,7 +37,111 @@ const eventDetailHref = (event: Acara) => {
   return `/acara/${event.id}?${params.toString()}`;
 };
 
+// --- MEMO'D STATELESS SECTIONS ---
+
+const AboutSection = memo(function AboutSection() {
+  return (
+    <section id="tentang" className="border-y border-stone-200 bg-stone-50 px-4 py-10 sm:px-6 sm:py-12 md:py-16">
+      <div className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-8 lg:grid-cols-2">
+        <ScrollReveal>
+        <div className="flex flex-col">
+          <p className="mb-4 text-sm font-semibold text-red-700">Tentang Kami</p>
+          <h2 className="text-4xl font-extrabold leading-[0.95] text-slate-950 sm:text-5xl md:text-6xl">
+            Welcome to UFT
+          </h2>
+          <div className="mt-6 space-y-5 text-base leading-relaxed text-slate-700 sm:mt-8 sm:space-y-6 sm:text-lg">
+            <p>
+              Unit Kegiatan Mahasiswa Fotografi Telkom University adalah komunitas resmi bagi mahasiswa yang memiliki ketertarikan pada seni dan teknik fotografi.
+            </p>
+            <p>
+              Kami memfasilitasi anggota untuk   memahami teknik pencahayaan, komposisi, hingga proses pascaproduksi. Mulai dari pameran karya tahunan hingga dokumentasi kegiatan, UFT menyediakan lingkungan belajar yang terstruktur bagi setiap tingkatan keahlian.
+            </p>
+          </div>
+        </div>
+        </ScrollReveal>
+        
+        <ScrollReveal delay={120}>
+        <div className="relative mx-auto flex aspect-[4/3] w-full max-w-lg items-center justify-center overflow-hidden bg-stone-100 p-8 sm:p-12 lg:max-w-none">
+          <Image 
+            src="/logo-uft.png"
+            alt="Logo UFT"
+            width={280}
+            height={90}
+            className="h-auto w-[58%] max-w-[240px] object-contain sm:w-[52%] sm:max-w-[280px]"
+            unoptimized
+          />
+        </div>
+        </ScrollReveal>
+      </div>
+    </section>
+  );
+});
+
+const ServiceSection = memo(function ServiceSection() {
+  return (
+    <section id="layanan" className="border-b border-stone-200 bg-white px-4 py-10 sm:px-6 sm:py-12 md:py-16">
+      <div className="mx-auto max-w-7xl">
+        <ScrollReveal>
+          <div className="mb-6 flex flex-col justify-between gap-4 sm:mb-8 sm:flex-row sm:items-end">
+            <div>
+              <p className="mb-3 text-sm font-semibold uppercase tracking-[0.16em] text-red-700">Yang kami lakukan</p>
+              <h2 className="max-w-xl text-3xl font-extrabold leading-tight text-slate-950 sm:text-4xl md:text-5xl">Belajar lewat proses yang nyata.</h2>
+            </div>
+            <p className="max-w-sm text-sm leading-relaxed text-slate-600 sm:text-right">Dari kamera pertama hingga karya yang siap dipamerkan, UFT tumbuh melalui praktik dan percakapan.</p>
+          </div>
+        </ScrollReveal>
+        <ScrollReveal delay={100}>
+          <ServiceGrid services={SERVICES} />
+        </ScrollReveal>
+      </div>
+    </section>
+  );
+});
+
+const FooterSection = memo(function FooterSection() {
+  return (
+    <footer id="kontak" className="mt-10 border-t border-slate-800 bg-slate-950 px-4 pb-8 pt-8 text-white sm:mt-14 sm:px-6 sm:pb-10 sm:pt-10">
+      <div className="mx-auto mb-8 grid max-w-7xl grid-cols-1 gap-8 md:grid-cols-12 md:gap-8">
+        <div className="md:col-span-6">
+          <div className="flex items-start gap-6 sm:gap-8">
+            <Image src="/logo-uft.png" alt="Logo UFT" width={100} height={34} className="w-24 shrink-0 opacity-90 sm:w-28" unoptimized />
+            <div className="min-w-0">
+              <address className="mt-4 text-sm not-italic leading-relaxed text-slate-300">
+                EB.01.08 Telkom University,<br />
+                Bandung, Jawa Barat.
+              </address>
+            </div>
+          </div>
+        </div>
+        <div className="md:col-span-3">
+          <h4 className="mb-5 font-bold text-white">Hubungi UFT</h4>
+          <ul className="flex flex-col gap-3 text-sm">
+            <li><a href="mailto:ukmfotografitelkom2022@gmail.com" className="text-slate-300 transition-colors hover:text-white focus-visible:text-red-400 focus-visible:underline">ukmfotografitelkom2022@gmail.com</a></li>
+            <li><a href="https://wa.me/6282124792449" target="_blank" rel="noopener noreferrer" className="text-slate-300 transition-colors hover:text-white focus-visible:text-red-400 focus-visible:underline">082124792449 (Ysel)</a></li>
+            <li><a href="https://wa.me/6282111143392" target="_blank" rel="noopener noreferrer" className="text-slate-300 transition-colors hover:text-white focus-visible:text-red-400 focus-visible:underline">082111143392 (Amany)</a></li>
+          </ul>
+        </div>
+        
+        <div className="md:col-span-3">
+          <h4 className="mb-5 font-bold text-white">Ikuti UFT</h4>
+          <ul className="flex flex-col gap-3 text-sm">
+            <li><a href="https://www.instagram.com/fotografitelkom/" target="_blank" rel="noopener noreferrer" className="text-slate-300 transition-colors hover:text-white focus-visible:text-red-400 focus-visible:underline">Instagram</a></li>
+            <li><a href="https://www.tiktok.com/@fotografi.telkom" target="_blank" rel="noopener noreferrer" className="text-slate-300 transition-colors hover:text-white focus-visible:text-red-400 focus-visible:underline">TikTok</a></li>
+          </ul>
+        </div>
+      </div>
+      
+      <div className="mx-auto flex max-w-7xl items-center border-t border-slate-800 pt-6 text-xs leading-relaxed text-slate-400 sm:text-sm">
+        <p>&copy; {new Date().getFullYear()} UKM Fotografi Telkom University. All rights reserved.</p>
+      </div>
+    </footer>
+  );
+});
+
+// --- MAIN PAGE COMPONENT ---
+
 export default function LandingPage() {
+  // --- Data fetching state ---
   const [events, setEvents] = useState<Acara[]>([]);
   const [isLoadingEvents, setIsLoadingEvents] = useState(true);
   const [eventsError, setEventsError] = useState<string | null>(null);
@@ -80,97 +150,28 @@ export default function LandingPage() {
   const [isLoadingGaleri, setIsLoadingGaleri] = useState(true);
   const [galeriError, setGaleriError] = useState<string | null>(null);
 
+  // --- Modal state ---
   const [selectedEvent, setSelectedEvent] = useState<Acara | null>(null);
   const [selectedKoleksi, setSelectedKoleksi] = useState<Koleksi | null>(null);
   const [isKoleksiDetailOpen, setIsKoleksiDetailOpen] = useState(false);
   const [koleksiOrigin, setKoleksiOrigin] = useState<KoleksiOrigin | null>(null);
-  const [highlightIndex, setHighlightIndex] = useState(0);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [activeSection, setActiveSection] = useState('home');
-  const isNavigatingRef = useRef(false);
-  const navigationTimerRef = useRef<number | null>(null);
 
-  const scrollToSection = (sectionId: string) => {
-    if (navigationTimerRef.current) {
-      window.clearTimeout(navigationTimerRef.current);
-    }
-
-    isNavigatingRef.current = true;
-    setActiveSection(sectionId);
-    document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
-    setIsMobileMenuOpen(false);
-    navigationTimerRef.current = window.setTimeout(() => {
-      isNavigatingRef.current = false;
-    }, 850);
-  };
-
-  useEffect(() => {
-    let animationFrame = 0;
-    const sectionTargets = [
-      { sectionId: 'home', navId: 'home' },
-      { sectionId: 'tentang', navId: 'tentang' },
-      { sectionId: 'galeri-lengkap', navId: 'galeri-lengkap' },
-      { sectionId: 'acara-lengkap', navId: 'acara' },
-    ];
-
-    const updateActiveSection = () => {
-      if (isNavigatingRef.current) {
-        animationFrame = 0;
-        return;
-      }
-
-      const marker = window.innerWidth >= 640 ? 88 : 72;
-      let currentSection = 'home';
-
-      for (const target of sectionTargets) {
-        const section = document.getElementById(target.sectionId);
-        if (!section) continue;
-
-        const { top } = section.getBoundingClientRect();
-        if (top <= marker) {
-          currentSection = target.navId;
-        }
-      }
-
-      setActiveSection((current) => current === currentSection ? current : currentSection);
-      animationFrame = 0;
-    };
-
-    const handleViewportChange = () => {
-      if (animationFrame === 0) {
-        animationFrame = window.requestAnimationFrame(updateActiveSection);
-      }
-    };
-
-    const scrollViewport = document.querySelector<HTMLElement>('[data-slot="scroll-area-viewport"]');
-    updateActiveSection();
-    scrollViewport?.addEventListener('scroll', handleViewportChange, { passive: true });
-    window.addEventListener('resize', handleViewportChange);
-
-    return () => {
-      scrollViewport?.removeEventListener('scroll', handleViewportChange);
-      window.removeEventListener('resize', handleViewportChange);
-      if (animationFrame) window.cancelAnimationFrame(animationFrame);
-      if (navigationTimerRef.current) window.clearTimeout(navigationTimerRef.current);
-    };
-  }, []);
-
-  const openKoleksiDetail = (item: Koleksi, event: React.MouseEvent<HTMLButtonElement>) => {
+  // --- Stable callbacks (useCallback → memo'd children skip re-render) ---
+  const openKoleksiDetail = useCallback((item: Koleksi, event: React.MouseEvent<HTMLButtonElement>) => {
     const originElement = event.currentTarget.querySelector<HTMLElement>('[data-koleksi-image]') ?? event.currentTarget;
     const bounds = originElement.getBoundingClientRect();
     setKoleksiOrigin({ top: bounds.top, left: bounds.left, width: bounds.width, height: bounds.height });
     setSelectedKoleksi(item);
     requestAnimationFrame(() => setIsKoleksiDetailOpen(true));
-  };
+  }, []);
 
-  const closeKoleksiDetail = () => {
+  const closeKoleksiDetail = useCallback(() => {
     setIsKoleksiDetailOpen(false);
     window.setTimeout(() => {
       setSelectedKoleksi(null);
       setKoleksiOrigin(null);
     }, 550);
-  };
+  }, []);
 
   // Kunci scroll body saat modal terbuka
   useEffect(() => {
@@ -181,16 +182,6 @@ export default function LandingPage() {
     }
     return () => { document.body.style.overflow = 'unset'; }
   }, [selectedEvent, selectedKoleksi]);
-
-  useEffect(() => {
-    if (CAROUSEL_PARTNERS.length <= 1 || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-
-    const carouselTimer = window.setInterval(() => {
-      setHighlightIndex((current) => (current === CAROUSEL_PARTNERS.length - 1 ? 0 : current + 1));
-    }, 6000);
-
-    return () => window.clearInterval(carouselTimer);
-  }, []);
 
   // Fetch gallery data from backend
   useEffect(() => {
@@ -234,181 +225,40 @@ export default function LandingPage() {
     return () => { cancelled = true; };
   }, []);
 
-  const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 0;
-  const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 0;
-  const koleksiImageStyle = isKoleksiDetailOpen || !koleksiOrigin
-    ? {
-        top: 0,
-        left: 0,
-        width: viewportWidth,
-        height: viewportHeight,
-      }
-    : koleksiOrigin;
-  const visibleEvents = events.slice(0, 10);
-  const remainingEvents = events.slice(10);
-  
-  
+  // --- Derived values (memoized) ---
+  const visibleEvents = useMemo(() => events.slice(0, 10), [events]);
+  const remainingEvents = useMemo(() => events.slice(10), [events]);
+
+  const koleksiImageStyle = useMemo(() => {
+    if (isKoleksiDetailOpen || !koleksiOrigin) {
+      const vw = typeof window !== 'undefined' ? window.innerWidth : 0;
+      const vh = typeof window !== 'undefined' ? window.innerHeight : 0;
+      return { top: 0, left: 0, width: vw, height: vh };
+    }
+    return koleksiOrigin;
+  }, [isKoleksiDetailOpen, koleksiOrigin]);
 
   return (
     <div className="h-screen overflow-hidden bg-white font-sans text-slate-900 selection:bg-red-600 selection:text-white">
-      {/* --- 1. NAVBAR / HEADER (#home) --- */}
-      <nav className="fixed inset-x-0 top-0 z-50 bg-white/75 text-slate-950 backdrop-blur-sm">
-        <div className="relative mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:h-[72px] sm:px-6 lg:px-8">
-          <button type="button" onClick={() => scrollToSection('home')} className="flex min-w-0 items-center outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent" aria-label="Kembali ke beranda">
-            <Image src="/logo-uft.png" alt="Logo UFT" width={100} height={32} className="h-7 w-auto sm:h-8" priority unoptimized />
-          </button>
+      {/* --- NAVBAR (self-contained: activeSection, isMobileMenuOpen) --- */}
+      <Navbar />
 
-          <div className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-7 md:flex lg:gap-10">
-            {NAV_ITEMS.map((item) => (
-              <button
-                key={item.sectionId}
-                type="button"
-                onClick={() => scrollToSection(item.targetId)}
-                className={`relative px-1 py-2 text-xs font-semibold uppercase tracking-[0.16em] transition-colors outline-none focus-visible:ring-2 focus-visible:ring-slate-950 ${activeSection === item.sectionId ? 'text-slate-950 after:absolute after:inset-x-1 after:-bottom-1 after:h-px after:bg-slate-950' : 'text-slate-700 hover:text-slate-950'}`}
-                aria-current={activeSection === item.sectionId ? 'page' : undefined}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setIsMobileMenuOpen((open) => !open)}
-            className="flex h-10 w-10 items-center justify-center border border-slate-950/30 text-slate-950 outline-none transition-colors hover:bg-white/60 focus-visible:ring-2 focus-visible:ring-slate-950 md:hidden"
-            aria-expanded={isMobileMenuOpen}
-            aria-controls="mobile-navigation"
-            aria-label={isMobileMenuOpen ? 'Tutup menu navigasi' : 'Buka menu navigasi'}
-          >
-            <span className="sr-only">Menu</span>
-            <span className="relative h-5 w-5" aria-hidden="true">
-              <span className={`absolute left-0 top-1/2 h-px w-full bg-current transition-transform duration-200 ${isMobileMenuOpen ? 'rotate-45' : '-translate-y-1.5'}`} />
-              <span className={`absolute left-0 top-1/2 h-px w-full bg-current transition-opacity duration-200 ${isMobileMenuOpen ? 'opacity-0' : 'opacity-100'}`} />
-              <span className={`absolute left-0 top-1/2 h-px w-full bg-current transition-transform duration-200 ${isMobileMenuOpen ? '-rotate-45' : 'translate-y-1.5'}`} />
-            </span>
-          </button>
-        </div>
-
-        <div id="mobile-navigation" className={`${isMobileMenuOpen ? 'block' : 'hidden'} border-t border-slate-200 bg-white/95 px-4 py-3 text-slate-950 backdrop-blur-md md:hidden`}>
-          <div className="mx-auto flex max-w-7xl flex-col gap-1">
-            {NAV_ITEMS.map((item) => (
-              <button
-                key={item.sectionId}
-                type="button"
-                onClick={() => scrollToSection(item.targetId)}
-                className={`border-b border-slate-100 px-2 py-3 text-left text-sm font-semibold transition-colors last:border-b-0 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 ${activeSection === item.sectionId ? 'text-slate-950' : 'text-slate-700'}`}
-                aria-current={activeSection === item.sectionId ? 'page' : undefined}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      </nav>
-
-      {/* --- MOBILE BOTTOM NAV DOCK --- */}
       <ScrollArea className="h-screen">
         <main className="flex flex-col">
-        {/* Sorotan acara ditempatkan lebih dulu agar pengunjung melihat kegiatan terkini sebelum mengenal komunitas. */}
+        {/* --- HERO CAROUSEL (self-contained: highlightIndex) --- */}
         <section id="home" className="px-4 pb-4 pt-20 sm:px-6 sm:pb-5 sm:pt-24 md:pb-8">
           <div className="mx-auto max-w-7xl">
-            {CAROUSEL_PARTNERS.length > 0 ? (
-              <div className="relative min-h-[360px] overflow-hidden bg-stone-900 sm:min-h-[410px] md:min-h-[480px]">
-                {CAROUSEL_PARTNERS.map((partner, index) => (
-                  <div
-                    key={partner.id}
-                    className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${index === highlightIndex ? 'opacity-100' : 'opacity-0'}`}
-                    aria-hidden={index !== highlightIndex}
-                  >
-                    <Image
-                      src={partner.image}
-                      alt={index === highlightIndex ? partner.title : ''}
-                      fill
-                      className="object-cover"
-                      priority={index === 0}
-                      unoptimized
-                    />
-                  </div>
-                ))}
-                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/90 via-slate-950/45 to-transparent px-4 pb-12 pt-24 text-white sm:px-8 sm:pb-14">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-red-200 sm:text-sm">{CAROUSEL_PARTNERS[highlightIndex].label}</p>
-                  <h1 className="mt-3 max-w-3xl text-4xl font-extrabold leading-[0.95] sm:text-6xl md:text-7xl">{CAROUSEL_PARTNERS[highlightIndex].title}</h1>
-                  <p className="mt-5 max-w-xl text-sm text-slate-100 sm:text-base">{CAROUSEL_PARTNERS[highlightIndex].description}</p>
-                </div>
-                <div className="absolute inset-x-0 bottom-5 flex justify-center gap-2">
-                  {CAROUSEL_PARTNERS.map((partner, index) => (
-                    <button
-                      key={partner.id}
-                      type="button"
-                      onClick={() => setHighlightIndex(index)}
-                      className={`h-2.5 w-2.5 rounded-full border border-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 ${index === highlightIndex ? 'bg-white' : 'bg-transparent hover:bg-white/60'}`}
-                      aria-label={`Tampilkan sorotan ${index + 1}: ${partner.title}`}
-                      aria-current={index === highlightIndex ? 'true' : undefined}
-                    />
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div className="flex min-h-[360px] flex-col items-center justify-center bg-stone-100 p-8 text-center gap-2">
-                <p className="text-base font-semibold text-slate-700">Belum ada Poster yang tersedia</p>
-                <p className="text-sm text-slate-500">Poster akan ditampilkan di sini.</p>
-              </div>
-            )}
+            <HeroCarousel partners={CAROUSEL_PARTNERS} />
           </div>
         </section>
 
-        <section id="tentang" className="border-y border-stone-200 bg-stone-50 px-4 py-10 sm:px-6 sm:py-12 md:py-16">
-          <div className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-8 lg:grid-cols-2">
-            <ScrollReveal>
-            <div className="flex flex-col">
-              <p className="mb-4 text-sm font-semibold text-red-700">Tentang Kami</p>
-              <h2 className="text-4xl font-extrabold leading-[0.95] text-slate-950 sm:text-5xl md:text-6xl">
-                Welcome to UFT
-              </h2>
-              <div className="mt-6 space-y-5 text-base leading-relaxed text-slate-700 sm:mt-8 sm:space-y-6 sm:text-lg">
-                <p>
-                  Unit Kegiatan Mahasiswa Fotografi Telkom University adalah komunitas resmi bagi mahasiswa yang memiliki ketertarikan pada seni dan teknik fotografi.
-                </p>
-                <p>
-                  Kami memfasilitasi anggota untuk   memahami teknik pencahayaan, komposisi, hingga proses pascaproduksi. Mulai dari pameran karya tahunan hingga dokumentasi kegiatan, UFT menyediakan lingkungan belajar yang terstruktur bagi setiap tingkatan keahlian.
-                </p>
-              </div>
-            </div>
-            </ScrollReveal>
-            
-            <ScrollReveal delay={120}>
-            <div className="relative mx-auto flex aspect-[4/3] w-full max-w-lg items-center justify-center overflow-hidden bg-stone-100 p-8 sm:p-12 lg:max-w-none">
-              <Image 
-                src="/logo-uft.png"
-                alt="Logo UFT"
-                width={280}
-                height={90}
-                className="h-auto w-[58%] max-w-[240px] object-contain sm:w-[52%] sm:max-w-[280px]"
-                unoptimized
-              />
-            </div>
-            </ScrollReveal>
-          </div>
-        </section>
+        {/* --- ABOUT (memo'd, stateless) --- */}
+        <AboutSection />
 
-        <section id="layanan" className="border-b border-stone-200 bg-white px-4 py-10 sm:px-6 sm:py-12 md:py-16">
-          <div className="mx-auto max-w-7xl">
-            <ScrollReveal>
-              <div className="mb-6 flex flex-col justify-between gap-4 sm:mb-8 sm:flex-row sm:items-end">
-                <div>
-                  <p className="mb-3 text-sm font-semibold uppercase tracking-[0.16em] text-red-700">Yang kami lakukan</p>
-                  <h2 className="max-w-xl text-3xl font-extrabold leading-tight text-slate-950 sm:text-4xl md:text-5xl">Belajar lewat proses yang nyata.</h2>
-                </div>
-                <p className="max-w-sm text-sm leading-relaxed text-slate-600 sm:text-right">Dari kamera pertama hingga karya yang siap dipamerkan, UFT tumbuh melalui praktik dan percakapan.</p>
-              </div>
-            </ScrollReveal>
-            <ScrollReveal delay={100}>
-              <ServiceGrid services={SERVICES} />
-            </ScrollReveal>
-          </div>
-        </section>
+        {/* --- SERVICES (memo'd, stateless) --- */}
+        <ServiceSection />
 
-        {/* --- 3. GALLERY GRID "COLLECTIONS" (#koleksi) --- */}
+        {/* --- KARYA PILIHAN (shows first 3 gallery items) --- */}
         <section id="koleksi" className="border-t border-stone-200 bg-stone-50 px-4 py-10 sm:px-6 sm:py-12 md:py-16">
           <div className="mx-auto max-w-7xl">
             <ScrollReveal>
@@ -461,7 +311,7 @@ export default function LandingPage() {
             )}
             {!isLoadingGaleri && !galeriError && koleksiData.length > 3 && (
             <div className="mt-10">
-              <button type="button" onClick={() => scrollToSection('galeri-lengkap')} className="inline-flex border border-slate-950 px-5 py-3 text-sm font-semibold text-slate-950 transition-colors hover:bg-slate-950 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-4">
+              <button type="button" onClick={() => document.getElementById('galeri-lengkap')?.scrollIntoView({ behavior: 'smooth', block: 'start' })} className="inline-flex border border-slate-950 px-5 py-3 text-sm font-semibold text-slate-950 transition-colors hover:bg-slate-950 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-4">
                 Lihat galeri lengkap
               </button>
             </div>
@@ -469,7 +319,7 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* --- 4. EVENTS HORIZONTAL SLIDER (#acara) --- */}
+        {/* --- EVENT HORIZONTAL SLIDER --- */}
         <section id="acara" className="border-t border-stone-200 bg-white px-4 py-10 sm:px-6 sm:py-12 md:py-16">
           <div className="mx-auto max-w-7xl">
             <ScrollReveal>
@@ -660,6 +510,7 @@ export default function LandingPage() {
           </div>
         )}
 
+        {/* --- GALLERY FULL (batch rendering + infinite scroll) --- */}
         <section id="galeri-lengkap" className="border-t border-stone-200 bg-stone-50 px-4 py-10 sm:px-6 sm:py-12 md:py-16">
           <div className="mx-auto max-w-7xl">
             <ScrollReveal>
@@ -668,43 +519,16 @@ export default function LandingPage() {
                 <p className="mt-4 text-base text-slate-600 sm:text-lg">Karya anggota UFT dalam berbagai pendekatan visual.</p>
               </div>
             </ScrollReveal>
-            {isLoadingGaleri ? (
-              <div className="mx-auto max-w-6xl columns-2 gap-3 sm:columns-3 sm:gap-4 lg:columns-4">
-                {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-                  <div key={i} className="mb-4 break-inside-avoid animate-pulse">
-                    <div className="bg-stone-200" style={{ height: `${150 + (i % 3) * 80}px` }} />
-                  </div>
-                ))}
-              </div>
-            ) : galeriError ? (
-              <div className="flex flex-col items-center justify-center rounded-xl border border-stone-200 bg-white p-12 text-center">
-                <p className="text-sm font-semibold text-red-600">Gagal Memuat Galeri</p>
-                <p className="mt-2 max-w-sm text-sm text-slate-500">{galeriError}</p>
-                <button
-                  type="button"
-                  onClick={() => window.location.reload()}
-                  className="mt-5 border border-slate-950 px-5 py-2.5 text-sm font-semibold text-slate-950 transition-colors hover:bg-slate-950 hover:text-white"
-                >
-                  Coba Lagi
-                </button>
-              </div>
-            ) : koleksiData.length === 0 ? (
-              <div className="flex flex-col items-center justify-center rounded-xl border border-stone-200 bg-white p-12 text-center">
-                <p className="text-lg font-bold text-slate-950">Belum Ada Karya</p>
-                <p className="mt-2 max-w-sm text-sm text-slate-500">Galeri karya anggota akan ditampilkan di sini setelah diupload melalui dashboard admin.</p>
-              </div>
-            ) : (
-              <div className="mx-auto max-w-6xl columns-2 gap-3 sm:columns-3 sm:gap-4 lg:columns-4">
-                {koleksiData.map((item, index) => (
-                  <ScrollReveal key={item.id} delay={Math.min(index * 70, 350)}>
-                    <GalleryCard item={item} onSelect={openKoleksiDetail} />
-                  </ScrollReveal>
-                ))}
-              </div>
-            )}
+            <GalleryFull
+              koleksiData={koleksiData}
+              isLoading={isLoadingGaleri}
+              error={galeriError}
+              onSelect={openKoleksiDetail}
+            />
           </div>
         </section>
 
+        {/* --- EVENTS FULL GRID --- */}
         {events.length > 0 && (
           <section id="acara-lengkap" className="border-t border-stone-200 bg-white px-4 py-10 sm:px-6 sm:py-12 md:py-16">
             <div className="mx-auto max-w-7xl">
@@ -725,42 +549,8 @@ export default function LandingPage() {
         )}
         </main>
 
-      {/* --- 5. FOOTER (#kontak) --- */}
-        <footer id="kontak" className="mt-10 border-t border-slate-800 bg-slate-950 px-4 pb-8 pt-8 text-white sm:mt-14 sm:px-6 sm:pb-10 sm:pt-10">
-        <div className="mx-auto mb-8 grid max-w-7xl grid-cols-1 gap-8 md:grid-cols-12 md:gap-8">
-          <div className="md:col-span-6">
-            <div className="flex items-start gap-6 sm:gap-8">
-              <Image src="/logo-uft.png" alt="Logo UFT" width={100} height={34} className="w-24 shrink-0 opacity-90 sm:w-28" unoptimized />
-              <div className="min-w-0">
-                <address className="mt-4 text-sm not-italic leading-relaxed text-slate-300">
-                  EB.01.08 Telkom University,<br />
-                  Bandung, Jawa Barat.
-                </address>
-              </div>
-            </div>
-          </div>
-          <div className="md:col-span-3">
-            <h4 className="mb-5 font-bold text-white">Hubungi UFT</h4>
-            <ul className="flex flex-col gap-3 text-sm">
-              <li><a href="mailto:ukmfotografitelkom2022@gmail.com" className="text-slate-300 transition-colors hover:text-white focus-visible:text-red-400 focus-visible:underline">ukmfotografitelkom2022@gmail.com</a></li>
-              <li><a href="https://wa.me/6282124792449" target="_blank" rel="noopener noreferrer" className="text-slate-300 transition-colors hover:text-white focus-visible:text-red-400 focus-visible:underline">082124792449 (Ysel)</a></li>
-              <li><a href="https://wa.me/6282111143392" target="_blank" rel="noopener noreferrer" className="text-slate-300 transition-colors hover:text-white focus-visible:text-red-400 focus-visible:underline">082111143392 (Amany)</a></li>
-            </ul>
-          </div>
-          
-          <div className="md:col-span-3">
-            <h4 className="mb-5 font-bold text-white">Ikuti UFT</h4>
-            <ul className="flex flex-col gap-3 text-sm">
-              <li><a href="https://www.instagram.com/fotografitelkom/" target="_blank" rel="noopener noreferrer" className="text-slate-300 transition-colors hover:text-white focus-visible:text-red-400 focus-visible:underline">Instagram</a></li>
-              <li><a href="https://www.tiktok.com/@fotografi.telkom" target="_blank" rel="noopener noreferrer" className="text-slate-300 transition-colors hover:text-white focus-visible:text-red-400 focus-visible:underline">TikTok</a></li>
-            </ul>
-          </div>
-        </div>
-        
-        <div className="mx-auto flex max-w-7xl items-center border-t border-slate-800 pt-6 text-xs leading-relaxed text-slate-400 sm:text-sm">
-          <p>&copy; {new Date().getFullYear()} UKM Fotografi Telkom University. All rights reserved.</p>
-        </div>
-        </footer>
+      {/* --- FOOTER (memo'd, stateless) --- */}
+        <FooterSection />
         <ScrollBar orientation="vertical" />
       </ScrollArea>
     </div>

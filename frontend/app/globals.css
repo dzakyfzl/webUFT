@@ -25,3 +25,23 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* --- ScrollReveal: CSS-only animation (zero React re-renders) --- */
+.scroll-reveal {
+  opacity: 0;
+  transform: translateY(1.5rem);
+  transition: opacity 700ms ease-out, transform 700ms ease-out;
+}
+
+.scroll-reveal.is-revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scroll-reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}

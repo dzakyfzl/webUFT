@@ -3,7 +3,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useState, useMemo, useCallback, memo } from "react";
+import { Search, X } from "lucide-react";
 import Toast from "../../components/Toast";
 import type { Acara, Koleksi } from "../../components/types";
 
@@ -56,13 +57,144 @@ const fallbackEvent = (params: URLSearchParams, id: string): Acara => ({
   status: "Mendatang",
 });
 
+// --- MEMO'D WORK CARD (prevents re-render when search query changes for non-matching items) ---
+const WorkCard = memo(function WorkCard({
+  work,
+  onSelect,
+}: {
+  work: Koleksi;
+  onSelect: (work: Koleksi) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(work)}
+      className="group cursor-pointer text-left outline-none focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-4"
+    >
+      <div
+        className="relative aspect-[4/5] overflow-hidden bg-stone-200 transition-[box-shadow,transform] duration-200 ease-out group-hover:shadow-[0_12px_32px_rgba(0,0,0,0.32)] group-hover:-translate-y-[3px]"
+      >
+        <Image
+          src={work.image}
+          alt={work.title}
+          fill
+          className="object-cover transition-transform duration-300 ease-out group-hover:scale-[1.06]"
+          unoptimized
+        />
+        <div className="absolute inset-0 bg-slate-950/0 transition-colors duration-200 group-hover:bg-slate-950/[0.42]" />
+      </div>
+      <p className="mt-2 line-clamp-1 text-sm font-bold transition-colors duration-200 group-hover:text-red-600">
+        {work.title}
+      </p>
+      <p className="mt-1 line-clamp-1 text-xs text-slate-600">{work.photographer}</p>
+    </button>
+  );
+});
+
+// --- KARYA GRID WITH SEARCH (isolated state for search query) ---
+function KaryaGrid({
+  works,
+  onSelectWork,
+}: {
+  works: Koleksi[];
+  onSelectWork: (work: Koleksi) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+
+  // Debounce search — 250ms after user stops typing
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQuery(query), 250);
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  // Memoized filter — only recalculates when query or works change
+  const filteredWorks = useMemo(() => {
+    if (!debouncedQuery.trim()) return works;
+    const q = debouncedQuery.toLowerCase();
+    return works.filter(
+      (w) =>
+        w.title.toLowerCase().includes(q) ||
+        w.photographer.toLowerCase().includes(q)
+    );
+  }, [works, debouncedQuery]);
+
+  // Stable callback for WorkCard
+  const stableOnSelect = useCallback(onSelectWork, [onSelectWork]);
+
+  return (
+    <div>
+      {/* Search Input */}
+      {works.length > 0 && (
+        <div className="relative mb-5">
+          <Search
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+            aria-hidden="true"
+          />
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Cari karya atau fotografer..."
+            className="w-full border border-stone-300 bg-white py-3 pl-10 pr-10 text-sm outline-none transition-colors focus:border-red-600 focus:ring-2 focus:ring-red-200"
+          />
+          {query && (
+            <button
+              type="button"
+              onClick={() => setQuery("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 flex h-5 w-5 items-center justify-center text-slate-400 transition-colors hover:text-slate-700"
+              aria-label="Hapus pencarian"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Result count (only when searching) */}
+      {debouncedQuery && (
+        <p className="mb-3 text-xs text-slate-500">
+          {filteredWorks.length} karya ditemukan
+          {filteredWorks.length !== works.length && (
+            <span> dari {works.length} total</span>
+          )}
+        </p>
+      )}
+
+      {/* Grid */}
+      {filteredWorks.length > 0 ? (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          {filteredWorks.map((work) => (
+            <WorkCard key={work.id} work={work} onSelect={stableOnSelect} />
+          ))}
+        </div>
+      ) : debouncedQuery ? (
+        <div className="flex flex-col items-center justify-center border border-dashed border-stone-300 p-12 text-center">
+          <p className="text-sm font-semibold text-slate-700">
+            Tidak ada karya yang cocok dengan &ldquo;{debouncedQuery}&rdquo;
+          </p>
+          <button
+            type="button"
+            onClick={() => setQuery("")}
+            className="mt-3 text-sm font-semibold text-red-600 transition-colors hover:text-red-700"
+          >
+            Tampilkan semua karya
+          </button>
+        </div>
+      ) : (
+        <div className="border border-dashed border-stone-300 p-8 text-sm text-slate-600">Belum ada karya untuk acara ini.</div>
+      )}
+    </div>
+  );
+}
+
+// --- MAIN PAGE COMPONENT ---
 export default function AcaraDetailPage() {
   const params = useParams<{ id: string }>();
   const searchParams = useSearchParams();
   const [event, setEvent] = useState<Acara | null>(null);
   const [works, setWorks] = useState<Koleksi[]>([]);
   const [selectedWork, setSelectedWork] = useState<Koleksi | null>(null);
-  const [hoveredId, setHoveredId] = useState<number | null>(null);
   const [form, setForm] = useState<VoteForm>({ nama: "", nim: "", universitas: "" });
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -127,6 +259,12 @@ export default function AcaraDetailPage() {
       isCurrent = false;
     };
   }, [params.id, searchParams]);
+
+  const handleSelectWork = useCallback((work: Koleksi) => {
+    setSelectedWork(work);
+    setMessage("");
+    setModalOpen(true);
+  }, []);
 
   const submitVote = async (submitEvent: FormEvent<HTMLFormElement>) => {
     submitEvent.preventDefault();
@@ -242,73 +380,8 @@ export default function AcaraDetailPage() {
               <h2 className="mt-2 text-2xl font-bold">{works.length > 0 ? `${works.length} karya` : "Karya akan segera hadir"}</h2>
             </div>
           </div>
-          {works.length > 0 ? (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              {works.map((work) => {
-                const isHovered = hoveredId === work.id;
-                return (
-                <button
-                    key={work.id}
-                    type="button"
-                    onClick={() => {
-                      setSelectedWork(work);
-                      setMessage("");
-                      setModalOpen(true);
-                    }}
-                    onMouseEnter={() => setHoveredId(work.id)}
-                    onMouseLeave={() => setHoveredId(null)}
-                    className="cursor-pointer text-left outline-none focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-4"
-                  >
-                  {/* Container foto — tanpa rounded, shadow naik saat hover */}
-                  <div
-                    className="relative aspect-[4/5] overflow-hidden bg-stone-200"
-                    style={{
-                      boxShadow: isHovered
-                        ? '0 12px 32px rgba(0,0,0,0.32)'
-                        : '0 2px 8px rgba(0,0,0,0.10)',
-                      transform: isHovered ? 'translateY(-3px)' : 'translateY(0)',
-                      transition: 'box-shadow 0.22s ease, transform 0.22s ease',
-                    }}
-                  >
-                    <Image
-                      src={work.image}
-                      alt={work.title}
-                      fill
-                      className="object-cover"
-                      style={{
-                        transform: isHovered ? 'scale(1.06)' : 'scale(1)',
-                        transition: 'transform 0.3s ease',
-                      }}
-                      unoptimized
-                    />
-                    {/* Overlay gelap saat hover */}
-                    <div
-                      className="absolute inset-0"
-                      style={{
-                        background: isHovered ? 'rgba(15,23,42,0.42)' : 'rgba(15,23,42,0)',
-                        transition: 'background 0.22s ease',
-                      }}
-                    />
-
-
-                  </div>
-                  <p
-                    className="mt-2 line-clamp-1 text-sm font-bold"
-                    style={{
-                      color: isHovered ? '#dc2626' : '',
-                      transition: 'color 0.18s ease',
-                    }}
-                  >
-                    {work.title}
-                  </p>
-                  <p className="mt-1 line-clamp-1 text-xs text-slate-600">{work.photographer}</p>
-                </button>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="border border-dashed border-stone-300 p-8 text-sm text-slate-600">Belum ada karya untuk acara ini.</div>
-          )}
+          {/* --- Searchable Karya Grid (isolated search state) --- */}
+          <KaryaGrid works={works} onSelectWork={handleSelectWork} />
         </div>
       </section>
 
