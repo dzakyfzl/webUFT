@@ -400,12 +400,12 @@ export default function AcaraDetailPage() {
           />
 
           {/* Panel */}
-          <div className="relative z-10 w-full max-w-4xl overflow-hidden bg-white shadow-2xl" style={{ maxHeight: "90vh" }}>
+          <div className="relative z-10 w-full max-w-4xl overflow-y-auto bg-white shadow-2xl max-h-[90vh] lg:max-h-[90vh]">
             {/* Tombol tutup */}
             <button
               type="button"
               onClick={() => setModalOpen(false)}
-              className="absolute right-4 top-4 z-20 flex h-9 w-9 items-center justify-center bg-white/90 text-slate-700 shadow transition-colors hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600"
+              className="absolute right-3 top-3 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-slate-700 shadow transition-colors hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 sm:right-4 sm:top-4"
               aria-label="Tutup"
             >
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
@@ -414,9 +414,9 @@ export default function AcaraDetailPage() {
               </svg>
             </button>
 
-            <div className="grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]" style={{ maxHeight: "90vh" }}>
+            <div className="grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
               {/* Gambar karya */}
-              <div className="relative min-h-[260px] bg-stone-100 lg:min-h-0">
+              <div className="relative aspect-[4/3] w-full bg-stone-100 sm:aspect-[3/2] lg:aspect-auto lg:min-h-full">
                 <Image
                   src={selectedWork.image}
                   alt={selectedWork.title}
@@ -427,19 +427,19 @@ export default function AcaraDetailPage() {
               </div>
 
               {/* Info + form vote */}
-              <div className="overflow-y-auto p-7 sm:p-9" style={{ maxHeight: "90vh" }}>
+              <div className="p-5 pb-8 sm:p-7 lg:overflow-y-auto lg:p-9">
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-red-700">Pilih karya ini</p>
-                <h2 className="mt-3 text-2xl font-extrabold leading-tight sm:text-3xl">{selectedWork.title}</h2>
+                <h2 className="mt-3 text-xl font-extrabold leading-tight sm:text-2xl lg:text-3xl">{selectedWork.title}</h2>
                 <p className="mt-1 text-sm text-slate-500">{selectedWork.photographer}</p>
                 {selectedWork.description && (
-                  <p className="mt-4 text-sm leading-relaxed text-slate-600">{selectedWork.description}</p>
+                  <p className="mt-3 text-sm leading-relaxed text-slate-600 sm:mt-4">{selectedWork.description}</p>
                 )}
 
                 <form
                   onSubmit={async (e) => {
                     await submitVote(e);
                   }}
-                  className="mt-7 space-y-4"
+                  className="mt-5 space-y-3 sm:mt-7 sm:space-y-4"
                 >
                   <label className="block text-sm font-semibold">
                     Nama lengkap
@@ -447,7 +447,7 @@ export default function AcaraDetailPage() {
                       required
                       value={form.nama}
                       onChange={(input) => setForm({ ...form, nama: input.target.value })}
-                      className="mt-2 block w-full border border-stone-300 px-3 py-3 font-normal outline-none focus:border-red-600 focus:ring-2 focus:ring-red-200"
+                      className="mt-1.5 block w-full border border-stone-300 px-3 py-2.5 text-base font-normal outline-none focus:border-red-600 focus:ring-2 focus:ring-red-200 sm:mt-2 sm:py-3"
                     />
                   </label>
                   <label className="block text-sm font-semibold">
@@ -456,7 +456,7 @@ export default function AcaraDetailPage() {
                       required
                       value={form.nim}
                       onChange={(input) => setForm({ ...form, nim: input.target.value })}
-                      className="mt-2 block w-full border border-stone-300 px-3 py-3 font-normal outline-none focus:border-red-600 focus:ring-2 focus:ring-red-200"
+                      className="mt-1.5 block w-full border border-stone-300 px-3 py-2.5 text-base font-normal outline-none focus:border-red-600 focus:ring-2 focus:ring-red-200 sm:mt-2 sm:py-3"
                     />
                   </label>
                   <label className="block text-sm font-semibold">
@@ -465,7 +465,7 @@ export default function AcaraDetailPage() {
                       required
                       value={form.universitas}
                       onChange={(input) => setForm({ ...form, universitas: input.target.value })}
-                      className="mt-2 block w-full border border-stone-300 px-3 py-3 font-normal outline-none focus:border-red-600 focus:ring-2 focus:ring-red-200"
+                      className="mt-1.5 block w-full border border-stone-300 px-3 py-2.5 text-base font-normal outline-none focus:border-red-600 focus:ring-2 focus:ring-red-200 sm:mt-2 sm:py-3"
                     />
                   </label>
                   <button
