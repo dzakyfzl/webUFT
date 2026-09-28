@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState, useMemo, useCallback, memo } from "react";
 import { Search, X } from "lucide-react";
 import Toast from "../../components/Toast";
@@ -192,6 +192,7 @@ function KaryaGrid({
 export default function AcaraDetailPage() {
   const params = useParams<{ id: string }>();
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [event, setEvent] = useState<Acara | null>(null);
   const [works, setWorks] = useState<Koleksi[]>([]);
   const [selectedWork, setSelectedWork] = useState<Koleksi | null>(null);
@@ -201,6 +202,7 @@ export default function AcaraDetailPage() {
   const [message, setMessage] = useState("");
   const [gpsError, setGpsError] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [voteSuccess, setVoteSuccess] = useState(false);
 
   useEffect(() => {
     if (!params.id) return;
@@ -275,8 +277,10 @@ export default function AcaraDetailPage() {
 
     try {
       if (typeof event.id !== "number") {
-        setMessage("Mode mockup: pilihan kamu berhasil dicatat untuk pengujian form.");
         setForm({ nama: "", nim: "", universitas: "" });
+        setModalOpen(false);
+        setVoteSuccess(true);
+        setTimeout(() => router.push("/"), 2500);
         return;
       }
 
@@ -323,8 +327,10 @@ export default function AcaraDetailPage() {
       });
       const data = await response.json().catch(() => null);
       if (!response.ok) throw new Error(data?.message || "Voting belum berhasil dikirim.");
-      setMessage("Pilihan kamu sudah tercatat. Terima kasih sudah ikut memilih.");
       setForm({ nama: "", nim: "", universitas: "" });
+      setModalOpen(false);
+      setVoteSuccess(true);
+      setTimeout(() => router.push("/"), 2500);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Voting belum berhasil dikirim.");
     } finally {
@@ -476,7 +482,7 @@ export default function AcaraDetailPage() {
                     {isSubmitting ? "Mengirim..." : "Kirim vote"}
                   </button>
                   {message && (
-                    <p role="status" className="text-sm text-slate-600">{message}</p>
+                    <p role="status" className="text-sm text-red-600 font-medium">{message}</p>
                   )}
                 </form>
               </div>
@@ -485,6 +491,71 @@ export default function AcaraDetailPage() {
         </div>
       )}
       {/* ── END MODAL ─────────────────────────────────────────────────── */}
+
+      {/* ── SUCCESS POPUP ──────────────────────────────────────────── */}
+      {voteSuccess && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Voting berhasil"
+        >
+          <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm" />
+          <div className="relative z-10 w-full max-w-sm overflow-hidden bg-white shadow-2xl text-center animate-[popIn_0.35s_ease-out_both]">
+            {/* Checkmark circle */}
+            <div className="pt-10 pb-2 flex justify-center">
+              <div className="flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100 animate-[scaleUp_0.4s_ease-out_0.1s_both]">
+                <svg
+                  className="h-10 w-10 text-emerald-600 animate-[drawCheck_0.4s_ease-out_0.35s_both]"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              </div>
+            </div>
+            <div className="px-6 pb-10 pt-4">
+              <h3 className="text-xl font-extrabold text-slate-900">Voting Berhasil!</h3>
+              <p className="mt-2 text-sm text-slate-500 leading-relaxed">
+                Pilihan kamu sudah tercatat.<br />Terima kasih sudah ikut memilih.
+              </p>
+              <div className="mt-6 flex flex-col gap-2">
+                <button
+                  type="button"
+                  onClick={() => router.push("/")}
+                  className="w-full bg-red-600 px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-red-700"
+                >
+                  Kembali ke Beranda
+                </button>
+              </div>
+              <p className="mt-4 text-xs text-slate-400">Mengalihkan otomatis dalam beberapa detik...</p>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ── END SUCCESS POPUP ──────────────────────────────────────── */}
+
+      {/* Keyframe animations for success popup */}
+      <style jsx>{`
+        @keyframes popIn {
+          0% { opacity: 0; transform: scale(0.85) translateY(20px); }
+          100% { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        @keyframes scaleUp {
+          0% { opacity: 0; transform: scale(0); }
+          60% { transform: scale(1.15); }
+          100% { opacity: 1; transform: scale(1); }
+        }
+        @keyframes drawCheck {
+          0% { stroke-dasharray: 30; stroke-dashoffset: 30; opacity: 0; }
+          50% { opacity: 1; }
+          100% { stroke-dasharray: 30; stroke-dashoffset: 0; opacity: 1; }
+        }
+      `}</style>
     </main>
   );
 }
