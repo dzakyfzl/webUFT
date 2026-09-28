@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { buildShortlinkUrl, shortlinkHost } from "@/app/lib/shortlink-url";
+import QRCodeModal from "@/app/components/QRCodeModal";
 
 interface ShortLink {
   linkID: number;
@@ -95,6 +96,7 @@ export default function KelolaLink() {
   const [confirmTarget, setConfirmTarget] = useState<ShortLink | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [toast, setToast] = useState<{ type: "success" | "error"; msg: string } | null>(null);
+  const [qrTarget, setQrTarget] = useState<ShortLink | null>(null);
   const [copied, setCopied] = useState<number | null>(null);
   const hasFetched = useRef(false);
 
@@ -368,6 +370,24 @@ export default function KelolaLink() {
                     {/* Aksi */}
                     <td className="p-5 text-right">
                       <div className="flex items-center justify-end gap-2">
+                        {/* Tombol QR Code */}
+                        <button
+                          onClick={() => setQrTarget(link)}
+                          title="Lihat QR Code"
+                          className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border bg-white/5 border-white/10 text-slate-400 hover:bg-white/10 hover:text-white"
+                        >
+                          <svg className="w-3.5 h-3.5 inline-block mr-1 -mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <rect x="2" y="2" width="8" height="8" rx="1" />
+                            <rect x="14" y="2" width="8" height="8" rx="1" />
+                            <rect x="2" y="14" width="8" height="8" rx="1" />
+                            <rect x="14" y="14" width="4" height="4" rx="0.5" />
+                            <line x1="22" y1="14" x2="22" y2="14.01" />
+                            <line x1="22" y1="18" x2="22" y2="22" />
+                            <line x1="18" y1="22" x2="18" y2="22.01" />
+                          </svg>
+                          QR
+                        </button>
+
                         {/* Tombol Salin */}
                         <button
                           onClick={() => handleCopy(link)}
@@ -435,6 +455,15 @@ export default function KelolaLink() {
           onConfirm={handleDelete}
           onCancel={() => setConfirmTarget(null)}
           isDeleting={isDeleting}
+        />
+      )}
+
+      {/* ── QR Code Modal ───────────────────────────────────────────────── */}
+      {qrTarget && (
+        <QRCodeModal
+          link={qrTarget}
+          shortlinkUrl={buildShortlinkUrl(qrTarget.slug)}
+          onClose={() => setQrTarget(null)}
         />
       )}
     </div>
