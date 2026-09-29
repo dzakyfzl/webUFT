@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState, useMemo, useCallback, memo } from "react";
-import { Search, X } from "lucide-react";
+import { Search, X, LayoutGrid, List } from "lucide-react";
 import Toast from "../../components/Toast";
 import type { Acara, Koleksi } from "../../components/types";
 
@@ -91,13 +91,15 @@ const WorkCard = memo(function WorkCard({
   );
 });
 
-// --- KARYA GRID WITH SEARCH (isolated state for search query) ---
-function KaryaGrid({
+// --- KARYA DISPLAY WITH SEARCH & VIEW MODES ---
+function KaryaDisplay({
   works,
   onSelectWork,
+  viewMode,
 }: {
   works: Koleksi[];
   onSelectWork: (work: Koleksi) => void;
+  viewMode: "grid" | "table";
 }) {
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
@@ -161,13 +163,50 @@ function KaryaGrid({
         </p>
       )}
 
-      {/* Grid */}
+      {/* Content: Grid or Table */}
       {filteredWorks.length > 0 ? (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          {filteredWorks.map((work) => (
-            <WorkCard key={work.id} work={work} onSelect={stableOnSelect} />
-          ))}
-        </div>
+        viewMode === "grid" ? (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {filteredWorks.map((work) => (
+              <WorkCard key={work.id} work={work} onSelect={stableOnSelect} />
+            ))}
+          </div>
+        ) : (
+          <div className="overflow-hidden border border-stone-200 bg-white shadow-sm">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-stone-200 bg-stone-100/75 text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                  <th className="py-3.5 px-4 sm:px-6">Nama Karya</th>
+                  <th className="py-3.5 px-4 sm:px-6">Nama Pemilik</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-stone-200 text-sm">
+                {filteredWorks.map((work) => (
+                  <tr
+                    key={work.id}
+                    tabIndex={0}
+                    role="button"
+                    onClick={() => stableOnSelect(work)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        stableOnSelect(work);
+                      }
+                    }}
+                    className="group cursor-pointer transition-colors hover:bg-stone-50 focus:bg-stone-50 focus:outline-none"
+                  >
+                    <td className="py-3.5 px-4 sm:px-6 font-semibold text-slate-900 transition-colors group-hover:text-red-600 group-focus:text-red-600">
+                      {work.title}
+                    </td>
+                    <td className="py-3.5 px-4 sm:px-6 text-slate-600">
+                      {work.photographer}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )
       ) : debouncedQuery ? (
         <div className="flex flex-col items-center justify-center border border-dashed border-stone-300 p-12 text-center">
           <p className="text-sm font-semibold text-slate-700">
@@ -203,6 +242,7 @@ export default function AcaraDetailPage() {
   const [gpsError, setGpsError] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [voteSuccess, setVoteSuccess] = useState(false);
+  const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
 
   useEffect(() => {
     if (!params.id) return;
@@ -386,10 +426,30 @@ export default function AcaraDetailPage() {
               <h2 className="mt-2 text-2xl font-bold">{works.length > 0 ? `${works.length} karya` : "Karya akan segera hadir"}</h2>
             </div>
           </div>
-          {/* --- Searchable Karya Grid (isolated search state) --- */}
-          <KaryaGrid works={works} onSelectWork={handleSelectWork} />
+          {/* --- Searchable Karya Display (Grid / Table) --- */}
+          <KaryaDisplay works={works} onSelectWork={handleSelectWork} viewMode={viewMode} />
         </div>
       </section>
+
+      {/* ── TOMBOL SWITCH MODE STATIS (FIXED ON SCROLL) ────────────── */}
+      <button
+        type="button"
+        onClick={() => setViewMode((prev) => (prev === "grid" ? "table" : "grid"))}
+        className="fixed bottom-6 right-6 z-40 flex items-center gap-2.5 rounded-full bg-slate-950 px-5 py-3 text-xs font-bold uppercase tracking-wider text-white shadow-[0_8px_24px_rgba(0,0,0,0.35)] backdrop-blur-md transition-all duration-200 hover:bg-slate-900 hover:scale-105 active:scale-95 border border-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600"
+        aria-label={viewMode === "grid" ? "Beralih ke mode tabel" : "Beralih ke mode grid"}
+      >
+        {viewMode === "grid" ? (
+          <>
+            <List className="h-4 w-4 text-red-400" aria-hidden="true" />
+            <span>Mode Tabel</span>
+          </>
+        ) : (
+          <>
+            <LayoutGrid className="h-4 w-4 text-red-400" aria-hidden="true" />
+            <span>Mode Grid</span>
+          </>
+        )}
+      </button>
 
       {/* ── MODAL POPUP KARYA ──────────────────────────────────────── */}
       {modalOpen && selectedWork && (
