@@ -7,6 +7,7 @@ import { FormEvent, useEffect, useState, useMemo, useCallback, memo } from "reac
 import { Search, X, LayoutGrid, List } from "lucide-react";
 import Toast from "../../components/Toast";
 import type { Acara, Koleksi } from "../../components/types";
+import { generateDeviceHash } from "../../lib/device-hash";
 
 type ApiAcara = {
   acaraID: number;
@@ -362,6 +363,7 @@ export default function AcaraDetailPage() {
           nim: form.nim,
           prodi_instansi: form.universitas,
           karyaID: selectedWork.id,
+          device_hash: await generateDeviceHash(),
           ...gpsPayload,  // latitude, longitude, accuracy (jika berhasil didapat)
         }),
       });

@@ -11,4 +11,6 @@ class FormCreate(BaseModel):
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     accuracy: Optional[float] = None   # akurasi GPS dalam meter (untuk deteksi fake GPS)
+    # SHA-256 hex fingerprint dari sinyal browser — untuk anti-duplikat device
+    device_hash: Optional[str] = None
 

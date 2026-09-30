@@ -10,6 +10,15 @@ class FormRepository(BaseRepository):
         name_count = self.db.execute(select(func.count("*")).select_from(Responden).where(Responden.nama == nama, Responden.acaraID == acara_id)).scalar_one_or_none()
         return token_count, name_count
 
+    def device_already_voted(self, device_hash: str, acara_id: int) -> bool:
+        """Cek apakah device_hash sudah pernah vote di acara ini."""
+        count = self.db.execute(
+            select(func.count("*"))
+            .select_from(Responden)
+            .where(Responden.device_hash == device_hash, Responden.acaraID == acara_id)
+        ).scalar_one_or_none()
+        return (count or 0) > 0
+
     def acara_status(self, acara_id: int):
         return self.db.execute(select(Acara.status).where(Acara.acaraID == acara_id)).scalar_one_or_none()
 
@@ -26,7 +35,7 @@ class FormRepository(BaseRepository):
         self.db.refresh(entity)
 
     def create_response_and_choice(self, acara_id: int, token: str, data):
-        entity = Responden(acaraID=acara_id, nama=data.nama.lower(), prodi_instansi=data.prodi_instansi.lower(), nim=data.nim, tokenID=token)
+        entity = Responden(acaraID=acara_id, nama=data.nama.lower(), prodi_instansi=data.prodi_instansi.lower(), nim=data.nim, tokenID=token, device_hash=getattr(data, 'device_hash', None))
         self.db.add(entity)
         self.db.commit()
         self.db.refresh(entity)

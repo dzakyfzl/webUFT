@@ -4,6 +4,7 @@ import React, { useState, useEffect, Suspense } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import { generateDeviceHash } from '../../../lib/device-hash';
 
 // --- SUB-KOMPONEN UTAMA (Yang menggunakan useSearchParams) ---
 function KaryaContent() {
@@ -82,7 +83,8 @@ function KaryaContent() {
           nama: formData.nama,
           prodi_instansi: formData.prodi_instansi,
           nim: formData.nim,
-          karyaID: parseInt(karyaId || '0')
+          karyaID: parseInt(karyaId || '0'),
+          device_hash: await generateDeviceHash(),
         })
       });
 

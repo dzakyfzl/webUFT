@@ -41,9 +41,19 @@ class FormService:
         return None
 
     def submit(self, acara_id: int, data, guest_token: str):
+        # ── Validasi Device Hash (paling awal — paling efisien) ───────────────
+        # Cek apakah device ini sudah pernah vote di acara yang sama.
+        # device_hash nullable: kalau tidak dikirim frontend, skip cek ini
+        # dan fallback ke validasi token+nama di bawah.
+        if data.device_hash:
+            device_hash_clean = data.device_hash.strip()[:64]  # sanitasi panjang
+            if device_hash_clean and self.repository.device_already_voted(device_hash_clean, acara_id):
+                return ServiceResult({"message": "Kamu sudah pernah vote di acara ini."}, 403)
+
         token_count, name_count = self.repository.submission_counts(guest_token, data.nama.lower(), acara_id)
         if guest_token != "Baru" and token_count > 0 and name_count > 0:
             return ServiceResult({"message": "Unauthorized"}, 403)
+
 
         if hasattr(self.repository, "get_acara"):
             acara = self.repository.get_acara(acara_id)

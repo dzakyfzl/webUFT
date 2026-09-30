@@ -50,6 +50,9 @@ class Responden(Base):
     nama = Column(String(255))
     prodi_instansi = Column(String(255))
     nim = Column(String(50), nullable=True)
+    # SHA-256 hex dari sinyal browser (UA + screen + tz + platform + dll)
+    # nullable: responden lama tanpa hash tetap valid
+    device_hash = Column(String(64), nullable=True, index=True)
     acara = relationship("Acara", back_populates="respondens")
     token = relationship("Token", back_populates="respondens")
     pilihans = relationship("Pilihan", back_populates="responden")
