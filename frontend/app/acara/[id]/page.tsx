@@ -242,7 +242,7 @@ export default function AcaraDetailPage() {
   const [gpsError, setGpsError] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [voteSuccess, setVoteSuccess] = useState(false);
-  const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
+  const [viewMode, setViewMode] = useState<"grid" | "table">("table");
 
   useEffect(() => {
     if (!params.id) return;
@@ -434,8 +434,8 @@ export default function AcaraDetailPage() {
       {/* ── TOMBOL SWITCH MODE STATIS (FIXED ON SCROLL) ────────────── */}
       <button
         type="button"
-        onClick={() => setViewMode((prev) => (prev === "grid" ? "table" : "grid"))}
-        className="fixed bottom-6 right-6 z-40 flex items-center gap-2.5 rounded-full bg-slate-950 px-5 py-3 text-xs font-bold uppercase tracking-wider text-white shadow-[0_8px_24px_rgba(0,0,0,0.35)] backdrop-blur-md transition-all duration-200 hover:bg-slate-900 hover:scale-105 active:scale-95 border border-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600"
+        onClick={() => setViewMode((prev) => (prev === "table" ? "grid" : "table"))}
+        className="fixed bottom-6 left-6 z-40 flex items-center gap-2.5 rounded-full bg-slate-950 px-5 py-3 text-xs font-bold uppercase tracking-wider text-white shadow-[0_8px_24px_rgba(0,0,0,0.35)] backdrop-blur-md transition-all duration-200 hover:bg-slate-900 hover:scale-105 active:scale-95 border border-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600"
         aria-label={viewMode === "grid" ? "Beralih ke mode tabel" : "Beralih ke mode grid"}
       >
         {viewMode === "grid" ? (
