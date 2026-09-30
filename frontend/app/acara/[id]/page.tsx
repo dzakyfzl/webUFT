@@ -320,7 +320,7 @@ export default function AcaraDetailPage() {
         setForm({ nama: "", nim: "", universitas: "" });
         setModalOpen(false);
         setVoteSuccess(true);
-        setTimeout(() => router.push("/"), 2500);
+        // setTimeout(() => router.push("/"), 2500);
         return;
       }
 
@@ -370,7 +370,7 @@ export default function AcaraDetailPage() {
       setForm({ nama: "", nim: "", universitas: "" });
       setModalOpen(false);
       setVoteSuccess(true);
-      setTimeout(() => router.push("/"), 2500);
+      // setTimeout(() => router.push("/"), 2500);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Voting belum berhasil dikirim.");
     } finally {
@@ -583,7 +583,26 @@ export default function AcaraDetailPage() {
               <p className="mt-2 text-sm text-slate-500 leading-relaxed">
                 Pilihan kamu sudah tercatat.<br />Terima kasih sudah ikut memilih.
               </p>
-              <div className="mt-6 flex flex-col gap-2">
+
+              {/* QR Crisbar */}
+              <div className="mt-6 border border-stone-200 bg-stone-50 rounded px-4 py-5">
+                <p className="text-xs font-bold uppercase tracking-[0.15em] text-red-700 mb-3">Voucher Crisbar</p>
+                <p className="text-sm text-slate-700 leading-relaxed mb-4">
+                  Jangan lupa scan ini untuk mendapatkan diskon Crisbar.
+                </p>
+                <div className="flex justify-center">
+                  <Image
+                    src="/qr-crisbar.png"
+                    alt="QR Code Voucher Crisbar"
+                    width={180}
+                    height={180}
+                    className="object-contain"
+                    unoptimized
+                  />
+                </div>
+              </div>
+
+              <div className="mt-5 flex flex-col gap-2">
                 <button
                   type="button"
                   onClick={() => router.push("/")}
@@ -592,7 +611,6 @@ export default function AcaraDetailPage() {
                   Kembali ke Beranda
                 </button>
               </div>
-              <p className="mt-4 text-xs text-slate-400">Mengalihkan otomatis dalam beberapa detik...</p>
             </div>
           </div>
         </div>
