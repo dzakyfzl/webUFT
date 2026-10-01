@@ -25,6 +25,11 @@ from app.schemas.chatbot import ChatResponse, ChatbotStats
 from app.services.api_key_pool import ApiKeyPool
 from app.services.chatbot_context_service import ChatbotContextService
 from app.utils.chat_sanitizer import sanitize_input, sanitize_output
+from app.utils.profanity_filter import (
+    MSG_PROFANITY_BLOCKED,
+    ProfanityLevel,
+    check_profanity,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -133,20 +138,36 @@ def _is_generic_question(text: str) -> bool:
 
     Cek dilakukan dengan regex case-insensitive pada teks yang sudah di-strip.
     Pertanyaan generic TIDAK membutuhkan KB — langsung dijawab via Gemini+soul.
+
+    Heuristic pendek (≤ 3 kata): dianggap generic KECUALI mengandung:
+    - Kata kunci domain UFT (pameran, galeri, dll), ATAU
+    - Action word eksplisit (ceritakan, buatkan, kerjakan, dll) yang menandakan
+      ini request/permintaan, bukan basa-basi.
     """
     import re
     t = text.lower().strip()
-    # Teks sangat pendek (≤ 3 kata) yang tidak mengandung kata kunci spesifik UFT
-    # juga dianggap generic
     uft_keywords = {
         "uft", "fotografi", "telkom", "acara", "event", "daftar", "pendaftaran",
         "open", "recruitment", "anggota", "kegiatan", "jadwal", "lomba", "workshop",
         "pameran", "galeri", "foto", "karya", "album", "kontak", "hubungi",
     }
+    # Action words: kata yang mengindikasikan request eksplisit — bukan basa-basi.
+    # Pertanyaan pendek dengan kata ini tetap masuk jalur spesifik (RAG).
+    _ACTION_WORDS = {
+        "ceritakan", "jelaskan", "buatkan", "buat", "kerjakan",
+        "tolong", "bantu", "coba", "hitung", "tunjukkan", "tampilkan",
+        "carikan", "cari", "tuliskan", "tulis", "berikan", "kasih",
+        "rekomendasikan", "sarankan", "translate", "terjemahkan",
+    }
     words = t.split()
-    if len(words) <= 3 and not any(kw in t for kw in uft_keywords):
-        return True
+    if len(words) <= 3:
+        # Lolos heuristic pendek HANYA jika tidak ada UFT keyword DAN tidak ada action word
+        has_uft_kw = any(kw in t for kw in uft_keywords)
+        has_action = any(w in _ACTION_WORDS for w in words)
+        if not has_uft_kw and not has_action:
+            return True
     return any(re.search(p, t) for p in _GENERIC_PATTERNS)
+
 
 
 class ChatbotService:
@@ -384,7 +405,7 @@ class ChatbotService:
         """
         from app.core.database import SessionLocal
 
-        # 0. Sanitasi input sebelum diproses
+        # 0. Sanitasi input
         message = sanitize_input(message)
         if not message:
             return ChatResponse(
@@ -392,6 +413,18 @@ class ChatbotService:
                 session_id=session_id,
                 is_fallback=True,
             )
+
+        # 0a. Filter kata kasar — dilakukan SEBELUM DB/API hit
+        profanity = check_profanity(message)
+        if profanity.level == ProfanityLevel.BLOCKED:
+            return ChatResponse(
+                reply=MSG_PROFANITY_BLOCKED,
+                session_id=session_id,
+                is_fallback=True,
+            )
+        if profanity.level == ProfanityLevel.MASKED:
+            # Lanjutkan dengan versi yang sudah disensor
+            message = profanity.cleaned_text
 
         # ── FASE 1: Baca dari DB (cepat, ~10-50ms) ──────────────────────────
         # Buka session, ambil semua data yang dibutuhkan, lalu tutup segera.

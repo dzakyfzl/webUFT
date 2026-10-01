@@ -98,8 +98,10 @@ class UnansweredResponse(BaseModel):
     asked_at: datetime
     is_resolved: bool
     resolved_knowledge_id: Optional[int] = None
+    hit_count: int = 1  # Berapa kali pertanyaan serupa muncul (semantic dedup)
 
     model_config = {"from_attributes": True}
+
 
 
 class UnansweredResolve(BaseModel):

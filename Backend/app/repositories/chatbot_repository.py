@@ -242,42 +242,67 @@ class ChatbotRepository:
     def find_similar_unanswered(
         self,
         embedding: list[float],
-        threshold: float = 0.88,
-    ) -> bool:
-        """Return True jika sudah ada pertanyaan tak terjawab yang mirip (belum resolved).
+        threshold: float = 0.85,
+    ) -> Optional["ChatbotUnanswered"]:
+        """Cari pertanyaan tak terjawab yang paling mirip secara semantik.
 
-        Dipakai sebelum insert untuk mencegah duplikat pertanyaan serupa.
-        Threshold tinggi (0.88) karena kita ingin dedup yang benar-benar mirip,
-        bukan hanya topik yang sama.
+        Return record dengan similarity tertinggi di atas threshold, atau None.
+        Dipakai sebelum insert untuk semantic dedup:
+        - Jika ada → increment hit_count pada record itu (bukan insert baru)
+        - Jika tidak ada → insert record baru
+
+        Threshold 0.85 — cukup ketat untuk menangkap variasi kalimat yang sama
+        ("siapa ketua UFT?" ≈ "ketua UFT siapa ya?") tapi tidak terlalu lebar
+        sehingga topik yang berbeda tidak dianggap duplikat.
         """
         embedding_str = "[" + ",".join(str(v) for v in embedding) + "]"
         sql = text(f"""
-            SELECT EXISTS (
-                SELECT 1 FROM chatbot_unanswered
-                WHERE is_resolved = false
-                  AND embedding IS NOT NULL
-                  AND 1 - (embedding <=> '{embedding_str}'::vector) >= {float(threshold)}
-            )
+            SELECT id, 1 - (embedding <=> '{embedding_str}'::vector) AS similarity
+            FROM chatbot_unanswered
+            WHERE is_resolved = false
+              AND embedding IS NOT NULL
+              AND 1 - (embedding <=> '{embedding_str}'::vector) >= {float(threshold)}
+            ORDER BY embedding <=> '{embedding_str}'::vector
+            LIMIT 1
         """)
-        result = self.db.execute(sql).scalar()
-        return bool(result)
+        row = self.db.execute(sql).fetchone()
+        if not row:
+            return None
+        record = self.db.get(ChatbotUnanswered, row.id)
+        if record:
+            logger.debug(
+                "[Unanswered] Semantic match: id=%d sim=%.4f",
+                record.id, float(row.similarity),
+            )
+        return record
 
     def add_unanswered(
         self,
         question: str,
         embedding: list[float],
         user_ip: Optional[str] = None,
-    ) -> ChatbotUnanswered | None:
-        """Simpan pertanyaan tak terjawab ke DB.
+    ) -> "ChatbotUnanswered":
+        """Simpan pertanyaan tak terjawab ke DB dengan semantic dedup.
 
-        Sebelum insert, cek similarity terhadap unanswered yang belum resolved.
-        Return None jika pertanyaan terlalu mirip dengan yang sudah ada (dedup).
+        Flow:
+        1. Cari pertanyaan serupa via cosine similarity (threshold 0.85)
+        2. Jika ditemukan → increment hit_count pada record yang ada, return itu
+        3. Jika tidak ada → insert record baru dengan hit_count=1
+
+        Dengan begitu admin melihat "pertanyaan X ditanyakan 8 kali" alih-alih
+        8 baris duplikat yang terpisah.
         """
-        if self.find_similar_unanswered(embedding, threshold=0.88):
-            logger.info("[Unanswered] Dedup: pertanyaan mirip sudah ada, skip insert")
-            return None
+        existing = self.find_similar_unanswered(embedding, threshold=0.85)
+        if existing:
+            existing.hit_count = (existing.hit_count or 1) + 1
+            self.db.commit()
+            logger.info(
+                "[Unanswered] Dedup hit: id=%d hit_count=%d q='%.60s'",
+                existing.id, existing.hit_count, question,
+            )
+            return existing
 
-        record = ChatbotUnanswered(question=question, user_ip=user_ip)
+        record = ChatbotUnanswered(question=question, user_ip=user_ip, hit_count=1)
         self.db.add(record)
         self.db.flush()  # Dapat ID dulu
 
@@ -290,6 +315,10 @@ class ChatbotRepository:
         )
         self.db.commit()
         self.db.refresh(record)
+        logger.info(
+            "[Unanswered] New entry: id=%d q='%.60s'",
+            record.id, question,
+        )
         return record
 
     def list_unanswered(

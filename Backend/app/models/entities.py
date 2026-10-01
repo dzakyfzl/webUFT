@@ -186,6 +186,7 @@ class ChatbotUnanswered(Base):
 
     Kolom 'embedding' (vector 768) disimpan untuk dedup similarity check
     — mencegah pertanyaan serupa masuk berulang kali.
+    Kolom 'hit_count' mencatat berapa kali pertanyaan serupa muncul dari pengunjung berbeda.
     """
     __tablename__ = "chatbot_unanswered"
     id                    = Column(Integer, primary_key=True, index=True)
@@ -195,7 +196,9 @@ class ChatbotUnanswered(Base):
     is_resolved           = Column(Boolean, default=False, nullable=False)
     resolved_knowledge_id = Column(Integer, ForeignKey("chatbot_knowledge.id"), nullable=True)
     resolved_knowledge    = relationship("ChatbotKnowledge")
+    hit_count             = Column(Integer, default=1, nullable=False)
     # embedding disimpan untuk similarity dedup — dideclare via DDL di migration
+
 
 
 class ChatbotConversation(Base):

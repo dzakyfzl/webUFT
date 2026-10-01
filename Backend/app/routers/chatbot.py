@@ -39,7 +39,7 @@ from app.schemas.chatbot import (
 )
 from app.services.api_key_pool import ApiKeyPool
 from app.services.chatbot_service import ChatbotService
-from app.utils.rate_limiter import chat_rate_limiter
+
 
 router = APIRouter(prefix="/chatbot", tags=["Chatbot"])
 
@@ -73,20 +73,12 @@ def chat(
     service: ChatbotService = Depends(_get_chatbot_service),
 ):
     """Kirim pesan ke Angie. Endpoint ini terbuka untuk publik."""
-    # Rate limit per IP — 10 request per menit
-    client_ip = request.client.host if request.client else "unknown"
-    if not chat_rate_limiter.is_allowed(client_ip):
-        raise HTTPException(
-            status_code=429,
-            detail="Terlalu banyak permintaan. Tunggu sebentar sebelum bertanya lagi ya! 😅",
-        )
-
     # Sanitasi ringan: strip whitespace berlebih
     message = " ".join(payload.message.split())
     if not message:
         raise HTTPException(status_code=422, detail="Pesan tidak boleh kosong")
 
-    user_ip = client_ip
+    user_ip = request.client.host if request.client else None
     return service.chat(
         message=message,
         session_id=payload.session_id,
