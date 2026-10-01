@@ -161,10 +161,28 @@ class FormService:
         try:
             rows = self.repository.csv_rows(acara_id)
             acara_name = self.repository.acara_name(acara_id)
+
             output = io.StringIO()
-            writer = csv.DictWriter(output, fieldnames=["nama", "prodi_instansi", "nim", "karya"])
-            writer.writeheader()
-            writer.writerows([{"nama": row.nama, "prodi_instansi": row.prodi_instansi, "nim": row.nim, "karya": row.karya_nama} for row in rows])
+            # UTF-8 BOM — diperlukan agar Excel Windows (regional Indonesia)
+            # otomatis memisah kolom dan tidak menumpuk semua di Kolom A
+            output.write("\ufeff")
+
+            writer = csv.writer(output)
+            writer.writerow(["No", "Nama Lengkap", "NIM", "Program Studi / Instansi", "Karya yang Dipilih", "Waktu Vote"])
+
+            for i, row in enumerate(rows, start=1):
+                nama = (row.nama or "").strip().title()
+                nim_raw = (row.nim or "").strip()
+                prodi = (row.prodi_instansi or "").strip()
+                karya = (row.karya_nama or "").strip()
+
+                # Proteksi NIM berawalan 0 — tanpa ini Excel memotong leading zero
+                # (mis. "012324039" → 12324039). Formula teks memaksa Excel baca as-is.
+                nim = f'="{nim_raw}"' if nim_raw.startswith("0") else nim_raw
+
+                # Kolom Waktu Vote diisi '-' karena model Responden belum menyimpan timestamp
+                writer.writerow([i, nama, nim, prodi, karya, "-"])
+
             output.seek(0)
             safe_name = str(acara_name).replace(" ", "_") if acara_name else f"Acara_{acara_id}"
             return ServiceResult({"content": output.getvalue(), "filename": f"data_absensi_{safe_name}.csv"})
