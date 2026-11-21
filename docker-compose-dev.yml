@@ -6,45 +6,18 @@ services:
     env_file:
       - ./.env
     environment:
-      APP_ENV: development
-      DEBUG: "false"
-      STORAGE_DIR: /app/storage
-      MODULE_STORAGE_DIR: /app/storage/modules
-      PUBLIC_FILE_BASE_URL: /static/modules
-      DATABASE_URL: postgresql+psycopg2://${DATABASE_USERNAME}:${DATABASE_PASSWORD}@${DATABASE_HOST}:${DATABASE_PORT}/${DATABASE_DATABASE}
-      SECRET_KEY: ${SECRET_KEY}
-      ACCESS_TOKEN_EXPIRE_MINUTE: ${ACCESS_TOKEN_EXPIRE_MINUTE}
-      REFRESH_TOKEN_EXPIRE_DAYS: ${REFRESH_TOKEN_EXPIRE_DAYS}
-      ADMIN_USERNAME: ${ADMIN_USERNAME}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
-      IMAGE_QUALITY: ${IMAGE_QUALITY}
-      SHORTLINK_DOMAIN: ${SHORTLINK_DOMAIN}
-      CHATBOT_MASTER_KEY: ${CHATBOT_MASTER_KEY}
-      CHATBOT_MODEL: ${CHATBOT_MODEL:-gemini-2.0-flash-lite}
-      CHATBOT_EMBEDDING_MODEL: ${CHATBOT_EMBEDDING_MODEL:-text-embedding-004}
-      CHATBOT_DAILY_TOKEN_LIMIT: ${CHATBOT_DAILY_TOKEN_LIMIT:-1000000}
-      CHATBOT_SIMILARITY_THRESHOLD: ${CHATBOT_SIMILARITY_THRESHOLD:-0.55}
-      CHATBOT_MAX_RETRIES: ${CHATBOT_MAX_RETRIES:-3}
+      ERP_ENV: development
+      ERP_PUBLIC_ORIGIN: ${ERP_PUBLIC_ORIGIN:-http://localhost}
+      DATABASE_HOST: ${ERP_DATABASE_HOST:-host.docker.internal}
+      FORWARDED_ALLOW_IPS: ${ERP_TRUSTED_PROXY_IPS:-127.0.0.1,::1}
+      ERP_MEDIA_DIR: /app/var/media
     volumes:
-      - backend_storage:/app/storage
-      - ./media:/media
-    healthcheck:
-      test:
-        - CMD
-        - python
-        - -c
-        - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
+      - erp_media:/app/var/media
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     restart: unless-stopped
-    depends_on:
-      database:
-        condition: service_healthy
     networks:
       - uft_network
-
   frontend:
     build:
       context: ./frontend
@@ -52,35 +25,13 @@ services:
     env_file:
       - path: ./frontend/.env
         required: false
+    restart: unless-stopped
     depends_on:
       backend:
         condition: service_healthy
-    restart: unless-stopped
     networks:
       - uft_network
     
-  database:
-    image: pgvector/pgvector:pg17
-    container_name: uft_db
-    environment:
-      POSTGRES_USER: ${DATABASE_USERNAME}
-      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
-      POSTGRES_DB: ${DATABASE_DATABASE}
-      TZ: ${TIMEZONE}
-      PGTZ: ${TIMEZONE}
-    healthcheck:                     
-      test: ["CMD-SHELL", "pg_isready -U ${DATABASE_USERNAME} -d ${DATABASE_DATABASE}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-    ports:
-      - "5432:5432"
-    volumes:
-      - ./postgresql_data:/var/lib/postgresql/data
-    networks:
-      - uft_network
-  
   proxy:
     image: nginx:latest
     container_name: uft_nginx
@@ -90,12 +41,11 @@ services:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
       - frontend
-      - backend
     networks:
       - uft_network
 
-volumes:
-  backend_storage:
-
 networks:
   uft_network:
+
+volumes:
+  erp_media:

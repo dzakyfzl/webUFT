@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import ChatWidget from "./components/ChatWidget";
+import PublicChatBoundary from "./components/PublicChatBoundary";
+import MotionEnvironment from "./components/ui/motion-environment";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -26,6 +27,8 @@ export default function RootLayout({
   return (
     <html
       lang="en"
+      suppressHydrationWarning
+      data-scroll-behavior="smooth"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased scroll-smooth`}
     >
       <head>
@@ -40,8 +43,9 @@ export default function RootLayout({
         `}</style>
       </head>
       <body className="min-h-full flex flex-col">
+        <MotionEnvironment />
         {children}
-        <ChatWidget />
+        <PublicChatBoundary />
       </body>
     </html>
   );

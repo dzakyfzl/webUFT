@@ -1,5 +1,7 @@
 "use client";
 
+import { scrollMotion } from "../../lib/motion-preference";
+
 import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 
@@ -28,7 +30,7 @@ export function Navbar() {
 
     isNavigatingRef.current = true;
     setActiveSection(sectionId);
-    document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document.getElementById(sectionId)?.scrollIntoView({ behavior: scrollMotion(), block: 'start' });
     window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
     setIsMobileMenuOpen(false);
     navigationTimerRef.current = window.setTimeout(() => {
@@ -125,7 +127,7 @@ export function Navbar() {
         </button>
       </div>
 
-      <div id="mobile-navigation" className={`${isMobileMenuOpen ? 'block' : 'hidden'} border-t border-slate-200 bg-white/95 px-4 py-3 text-slate-950 backdrop-blur-md md:hidden`}>
+      <div id="mobile-navigation" className={`${isMobileMenuOpen ? 'motion-pop-in block' : 'hidden'} origin-top border-t border-slate-200 bg-white/95 px-4 py-3 text-slate-950 backdrop-blur-md md:hidden`}>
         <div className="mx-auto flex max-w-7xl flex-col gap-1">
           {NAV_ITEMS.map((item) => (
             <button

@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { sendChatMessage, type ChatMessage } from "../lib/api";
+import { scrollMotion } from "../lib/motion-preference";
+import { ActionTooltip, TooltipGroup } from "./ui/tooltip";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -76,15 +78,19 @@ export default function ChatWidget() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [sendError, setSendError] = useState("");
+  const sending = useRef(false);
   const [sessionId, setSessionId] = useState<string>(getOrCreateSessionId);
   const [showQuickReplies, setShowQuickReplies] = useState(true);
   const [unread, setUnread] = useState(0);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const launcher = useRef<HTMLButtonElement>(null);
+  const closeChat = useCallback(() => { setOpen(false); requestAnimationFrame(() => launcher.current?.focus()); }, []);
 
   useEffect(() => {
     if (messages.length > 0 || loading) {
-      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+      bottomRef.current?.scrollIntoView({ behavior: scrollMotion() });
     }
   }, [messages, loading]);
 
@@ -98,11 +104,11 @@ export default function ChatWidget() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && open) setOpen(false);
+      if (e.key === "Escape" && open) closeChat();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open]);
+  }, [open, closeChat]);
 
   const addMessage = useCallback(
     (role: "user" | "assistant", content: string) => {
@@ -115,7 +121,9 @@ export default function ChatWidget() {
   const handleSend = useCallback(
     async (text: string) => {
       const trimmed = text.trim();
-      if (!trimmed || loading) return;
+      if (!trimmed || sending.current) return;
+      sending.current = true;
+      setSendError("");
       setShowQuickReplies(false);
       setInput("");
       addMessage("user", trimmed);
@@ -124,25 +132,20 @@ export default function ChatWidget() {
         const res = await sendChatMessage(trimmed, sessionId);
         addMessage("assistant", res.reply);
       } catch {
-        addMessage(
-          "assistant",
-          "Maaf, Angie sedang mengalami gangguan koneksi. Silakan coba kembali sesaat lagi ya!",
-        );
+        setMessages(current => current.slice(0, -1));
+        setInput(trimmed);
+        setSendError("Pesan belum terkirim. Periksa koneksi, lalu coba lagi.");
       } finally {
+        sending.current = false;
         setLoading(false);
       }
     },
-    [loading, sessionId, addMessage],
+    [sessionId, addMessage],
   );
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSend(input);
-    }
-  };
-
   const handleResetChat = () => {
+    if (sending.current) return;
+    setSendError("");
     const newId = resetSessionId();
     setSessionId(newId);
     setMessages([]);
@@ -152,19 +155,21 @@ export default function ChatWidget() {
   const isFirstOpen = messages.length === 0;
 
   return (
-    <>
+    <TooltipGroup>
       {/* ── Backdrop ── */}
       <div
         className={`cw-backdrop ${open ? "cw-backdrop--vis" : ""}`}
-        onClick={() => setOpen(false)}
+        onClick={closeChat}
         aria-hidden={!open}
       />
 
       {/* ── FAB Toggle ── */}
+      <ActionTooltip label="Tanya Angie" side="left" trigger={
       <button
         id="chat-fab"
         className={`cw-fab ${open ? "cw-fab--hidden" : ""}`}
         aria-label={open ? "Tutup chat Angie" : "Tanya Angie"}
+        ref={launcher}
         onClick={() => setOpen((v) => !v)}
       >
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -176,14 +181,15 @@ export default function ChatWidget() {
         {unread > 0 && (
           <span className="cw-fab-badge">{unread}</span>
         )}
-        <span className="cw-fab-tooltip">Tanya Angie</span>
       </button>
+      }/>
 
       {/* ── Floating Chat Panel ── */}
       <div
         id="chat-panel"
         className={`cw-panel ${open ? "cw-panel--open" : ""}`}
         aria-hidden={!open}
+        inert={!open}
         role="dialog"
         aria-label="Panel Chat Angie"
       >
@@ -195,11 +201,11 @@ export default function ChatWidget() {
           </div>
           <div className="cw-header-actions">
             {messages.length > 0 && (
+              <ActionTooltip label="Mulai percakapan baru" side="bottom" trigger={
               <button
                 type="button"
                 className="cw-header-btn"
                 onClick={handleResetChat}
-                title="Mulai percakapan baru"
                 aria-label="Mulai percakapan baru"
               >
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -209,12 +215,13 @@ export default function ChatWidget() {
                   <path d="M3 21v-5h5" />
                 </svg>
               </button>
+              }/>
             )}
+            <ActionTooltip label="Tutup chat" side="bottom" trigger={
             <button
               type="button"
               className="cw-header-btn cw-header-btn--close"
-              onClick={() => setOpen(false)}
-              title="Tutup chat"
+              onClick={closeChat}
               aria-label="Tutup panel chat"
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -222,6 +229,7 @@ export default function ChatWidget() {
                 <line x1="6" y1="6" x2="18" y2="18" />
               </svg>
             </button>
+            }/>
           </div>
         </div>
 
@@ -295,7 +303,7 @@ export default function ChatWidget() {
         )}
 
         {/* Input */}
-        <div className="cw-input-area">
+        <form className="cw-input-area" onSubmit={event => { event.preventDefault(); void handleSend(input); }}>
           <div className="cw-input-row">
             <input
               ref={inputRef}
@@ -305,16 +313,15 @@ export default function ChatWidget() {
               placeholder="Tanyakan sesuatu pada Angie..."
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              disabled={loading}
+              aria-label="Pesan untuk Angie"
+              readOnly={loading}
               maxLength={500}
               autoComplete="off"
             />
             <button
               id="chat-send-btn"
-              type="button"
+              type="submit"
               className="cw-send"
-              onClick={() => handleSend(input)}
               disabled={loading || !input.trim()}
               aria-label="Kirim pesan"
             >
@@ -324,7 +331,8 @@ export default function ChatWidget() {
               </svg>
             </button>
           </div>
-        </div>
+          {sendError && <p className="cw-send-error" role="alert">{sendError}</p>}
+        </form>
       </div>
 
       {/* ── Styles ── */}
@@ -374,42 +382,19 @@ export default function ChatWidget() {
           transition:
             transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1),
             box-shadow 0.25s ease,
-            opacity 0.2s ease;
+            opacity 0.2s ease,
+            scale 140ms ease-out;
         }
-        .cw-fab:hover {
-          transform: scale(1.08) translateY(-2px);
+        .cw-fab:hover:where(:not(:active)) {
+          transform: translateY(-2px);
           box-shadow:
             0 10px 28px rgba(220, 38, 38, 0.5),
             0 4px 10px rgba(0, 0, 0, 0.18);
         }
-        .cw-fab:active { transform: scale(0.95); }
         .cw-fab--hidden {
           opacity: 0;
           pointer-events: none;
-          transform: scale(0.8);
-        }
-
-        /* Tooltip */
-        .cw-fab-tooltip {
-          position: absolute;
-          right: 66px;
-          white-space: nowrap;
-          background: #ffffff;
-          color: #0f172a;
-          font-size: 12px;
-          font-weight: 600;
-          padding: 5px 12px;
-          border-radius: 9999px;
-          border: 1px solid #e7e5e4;
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-          pointer-events: none;
-          opacity: 0;
-          transform: translateX(6px);
-          transition: opacity 0.15s ease, transform 0.15s ease;
-        }
-        .cw-fab:hover .cw-fab-tooltip {
-          opacity: 1;
-          transform: translateX(0);
+          transform: scale(.97);
         }
 
         /* Badge */
@@ -433,7 +418,7 @@ export default function ChatWidget() {
           animation: cw-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
         @keyframes cw-pop {
-          from { transform: scale(0); }
+          from { transform: scale(.97); }
           to   { transform: scale(1); }
         }
 
@@ -703,6 +688,8 @@ export default function ChatWidget() {
         }
 
         /* ── Input ── */
+        .cw-send-error { margin: 6px 0 0; color: var(--cw-error, #b91c1c); font-size: 12px; }
+        [data-theme=dark] .cw-send-error { color: #fca5a5; }
         .cw-input-area {
           padding: 10px 14px 14px;
           background: #ffffff;
@@ -781,6 +768,6 @@ export default function ChatWidget() {
           .cw-bubble { max-width: 88%; }
         }
       `}</style>
-    </>
+    </TooltipGroup>
   );
 }

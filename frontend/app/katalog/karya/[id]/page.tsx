@@ -1,8 +1,12 @@
 "use client";
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { Check, X } from 'lucide-react';
+import DynamicButton from '../../../components/ui/dynamic-button';
+import DirectionalPanels from '../../../components/ui/directional-panels';
+import ModalDialog from '../../../components/ui/modal-dialog';
 import { useSearchParams } from 'next/navigation';
 import { generateDeviceHash } from '../../../lib/device-hash';
 
@@ -13,7 +17,7 @@ function KaryaContent() {
   const acaraId = searchParams.get('acaraId'); 
 
   // --- STATE MANAGEMENT ---
-  const [karya, setKarya] = useState<any>(null);
+  const [karya, setKarya] = useState<{ id: number; title: string; author: string; description: string; image: string } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isActive, setIsActive] = useState(false);
@@ -21,6 +25,8 @@ function KaryaContent() {
   const [showVoteForm, setShowVoteForm] = useState(false);
   const [isSubmitLoading, setIsSubmitLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [voteError, setVoteError] = useState("");
+  const submitting = useRef(false);
 
   // State untuk form input
   const [formData, setFormData] = useState({
@@ -52,9 +58,8 @@ function KaryaContent() {
           description: data.deskripsi,
           image: data.fileID ? `/api/file/ambil/${data.fileID}` : "https://images.unsplash.com/photo-1555899434-94d1368aa7af?q=80&w=1200"
         });
-      } catch (err: any) {
-        console.error("Error fetching detail:", err);
-        setError(err.message);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Karya tidak dapat dimuat.");
       } finally {
         setIsLoading(false);
       }
@@ -66,6 +71,9 @@ function KaryaContent() {
   // --- 2. HANDLE SUBMIT VOTE KE BACKEND ---
   const handleVoteSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting.current) return;
+    submitting.current = true;
+    setVoteError("");
     setIsSubmitLoading(true);
 
     try {
@@ -102,15 +110,10 @@ function KaryaContent() {
       }
 
       setIsSuccess(true);
-      setTimeout(() => {
-        setShowVoteForm(false);
-        setIsSuccess(false);
-        setFormData({ nama: '', prodi_instansi: '', nim: '' });
-      }, 3500);
-
-    } catch (err: any) {
-      alert(err.message); 
+    } catch (error) {
+      setVoteError(error instanceof Error ? error.message : "Voting belum berhasil dikirim.");
     } finally {
+      submitting.current = false;
       setIsSubmitLoading(false);
     }
   };
@@ -119,11 +122,15 @@ function KaryaContent() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // --- LOGIKA PENENTUAN STATUS VOTE ---
-  const checkActiveStatus = (async () => {
-    const response = await fetch(`/api/acara/ambil/${acaraId}`).then(res => res.json());
-    setIsActive(response.status === "Aktif");
-  })();
+  useEffect(() => {
+    if (!acaraId) return;
+    const controller = new AbortController();
+    fetch(`/api/acara/ambil/${acaraId}`, { signal: controller.signal })
+      .then(response => response.ok ? response.json() : null)
+      .then(data => { if (!controller.signal.aborted) setIsActive(data?.status === "Aktif"); })
+      .catch(() => { if (!controller.signal.aborted) setIsActive(false); });
+    return () => controller.abort();
+  }, [acaraId]);
 
   // --- TAMPILAN LOADING / ERROR ---
   if (isLoading) {
@@ -178,7 +185,7 @@ function KaryaContent() {
             <div className="mt-12 pt-8 border-t border-slate-100">
               <button 
                 onClick={() => setShowVoteForm(true)}
-                className="w-full bg-red-600 hover:bg-red-700 text-white font-black py-5 rounded-2xl shadow-[0_10px_30px_rgba(220,38,38,0.3)] transition-all flex items-center justify-center gap-3 active:scale-95 text-lg"
+                className="w-full bg-red-600 hover:bg-red-700 text-white font-black py-5 rounded-2xl shadow-[0_10px_30px_rgba(220,38,38,0.3)] transition-all flex items-center justify-center gap-3 text-lg"
               >
                 VOTE KARYA INI
               </button>
@@ -189,24 +196,24 @@ function KaryaContent() {
       </div>
 
       {/* --- MODAL FORM VOTE (Framer Motion) --- */}
-      <VoteModal
-        show={showVoteForm}
+      {showVoteForm && <VoteModal
+        error={voteError}
         isSuccess={isSuccess}
         isSubmitLoading={isSubmitLoading}
         formData={formData}
         karyaTitle={karya.title}
         karyaAuthor={karya.author}
-        onClose={() => setShowVoteForm(false)}
+        onClose={() => { if (!isSubmitLoading) { setShowVoteForm(false); if (isSuccess) { setIsSuccess(false); setFormData({ nama: "", prodi_instansi: "", nim: "" }); } } }}
         onSubmit={handleVoteSubmit}
         onInputChange={handleInputChange}
-      />
+      />}
     </main>
   );
 }
 
 // --- KOMPONEN MODAL TERPISAH DENGAN FRAMER MOTION ---
 function VoteModal({
-  show,
+  error,
   isSuccess,
   isSubmitLoading,
   formData,
@@ -216,7 +223,7 @@ function VoteModal({
   onSubmit,
   onInputChange,
 }: {
-  show: boolean;
+  error: string;
   isSuccess: boolean;
   isSubmitLoading: boolean;
   formData: { nama: string; prodi_instansi: string; nim: string };
@@ -226,151 +233,78 @@ function VoteModal({
   onSubmit: (e: React.FormEvent) => void;
   onInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }) {
-  const [FM, setFM] = React.useState<any>(null);
-
-  React.useEffect(() => {
-    import('framer-motion').then((mod) => setFM(mod));
-  }, []);
-
-  if (!FM) return null;
-
-  const { AnimatePresence, motion } = FM;
-
   return (
-    <AnimatePresence>
-      {show && (
-        <motion.div
-          key="backdrop"
-          className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-4"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.25, ease: 'easeOut' }}
-          style={{ backgroundColor: 'rgba(15, 23, 42, 0.78)', backdropFilter: 'blur(6px)' }}
-          onClick={!isSuccess ? onClose : undefined}
-        >
-          <motion.div
-            key="modal"
-            className="bg-white max-w-md w-full shadow-2xl overflow-hidden relative"
-            style={{ borderRadius: '1.75rem' }}
-            initial={{ opacity: 0, y: 64, scale: 0.94 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 40, scale: 0.96 }}
-            transition={{ type: 'spring', stiffness: 340, damping: 30, mass: 0.9 }}
-            onClick={(e: React.MouseEvent) => e.stopPropagation()}
-          >
-            <AnimatePresence mode="wait">
+    <ModalDialog className="m-auto max-h-[calc(100dvh-24px)] w-[calc(100%-24px)] max-w-md overflow-y-auto rounded-xl bg-white backdrop:bg-slate-950/75"
+      aria-label="Voting karya" onDismiss={onClose} dismissBackdrop>
+            <DirectionalPanels step={isSuccess ? 1 : 0}>
               {!isSuccess ? (
-                <motion.div
-                  key="form"
-                  initial={{ opacity: 0, x: -12 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 12 }}
-                  transition={{ duration: 0.2, ease: 'easeInOut' }}
-                  className="p-8 md:p-10"
-                >
+                <div className="relative p-5 sm:p-7">
                   <button
                     onClick={onClose}
+                    disabled={isSubmitLoading}
+                    type="button"
+                    aria-label="Tutup voting"
                     className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-full font-bold transition-colors"
                   >
-                    ✕
+                    <X size={16} aria-hidden="true"/>
                   </button>
 
-                  <div className="mb-8">
-                    <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-red-500 bg-red-50 px-3 py-1 rounded-full mb-3">
-                      <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse inline-block" />
-                      Voting Aktif
-                    </span>
-                    <h2 className="text-2xl font-black text-slate-800 tracking-tight mb-1">Konfirmasi Vote</h2>
+                  <div className="mb-5">
+                    <h2 className="mb-1 text-xl font-bold text-slate-800">Voting karya</h2>
                     <p className="text-slate-500 text-xs">Anda akan memberikan suara untuk <strong>&ldquo;{karyaTitle}&rdquo;</strong>.</p>
                   </div>
 
                   <form onSubmit={onSubmit} className="space-y-4">
                     <div>
-                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Nama Lengkap</label>
+                      <label htmlFor="vote-nama" className="mb-1 block text-sm font-medium text-slate-700">Nama lengkap *</label>
                       <input
-                        type="text" name="nama" value={formData.nama}
-                        onChange={onInputChange} required placeholder="Nama Saya..."
-                        className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-slate-800 outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all font-medium"
+                        id="vote-nama" type="text" name="nama" value={formData.nama}
+                        onChange={onInputChange} disabled={isSubmitLoading} required autoComplete="name"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 text-slate-800 outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all font-medium"
                       />
                     </div>
                     
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid gap-3 sm:grid-cols-2">
                       <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Prodi / Instansi</label>
+                        <label htmlFor="vote-prodi_instansi" className="mb-1 block text-sm font-medium text-slate-700">Prodi / Instansi *</label>
                         <input
-                          type="text" name="prodi_instansi" value={formData.prodi_instansi}
-                          onChange={onInputChange} required placeholder="S1 Informatika"
-                          className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-slate-800 outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all font-medium"
+                          id="vote-prodi_instansi" type="text" name="prodi_instansi" value={formData.prodi_instansi}
+                          onChange={onInputChange} disabled={isSubmitLoading} required placeholder="S1 Informatika"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 text-slate-800 outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all font-medium"
                         />
                       </div>
                       <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">NIM (Opsional)</label>
+                        <label htmlFor="vote-nim" className="mb-1 block text-sm font-medium text-slate-700">NIM (opsional)</label>
                         <input
-                          type="text" name="nim" value={formData.nim}
-                          onChange={onInputChange} placeholder="NIM / Kosong"
-                          className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-slate-800 outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all font-medium"
+                          id="vote-nim" type="text" name="nim" value={formData.nim}
+                          onChange={onInputChange} disabled={isSubmitLoading}
+                          className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 text-slate-800 outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all font-medium"
                         />
                       </div>
                     </div>
 
-                    <motion.button
+                    {error && <p className="text-sm text-red-700" role="alert">{error}</p>}
+                    <DynamicButton
                       type="submit"
+                      fullWidth
                       disabled={isSubmitLoading}
-                      className="w-full bg-slate-900 hover:bg-black disabled:bg-slate-400 text-white font-bold py-4 rounded-2xl mt-2 transition-colors shadow-lg flex justify-center items-center gap-2"
-                      whileTap={{ scale: 0.97 }}
-                      whileHover={{ scale: 1.01 }}
-                    >
-                      {isSubmitLoading ? (
-                        <>
-                          <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                          Mengirim...
-                        </>
-                      ) : (
-                        'Kirim Vote Sekarang →'
-                      )}
-                    </motion.button>
+                      icon={isSubmitLoading && <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin"/>}
+                      className="w-full rounded-lg bg-slate-900 py-3 text-white hover:bg-black disabled:opacity-60"
+                    >{isSubmitLoading ? "Mengirim…" : "Kirim vote"}</DynamicButton>
                   </form>
-                </motion.div>
+                </div>
               ) : (
-                <motion.div
-                  key="success"
-                  initial={{ opacity: 0, scale: 0.92 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ type: 'spring', stiffness: 260, damping: 22 }}
-                  className="p-12 text-center"
-                >
-                  <motion.div
-                    initial={{ scale: 0, rotate: -20 }}
-                    animate={{ scale: 1, rotate: 0 }}
-                    transition={{ type: 'spring', stiffness: 300, damping: 18, delay: 0.1 }}
-                    className="w-20 h-20 bg-green-100 text-green-500 rounded-full flex items-center justify-center text-4xl mx-auto mb-6 shadow-inner"
-                  >
-                    ✓
-                  </motion.div>
-                  <motion.h2
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.22 }}
-                    className="text-2xl font-black text-slate-800 mb-2"
-                  >
-                    Vote Terkirim!
-                  </motion.h2>
-                  <motion.p
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.32 }}
-                    className="text-slate-500 text-sm"
-                  >
-                    Terima kasih telah mendukung <strong>{karyaAuthor}</strong> di pameran ini.
-                  </motion.p>
-                </motion.div>
+                <div className="p-6 text-center sm:p-8" role="status" data-step-focus tabIndex={-1}>
+                  <div className="w-20 h-20 bg-green-100 text-green-700 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
+                    <Check size={36} aria-hidden="true"/>
+                  </div>
+                  <h2 className="text-2xl font-black text-slate-800 mb-2">Vote Terkirim!</h2>
+                  <p className="text-slate-500 text-sm">Terima kasih telah mendukung <strong>{karyaAuthor}</strong> di pameran ini.</p>
+                  <button type="button" className="mt-4 rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-800" onClick={onClose}>Tutup</button>
+                </div>
               )}
-            </AnimatePresence>
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+            </DirectionalPanels>
+    </ModalDialog>
   );
 }
 

@@ -41,7 +41,7 @@ export const GalleryCard = memo(function GalleryCard({ item, onSelect, featured 
         ) : (
           <>
             <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/35 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100 group-focus-within:opacity-100" />
-            <div className="absolute inset-x-0 bottom-0 translate-y-3 p-4 text-white opacity-0 transition-[opacity,transform] duration-300 group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:translate-y-0 group-focus-within:opacity-100">
+            <div className="absolute inset-x-0 bottom-0 motion-safe:translate-y-3 p-4 text-white opacity-0 transition-[opacity,transform] duration-300 motion-safe:group-hover:translate-y-0 group-hover:opacity-100 motion-safe:group-focus-within:translate-y-0 group-focus-within:opacity-100">
               <p className="text-sm text-stone-200">{item.category}</p>
               <h3 className="mt-1 text-xl font-bold">{item.title}</h3>
               <p className="mt-1 text-sm text-stone-100">{item.photographer}</p>

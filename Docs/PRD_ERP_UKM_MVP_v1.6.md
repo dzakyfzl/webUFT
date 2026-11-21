@@ -1,0 +1,1038 @@
+# Product Requirements Document (PRD)
+## ERP UKM — Sistem Operasional, Program Kerja, dan Website Publik
+
+| Metadata | Nilai |
+|---|---|
+| Versi | **1.6 — Fokus pengurus, Jejak periode, dan klarifikasi akses** |
+| Tanggal | **17 November 2026** |
+| Status | **Draft untuk review; keputusan produk yang sudah disepakati dipisah dari usulan implementasi** |
+| Produk | ERP UKM / Organization Management System; nama final belum ditentukan |
+| Cakupan | **Satu UKM**; bukan SaaS multi-organisasi |
+| Platform | Website internal pengurus (mobile-first); pengembangan API website publik ditunda |
+| Target pengerjaan awal | **MVP portofolio sekitar 4 minggu**, dengan fase lanjutan terpisah |
+| Stack pilihan | **Next.js + FastAPI modular monolith**, SQLAlchemy 2, Alembic, Docker Compose existing; satu PostgreSQL **di luar Docker** |
+| Infrastruktur | VPS awal 2–4 GB RAM; Next.js, satu backend process (awalnya 1 Uvicorn worker), reverse proxy existing; PostgreSQL eksternal terhadap Docker Compose |
+| Sumber | PRD v1.5 dan klarifikasi pengguna pada 17 November 2026; v1.6 menjadi acuan aktif |
+
+> **Konvensi:** **[FINAL]** = dinyatakan/disepakati dalam percakapan; **[REKOMENDASI]** = rancangan yang disarankan, belum menjadi keputusan UKM; **[TERBUKA]** = masih memerlukan keputusan atau pengujian. P0 berarti harus ada pada MVP minimal; P1 fitur resmi dalam cakupan produk tetapi boleh sesudah MVP; P2 pengembangan masa depan. **Fitur yang tercantum di PRD belum berarti sudah dibuat.**
+
+## 0. Ringkasan keputusan dan perubahan v1.6
+
+1. **[FINAL] Struktur UKM diselaraskan.** Super Inti = Ketua Umum, Wakil Ketua Umum, Sekretaris, Bendahara. Inti = Super Inti + Kepala Departemen Internal, Eksternal, Asset dan Property + Kepala Bidang Hunting, Modeling, Medkom, Public Relations + Kepala HR (**12 jabatan**). HR merupakan fungsi lintas organisasi, **bukan departemen keempat**.
+2. **[FINAL] Proker langsung ACTIVE ketika dibuat; tidak ada pengajuan, approval, penolakan, antrean bendahara/sekretaris/ketua, atau persyaratan RAB disetujui.** Kesepakatan kegiatan terjadi lebih dahulu di rapat/WhatsApp. Pembuat Proker: **Kepala Departemen atau anggota Inti**.
+3. **[FINAL] Proker dapat dilihat semua pengurus berakun aktif lintas unit, tetapi isi operasional hanya diedit oleh orang yang ditugaskan pada proker.** Proker yang bukan tanggung jawab pengguna **tidak ditonjolkan di dashboard personal**, tetapi tersedia di `Semua Proker` sebagai read-only. Penugasan proker milik suatu departemen dapat ditambah/dicabut oleh semua anggota aktif departemen pemilik; mutasi wajib diaudit.
+4. **[FINAL] Ketua Pelaksana ditunjuk per proker.** Jika perlu mengubah data di aplikasi, ia memakai akun individu dan penugasan/akses scoped hanya ke proker terkait. Panitia lainnya boleh hanya tercatat nama/jabatan tanpa login.
+5. **[FINAL] Tombol `Tutup Proker` hanya untuk Ketua Pelaksana proker itu atau anggota Inti.** Tugas yang belum selesai menimbulkan peringatan, bukan blokir. Proker ditutup manual, menjadi **arsip read-only** dan tidak muncul lagi sebagai proker aktif di beranda.
+6. **[FINAL] Kanban punya papan Organisasi/Umum, Departemen, Bidang/Divisi, dan Proker.** Tugas satu sumber data; seluruh pengurus aktif boleh mengubah tugas asli di papan Umum; anggota unit terkait boleh mengubah tugas asli unitnya; tugas milik proker hanya dapat diedit pengelola proker yang ditugaskan. Melihat lintas departemen dibolehkan read-only.
+7. **[FINAL] Calendar punya tampilan umum, departemen/bidang, proker, dan pribadi.** Menu `Monitoring Departemen` di sidebar memberikan ringkasan TODO/IN_PROGRESS/DONE lintas unit, terpisah dari kalender.
+8. **[FINAL] Modul Asset dan Property bertambah:** inventaris fisik termasuk **buku**; kondisi dan status terpisah; peminjaman/penyewaan oleh **siapa saja** dicatat **manual** beserta identitas dan histori; aset digital (Drive, folder, domain, hosting, repositori/website) diinventarisasi tanpa menyimpan password plaintext.
+9. **[FINAL] Pendaftaran acara pada website publik berlaku untuk semua departemen/bidang.** Peserta tidak wajib punya akun; setiap kegiatan dapat mempunyai formulir khusus. **Form Builder sepenuhnya dapat dikustomisasi.** Empat field awal (Nama, NIM, Fakultas, Prodi/Jurusan) **hanya template yang boleh diedit/dihapus**, bukan field permanen yang wajib.
+10. **[FINAL] Short Link dan editor Acara Publik tetap requirement produk.** Semua pengurus aktif dapat membuat; pembuat mengelola/menghapus miliknya sendiri, sedangkan Inti berwenang mengelola milik pengurus lain. Login username/password; batas unggah **20 MB per file**.
+11. **Dihapus dari spesifikasi aktif:** seluruh requirement dan test tentang submit/approve proker, approver berikutnya, revisi/persetujuan RAB, status `UNDER_REVIEW`/`APPROVED`, dan kewajiban LPJ disahkan sebelum proker ditutup. Jangan menerapkannya secara diam-diam dari versi lama.
+12. **[FINAL — perubahan v1.4] Arsitektur backend memakai modular monolith, BUKAN microservices.** Satu aplikasi FastAPI, satu PostgreSQL database, satu pipeline migrasi Alembic dan satu unit deployment backend. Modul/domain tetap diisolasi dalam struktur kode, kontrak internal, serta test. Tidak ada database-per-service, HTTP internal antarservice, API gateway internal, broker pesan atau orkestrasi distributed systems sebagai kewajiban MVP.
+13. **[FINAL — v1.6] Stack frontend Next.js; backend FastAPI modular monolith.** Ikuti `docker-compose.yml` dan `docker-compose-dev.yml` yang sudah ada. PostgreSQL berada **di luar Docker**; jangan menambah service/container database atau mengganti database target dengan database dummy.
+14. **[FINAL — v1.5] Template struktur panitia Proker.** Awalnya menampilkan Ketua Pelaksana, Wakil Ketua, kelompok Sekben (Sekretaris + Bendahara), serta divisi Humas, Acara, PDD, dan Logistik. **PDD dapat dipecah menjadi Desain dan Pubdok, tetapi tidak wajib.** Seluruh struktur hanya template dan **Ketua Pelaksana bebas mengubahnya** untuk setiap Proker selama masih ACTIVE. Panitia tidak wajib punya akun. Pembagian panitia Proker tidak mengubah struktur unit formal UKM maupun otomatis memberikan akses edit aplikasi.
+
+15. **[FINAL — v1.6] Fokus saat ini alur pengurus.** API acara publik, galeri, karya/voting, file publik, dan chatbot **ditunda dan diabaikan dalam pekerjaan P0 saat ini**. Tampilan publik yang dipertahankan bukan kewajiban integrasi API pada fase ini; tidak perlu membangun adapter backend lama. Requirement publik P1 tetap dicatat untuk fase berikutnya.
+16. **[FINAL — v1.6] Seluruh pemegang 12 jabatan Inti yang aktif berwenang memberikan akses serta mengelola akun dan organisasi.** Tidak perlu mandat `manage_users` tambahan per orang. Hak ini tidak otomatis memberi hak edit isi setiap Proker atau hak mengarsipkan periode.
+17. **[FINAL — v1.6] Anggota bidang otomatis menjadi anggota departemen induknya.** Contoh: Hunting/Modeling → Internal; Medkom/PR → Eksternal. Keanggotaan departemen tidak otomatis berarti anggota semua bidang di bawahnya.
+18. **[FINAL — v1.6] Jejak kepengurusan.** Sediakan tombol `Arsipkan Periode` yang hanya dapat diakses **Ketua Umum**. Seluruh progres operasional periode dibekukan sebagai arsip read-only yang dapat dibaca kepengurusan berikutnya, berulang untuk setiap periode, tanpa menghilangkan pekerjaan yang belum selesai.
+19. **[FINAL — v1.6] Pencipta Proker dan Ketua Pelaksana berakun otomatis memperoleh assignment pengelola saat Proker dibuat.** Ketupel merupakan peran per-Proker; orangnya dapat berbeda antar-Proker. **Inti** dapat mengganti Ketupel tanpa mereset progres.
+20. **[FINAL — v1.6] Kalender mengikuti hak unit dan penugasan Proker.** Semua pengurus dapat menggunakan kalender; hak melihat tidak sama dengan hak mengubah agenda unit/Proker lain.
+21. **[FINAL — v1.6] Menunjuk pengurus berakun sebagai PIC tugas Proker sekaligus memberi akses edit Proker tersebut**, termasuk lintas departemen. Pemberian akses harus eksplisit tercatat dalam audit; nama panitia biasa tanpa penunjukan PIC tidak otomatis mendapat akses.
+22. **[FINAL — v1.6] Tugas Proker CLOSED masuk arsip, status belum selesai tetap tertulis, dan tidak muncul di kalender.** Kalender aktif juga mengecualikan progres dari periode yang telah diarsipkan.
+23. **[FINAL — v1.6] Versioning Form Builder tetap wajib sesuai acceptance criteria PRD.** Perbaikan kualitas diperbolehkan selama menjaga jawaban historis, akses data peserta, dan prioritas fase; tidak menambah branching/fitur P2 secara diam-diam.
+
+---
+
+## 1. Latar belakang, visi, dan batas produk
+
+### 1.1 Masalah yang hendak diselesaikan
+
+Koordinasi UKM saat ini banyak berlangsung lewat WhatsApp. Informasi pekerjaan, penugasan, jadwal, anggaran kegiatan, dan inventaris tersebar. Jika pengurus berganti periode, informasi dan histori proker sulit dicari. Pendaftaran peserta sebelumnya menggunakan Google Forms terpisah dari informasi kegiatan. Solusi perlu **mengurangi pengulangan input**, bukan memindahkan seluruh percakapan ke ERP.
+
+### 1.2 Visi produk
+
+> Pengurus masuk ke satu website untuk melihat pekerjaan yang relevan, mengelola proker dan aset yang menjadi tanggung jawabnya, serta menemukan histori organisasi. Pengunjung publik dapat melihat acara dan mengisi pendaftaran tanpa perlu menjadi pengguna ERP.
+
+### 1.3 Prinsip desain
+
+- **Satu UKM dahulu.** Tidak ada konfigurasi multi-tenant atau marketplace modul.
+- **Ringan secara operasional.** WhatsApp tetap boleh menjadi tempat diskusi; ERP merupakan catatan kerja dan status resmi.
+- **Minim birokrasi.** Tidak ada approval untuk membuat proker atau RAB.
+- **Terbuka untuk melihat, terukur untuk mengubah.** Semua pengurus berakun dapat melihat detail proker lintas departemen, tetapi hak mutasi bergantung scope; data pribadi peserta dan kredensial digital termasuk pengecualian sensitif.
+- **Satu record, banyak tampilan.** Kanban, kalender, dashboard, monitoring mengambil data yang sama.
+- **Mobile-first.** Tindakan harian mudah dari ponsel; advanced table nyaman di desktop.
+- **Tidak semua anggota/panitia wajib login.** Akun individu hanya bagi orang yang benar-benar bertindak di sistem.
+
+Arahan visual pengguna (17 November 2026): palet ERP pengurus kurang lebih **merah dan hitam**, dengan nilai warna final ditetapkan saat desain. Komponen dari [21st.dev](https://21st.dev/) boleh digunakan untuk menyusun design system yang konsisten dengan stack existing. Gunakan skill **gpt-taste khusus project ini**, tersedia di [skill lokal](../.agent/skills/gpt-taste/SKILL.md) dan diregistrasikan pada `AGENTS.md`. Arahan ini melengkapi prinsip mobile-first, bukan instruksi memulai implementasi atau mengubah halaman publik. Penambahan dependensi tetap memerlukan persetujuan pengguna.
+
+### 1.4 Bukan target produk saat ini
+
+Tidak menjadi chat pengganti WA, payment gateway, sistem akuntansi umum, HR payroll/rekrutmen lengkap, SaaS untuk semua UKM, QR check-in/pembayaran/sertifikat acara, sistem penyimpanan gambar/video besar, workflow approval builder, atau enterprise IAM/Kubernetes.
+
+---
+
+## 2. Struktur organisasi dan identitas pengguna
+
+### 2.1 Hirarki yang ditetapkan [FINAL]
+
+```text
+UKM
+├── Super Inti (4 jabatan)
+│   ├── Ketua Umum
+│   ├── Wakil Ketua Umum
+│   ├── Sekretaris
+│   └── Bendahara
+├── Departemen Internal
+│   ├── Kepala Departemen Internal [Inti]
+│   ├── Bidang Hunting — Kepala Bidang Hunting [Inti] + anggota
+│   └── Bidang Modeling — Kepala Bidang Modeling [Inti] + anggota
+├── Departemen Eksternal
+│   ├── Kepala Departemen Eksternal [Inti]
+│   ├── Bidang Medkom (Media Communication) — Kepala Bidang [Inti] + anggota
+│   └── Bidang PR (Public Relations) — Kepala Bidang [Inti] + anggota
+├── Departemen Asset dan Property
+│   └── Kepala Departemen Asset dan Property [Inti] + anggota
+└── Fungsi Human Resource (lintas organisasi)
+    └── Kepala HR [Inti] + anggota HR jika ada
+```
+
+**Inti** = 4 Super Inti + 3 Kepala Departemen + 4 Kepala Bidang + 1 Kepala HR = **12 jabatan yang saat ini diketahui**. Jumlah ini menghitung **jabatan**, belum tentu 12 orang unik jika ada rangkap jabatan. Kepala HR masuk Inti tetapi HR tidak diasumsikan sebagai departemen keempat. Detail subordinasi HR serta apakah Asset dan Property memiliki bidang belum dinyatakan; jangan mengarang.
+
+**[FINAL — v1.6] Pewarisan keanggotaan:** anggota bidang dihitung sebagai anggota departemen induknya untuk papan departemen dan hak mengatur assignment Proker departemen tersebut. Contohnya, anggota Hunting memiliki keanggotaan efektif Departemen Internal. Tidak ada pewarisan balik dari departemen ke semua bidang; HR tetap fungsi lintas organisasi.
+
+### 2.2 Model identitas [FINAL/REKOMENDASI]
+
+- `User`: akun login individu, username unik, password hash, status aktif.
+- `Member`: identitas orang di UKM; dapat ada tanpa akun.
+- `Unit`: departemen, bidang, atau fungsi HR; satu tabel dengan `unit_type`, parent opsional, dan periode.
+- `PositionAssignment`: seseorang memegang jabatan pada unit/periode tertentu; satu orang bisa memegang beberapa peran.
+- `UnitMembership`: keanggotaan anggota biasa dalam unit/periode, terpisah dari jabatan; departemen efektif dapat diturunkan dari bidang.
+- `Period`: identitas periode kepengurusan dengan status aktif/arsip, waktu arsip, dan pengarsip; progres operasional terkait periode dapat dibaca lintas generasi pengurus.
+- `ProgramAssignment`: akses operasional per proker; pemilik akses bisa lintas departemen dan berlaku hanya pada proker terkait.
+- `CommitteeMember`: nama + jabatan kepanitiaan; `user_id` opsional. **Anggota panitia tak berakun tidak bisa menekan tombol edit/tutup.**
+
+**[FINAL]** Login username/password, tanpa Google OAuth. **Semua pemegang 12 jabatan Inti yang aktif** dapat membuat/mengelola/nonaktifkan akun, memberikan akses, mengatur keanggotaan dan jabatan organisasi, serta mereset password. Hak `manage_users` diturunkan dari jabatan Inti aktif, bukan pemberian mandat tambahan per orang. Password lama tidak ditampilkan; setiap perubahan akses diaudit. Administrasi akun/organisasi tidak otomatis memberikan assignment operasional Proker atau hak `Arsipkan Periode` kepada Inti selain Ketua Umum.
+
+### 2.3 Persona
+
+| Persona | Hal utama di dashboard | Kewenangan khas |
+|---|---|---|
+| Super Inti | Ringkasan UKM + pekerjaan pribadi | Administrasi organisasi sesuai mandat, monitoring, menutup proker |
+| Kepala Departemen | Tugas sendiri + proker/unit terkait | Membuat proker, mengelola tugas departemen, menutup proker sebagai Inti |
+| Kepala Bidang | Tugas sendiri + papan bidang | Membuat proker sebagai Inti, mengelola tugas bidang, menutup proker sebagai Inti |
+| Kepala HR | Ringkasan lintas unit + tugas HR | Monitoring lintas organisasi, termasuk kelompok Inti |
+| Anggota pengurus | Tugas pribadi + proker yang ditugaskan | Kelola Kanban Umum/unit sendiri; edit proker jika ditugaskan |
+| Ketua Pelaksana | Proker yang dipimpin | Edit proker dengan akun/assignment; Tutup Proker tersebut |
+| Panitia/peserta tanpa akun | Tidak mendapat dashboard internal | Dapat dicatat namanya; peserta publik mengisi form tanpa login |
+| Pengunjung publik | Acara yang diterbitkan | Melihat acara dan mendaftar tanpa akun |
+
+---
+
+## 3. Katalog fitur dan prioritas
+
+| ID | Fitur | Prioritas | Cakupan minimal |
+|---|---|---|---|
+| F01 | Auth & akun personal | P0 | Username/password, sesi, admin akun, nonaktifkan akun, hash password |
+| F02 | Struktur UKM | P0 | Super Inti/Inti, departemen, bidang, fungsi HR, keanggotaan bidang mewarisi departemen, assignment periode |
+| F03 | Dashboard personal | P0 | Tugas Saya, Proker Saya, Agenda Terdekat, tautan ke halaman terkait |
+| F04 | Proker | P0 | Buat oleh Kepala Departemen/Inti, langsung aktif, detail, penugasan, tutup dan arsip read-only |
+| F05 | Kepanitiaan | P0 | Template awal Ketupel/Wakil, Sekben, Humas, Acara, PDD, Logistik; opsi pecah PDD; struktur bebas dikustom oleh Ketua Pelaksana; nama-jabatan tanpa akun |
+| F06 | RAB | P0 | Catatan item dan total per proker, tanpa approval |
+| F07 | Kanban | P0 | Umum, departemen, bidang, proker; edit by scope; satu entitas tugas |
+| F08 | Kalender | P0 | Umum, departemen/bidang, proker, pribadi; tanggal yang konsisten |
+| F09 | Monitoring organisasi | P0 | Sidebar ringkasan To Do/Doing/Done per unit, filter/drill-down |
+| F10 | Audit log | P0 | Proker, penugasan, Kanban, RAB, penutupan, aset penting, publikasi |
+| F11 | Lampiran & arsip dokumen | P1 | Maks. 20 MB/file, URL/file aman, laporan/LPJ sederhana |
+| F12 | Realisasi biaya | P1 | Catatan aktual dan bukti; bukan approval atau full accounting |
+| F13 | Inventaris fisik | P1 | Barang/buku, kondisi, status, PIC, pinjam/sewa/kembali, histori |
+| F14 | Inventaris digital | P1 | Identifikasi folder, akun layanan, domain, hosting, website, repo; tanpa password plaintext |
+| F15 | Editor acara website publik | P1 | Semua pengurus aktif dapat membuat; ownership untuk ubah/hapus; publish/unpublish |
+| F16 | Form Builder pendaftaran | P1 | Template awal bebas ubah/hapus, tipe pertanyaan dan section, publikasi form, respons peserta |
+| F17 | Data pendaftaran | P1 | Form publik tanpa akun, daftar respons, ekspor Excel/CSV, pembatasan PII |
+| F18 | Short Link | P1 | Slug unik, pengalihan URL aman, owner mengelola sendiri, Inti dapat mengelola semua |
+| F19 | Notifikasi otomatis | P2 | Email/in-app; integrasi WhatsApp resmi hanya bila diperlukan |
+| F20 | Fitur spesifik bidang/layanan lanjutan | P2 | Berdasarkan kebutuhan riil; belum perlu modul khusus Hunting/Modeling/PR/Medkom |
+| F21 | Pendaftaran tingkat lanjut | P2 | Kuota, waiting list, check-in QR, pembayaran, sertifikat, branching kompleks |
+| F22 | Jejak kepengurusan | P0 | Arsipkan seluruh progres periode oleh Ketua Umum; read-only dan dapat diakses pengurus periode berikutnya |
+
+**[FINAL — v1.6] Fase aktif hanya alur pengurus.** API acara publik, galeri, karya/voting, file publik, dan chatbot ditunda. Fitur publik/pendaftaran P1 tetap requirement masa depan; pengaktifan API tersebut bukan syarat selesai P0.
+
+**Prinsip prioritas:** P1 tetap tercatat sebagai **requirement resmi**, tetapi tidak otomatis harus selesai dalam empat minggu. Jika waktu terbatas, **jangan** mengurangi audit, autentikasi, batas edit, backup, dan fungsi Proker/Kanban P0 hanya untuk mengejar Form Builder yang kompleks.
+
+---
+
+## 4. Information architecture, sidebar, dan alur pertama kali login
+
+### 4.1 Navigasi yang disarankan [REKOMENDASI]
+
+```text
+LOGIN (username + password)
+└── BERANDA PERSONAL
+    ├── Tugas Saya → Detail Task / Papan Asal
+    ├── Proker Saya → Detail Proker
+    └── Agenda Terdekat → Detail Kalender
+
+SIDEBAR
+├── Beranda
+├── Tugas & Kanban
+│   ├── Tugas Saya
+│   ├── Umum UKM
+│   ├── Departemen/Bidang Saya (daftar sesuai keanggotaan)
+│   └── Jelajahi Unit Lain (read-only untuk yang bukan anggota)
+├── Program Kerja
+│   ├── Proker Saya (ditugaskan)
+│   ├── Semua Proker (bisa dilihat semua akun aktif)
+│   └── Arsip Proker
+├── Jejak Kepengurusan
+│   ├── Daftar Periode dan Progres Arsip (read-only)
+│   └── Arsipkan Periode (hanya Ketua Umum)
+├── Kalender
+│   ├── Umum UKM
+│   ├── Departemen/Bidang
+│   ├── Proker
+│   └── Jadwal Saya
+├── Monitoring Departemen (Inti/HR dan yang diberi mandat)
+├── Asset dan Property [P1]
+│   ├── Inventaris Fisik
+│   ├── Riwayat Peminjaman/Penyewaan
+│   └── Inventaris Digital
+├── Konten Publik [P1]
+│   ├── Acara
+│   ├── Formulir & Pendaftaran
+│   └── Short Link
+└── Organisasi & Akun (seluruh Inti aktif)
+```
+
+**Tidak semua submenu divisi otomatis ditampilkan.** Sidebar mengutamakan unit pengguna. `Jelajahi Unit Lain` disediakan bagi yang ingin melihat progres lintas departemen/bidang. Tanpa hak edit, tampilkan label `Hanya Lihat`, dan jangan tampilkan tombol yang tidak bisa digunakan.
+
+### 4.2 Alur dasar pengguna [FINAL/REKOMENDASI]
+
+1. Pengurus login; sistem memuat jabatan, keanggotaan, dan assignment proker.
+2. Beranda menampilkan **hanya** tugas/proker relevan secara pribadi, bukan semua proker UKM. Agenda umum yang relevan tetap dapat tampil.
+3. Klik tugas dari `Tugas Saya` langsung membuka task di papan asalnya, tidak meminta pengguna memilih salah satu Kanban.
+4. Klik proker dari `Proker Saya` langsung membuka ringkasan/progresnya dengan tombol edit bila pengguna diberi assignment.
+5. Jika ingin melihat proker lain, buka `Semua Proker` dan baca detailnya dengan mode read-only.
+6. Jika ingin melihat pekerjaan unit lain, gunakan `Jelajahi Unit Lain` atau `Monitoring Departemen` sesuai mandat.
+7. Proker selesai tidak muncul sebagai pekerjaan aktif di Beranda, tetapi selalu dapat ditemukan pada `Arsip Proker`.
+
+---
+
+## 5. Siklus hidup Proker — aturan produk final
+
+### 5.1 Siapa boleh membuat [FINAL]
+
+**Kepala Departemen dan anggota Inti** boleh membuat Proker. Dengan definisi Inti saat ini, anggota Inti meliputi Super Inti, Kepala Departemen, Kepala Bidang, dan Kepala HR. **[REKOMENDASI]** Jika Kepala Departemen membuat, departemen pemilik otomatis dipilih dari jabatannya; anggota Inti lain bisa memilih pemilik unit sesuai penugasan organisasi. Aturan pemilihan unit lintas departemen perlu diuji saat UI dibuat.
+
+### 5.2 Alur membuat Proker [FINAL]
+
+1. Buka `Program Kerja > Buat Proker` (hanya ditampilkan bagi pembuat berwenang).
+2. Isi informasi minimum: nama proker, unit penyelenggara/pemilik, deskripsi ringkas, tanggal/rentang yang diketahui, dan kontak/penanggung jawab awal. Lokasi serta tautan dokumen opsional.
+3. Pilih Ketua Pelaksana (boleh Kepala Departemen sendiri atau orang lain). Tentukan akun operator bila diperlukan. Pengurus lintas unit bisa dilibatkan.
+4. Tekan **`Buat Proker`**. Sistem memvalidasi izin, membuat record, mencatat pencipta/timestamp, dan memberi status **`ACTIVE` langsung**. **[FINAL — v1.6]** Dalam transaksi yang sama, pencipta dan Ketua Pelaksana berakun otomatis diberi assignment pengelola; jika keduanya orang yang sama, tidak membuat assignment aktif duplikat. Ketupel tanpa akun tetap dapat dicatat; tidak dibuatkan akun diam-diam.
+5. Setelah Proker dibuat, halaman **Kepanitiaan** menawarkan template default. Ketua Pelaksana dapat memakai atau menyesuaikan template tersebut; nama panitia, RAB, Kanban, kalender, dokumen, dan acara/pendaftaran (jika perlu) dilengkapi **bertahap**, tanpa memaksakan semua isian pada satu form.
+
+**Tidak ada:** tombol `Ajukan Persetujuan`, antrean approver, tahap Sekretaris/Bendahara/Ketua, status `UNDER_REVIEW`, atau keputusan `APPROVED/REJECTED` sebagai prasyarat Proker aktif. Kesepakatan kegiatan berada di luar sistem (WA/rapat). **RAB tidak perlu approval dalam jumlah berapa pun.**
+
+### 5.3 Pengurus Proker dan assignment [FINAL]
+
+- Setiap Proker memiliki unit pemilik, periode kepengurusan, Ketua Pelaksana, serta operator/pengurus berakun yang ditugaskan untuk memperbarui informasi. **Ketupel melekat pada satu Proker**, bukan jabatan global; Proker berbeda dapat memiliki Ketupel berbeda.
+- **[FINAL — v1.6]** Pencipta dan Ketupel berakun otomatis memperoleh assignment awal. Pengurus berakun yang ditunjuk sebagai PIC tugas Proker juga otomatis memperoleh assignment edit pada Proker itu, termasuk lintas departemen; grant akses tercatat dalam audit bersama penunjukan PIC.
+- Panitia lain boleh terdaftar sebagai teks nama dan jabatan **tanpa memiliki akun**. **Posisi dan divisi panitia berasal dari template fleksibel yang dapat diubah Ketua Pelaksana** (lihat §5.4).
+- **Semua anggota aktif departemen pemilik Proker boleh menambah/mencabut assignment pengelola** Proker departemennya. Mereka tidak boleh mengatur assignment Proker milik departemen lain hanya karena bisa melihatnya.
+- Pengurus dari departemen lain **bisa ditugaskan** sebagai pengelola satu Proker dan memperoleh hak edit pada Proker tersebut.
+- Ketua Pelaksana tanpa akun dapat ditampilkan namanya, tetapi untuk melakukan aksi (edit atau klik `Tutup Proker`) ia membutuhkan akun personal dengan assignment yang benar. Pengurus Inti tetap boleh menutup jika Ketua Pelaksana tidak berakun.
+- Assignment dicabut saat pengurus dikeluarkan atau Proker ditutup; histori assignment tetap tersimpan. Arsip periode juga mengunci seluruh mutasi terkait meski status historis Proker/assignment masih tersimpan.
+- **[FINAL — v1.6] Pergantian Ketupel hanya oleh Inti pada Proker yang belum diarsipkan.** Perbarui identitas Ketupel dan bagannya secara konsisten; Ketupel baru berakun memperoleh assignment yang diperlukan. Task, RAB, panitia, tanggal, progres, dan audit sebelumnya tetap berlanjut tanpa reset/duplikasi. Hak khusus mengubah struktur mengikuti Ketupel baru; nasib assignment operasional Ketupel lama dijelaskan sebagai keputusan terbuka di §18.
+
+**Risiko yang diketahui:** anggota departemen pemilik dapat menugaskan dirinya sendiri dan memperoleh izin edit. Ini adalah konsekuensi keterbukaan yang dipilih UKM, bukan bug tersembunyi. **[REKOMENDASI]** Audit semua `grant/revoke`, tampilkan aktivitas terbaru, dan sediakan pemulihan perubahan oleh admin. Bila kelak dinilai terlalu longgar, aturan ini dapat dinaikkan menjadi hanya Kepala Departemen tanpa mengubah model data.
+
+### 5.4 Template struktur kepanitiaan yang bisa dikustomisasi [FINAL — v1.5]
+
+**Tujuan:** Mempercepat pembentukan kepanitiaan tanpa memaksa setiap kegiatan memiliki susunan yang sama. Template adalah **data awal**, bukan ketentuan struktural permanen.
+
+**Template standar saat Proker baru dibuat:**
+
+```text
+Kepanitiaan Proker (template default, bukan struktur wajib)
+├── Pimpinan Pelaksana
+│   ├── Ketua Pelaksana
+│   └── Wakil Ketua
+├── Sekben
+│   ├── Sekretaris
+│   └── Bendahara
+├── Divisi Humas
+├── Divisi Acara
+├── Divisi PDD
+└── Divisi Logistik
+
+Opsional untuk PDD (dipilih jika diperlukan):
+Divisi PDD
+├── Desain
+└── Pubdok
+```
+
+**Keterangan 'Sekben':** di PRD ini ditampilkan sebagai kelompok kerja **Sekretaris dan Bendahara**; label dan pembagian peran tetap dapat diubah Ketua Pelaksana. Nama PDD, Desain, dan Pubdok dipertahankan sesuai istilah UKM; implementasi tidak boleh mengunci makna/komposisi divisi tersebut.
+
+**Hak Ketua Pelaksana pada Proker ACTIVE:**
+
+1. Memilih memakai template awal, mengosongkannya, atau mengubah bagian tertentu.
+2. Menambah, mengganti nama, menghapus, mengurutkan, dan menyusun kembali kelompok/divisi/subdivisi/jabatan; tidak ada kewajiban memiliki semua posisi template.
+3. Menggabungkan satu atau lebih divisi; memecah PDD menjadi Desain dan Pubdok, mempertahankan PDD tanpa pemecahan, atau membuat pembagian lain sesuai kegiatan.
+4. Menambahkan anggota panitia sebagai **nama teks + peran**; kaitan ke `Member`/akun internal bersifat opsional, sehingga panitia tidak dipaksa login.
+5. Menetapkan satu orang untuk lebih dari satu peran bila diperlukan; jabatan panitia **bukan** jabatan formal organisasi.
+6. Melihat pratinjau bagan kepanitiaan dan menyimpan perubahan; perubahan struktur/peran dicatat di audit log (siapa, kapan, sebelum/sesudah secara proporsional).
+
+**Batas akses yang penting:**
+
+- **Mengubah desain/struktur template kepanitiaan** adalah kewenangan **Ketua Pelaksana** pada Proker tersebut; ia harus memiliki akun aktif dan penugasan Proker untuk mengoperasikan UI. Pengelola lain yang hanya mempunyai `can_edit` Proker **tidak otomatis** mempunyai hak `manage_committee_structure`.
+- **Mengelola assignment hak edit aplikasi** adalah tindakan *berbeda* dari **mencatat seseorang sebagai panitia**. Aturan penugasan Proker oleh anggota departemen pemilik tetap berlaku. Mencantumkan nama sebagai Ketua Divisi/Sekben/panitia **tidak otomatis** membuat user atau memberi izin akses.
+- **[TERBUKA]** Jika Ketua Pelaksana tidak memiliki akun, kebutuhan perubahan template secara langsung harus ditangani dengan menyiapkan akun/penugasan terlebih dahulu, atau kebijakan delegasi yang disepakati khusus. Jangan otomatis memberikan kemampuan ini kepada semua operator tanpa persetujuan.
+- Struktur kepanitiaan hanya berlaku untuk **satu Proker**, **tidak** menambah/mengubah unit Departemen/Bidang resmi UKM.
+- Begitu Proker **CLOSED**, seluruh struktur, anggota, dan penempatan jabatan dibekukan sebagai arsip **read-only**; termasuk upaya mutasi lewat API.
+
+**Rancangan UX ringan [REKOMENDASI]:** `Detail Proker > Kepanitiaan > Atur Struktur`. Perlihatkan template sebagai bagan atau daftar bertingkat dengan aksi `Tambah Posisi`, `Tambah Divisi`, `Ubah Nama`, `Hapus`, `Pindahkan`, `Pecah PDD`, `Kembalikan Template`. Simpan konfigurasi secara per-Proker; jangan memaksa pengguna membuat akun untuk semua nama panitia. Hindari builder drag-and-drop yang kompleks pada MVP; tombol urut-naik/turun sudah cukup.
+
+**Rancangan data [REKOMENDASI]:**
+
+- `committee_groups`: `id`, `program_id`, `parent_group_id?`, `label`, `sort_order`; menampung Pimpinan, Sekben, Humas, Acara, PDD, Logistik, dan subgrup seperti Desain/Pubdok.
+- `committee_roles`: `id`, `program_id`, `group_id?`, `title`, `sort_order`, `is_chairperson?`; mencakup Ketua Pelaksana, Wakil, Sekretaris, Bendahara, koordinator divisi, dan peran tambahan.
+- `committee_members`: `id`, `program_id`, `committee_role_id?`, `member_id?`, `user_id?`, `display_name`, `notes?`; memfasilitasi nama tanpa akun dan beberapa peran per orang.
+- Simpan `default_template_version` atau snapshot konfigurasi saat template diterapkan agar perubahan template global di masa depan **tidak** mengubah kepanitiaan Proker lama.
+- Hubungan Ketua Pelaksana di master `programs.chairperson_member_id` dan peran `Ketua Pelaksana` di bagan harus **konsisten**, tidak dua sumber kebenaran yang bisa saling bertentangan.
+
+**Batas MVP [REKOMENDASI]:** Gunakan operasi CRUD sederhana dan susunan hierarkis 1–2 tingkat. Tidak perlu workflow persetujuan bagan, otomatisasi undangan, atau sinkronisasi data Google Forms.
+
+### 5.5 Hak melihat vs mengedit [FINAL]
+
+- Semua akun pengurus aktif boleh membuka **detail lengkap Proker** lintas departemen, termasuk informasi RAB, panitia, Kanban, dokumen operasional Proker, dan timeline.
+- **Hanya akun yang ditugaskan pada Proker boleh mengubah konten operasional Proker**. Peran Inti tidak otomatis menjadi izin mengedit isi Proker yang tidak ditugaskan, kecuali aksi eksplisit lain seperti `Tutup Proker` atau pengelolaan assignment yang diizinkan. **Untuk struktur kepanitiaan, pemeriksaan lebih spesifik: hanya Ketua Pelaksana (atau delegasi yang kelak diputuskan) boleh mengubah desain hierarkinya.**
+- Fitur personal (`Proker Saya`) hanya menampilkan Proker yang dikelola/ditugaskan kepada pengguna, bukan seluruh Proker yang bisa ia lihat.
+- **Pengecualian privasi:** daftar respons pendaftar publik, data kontak pribadi peminjam, serta kredensial aset digital **bukan** bagian yang otomatis dibuka hanya karena seseorang boleh melihat Proker; aksesnya diatur per modul yang sensitif. Ini menjaga keamanan data tanpa mengurangi transparansi progres Proker.
+
+### 5.6 Penutupan [FINAL]
+
+1. **Ketua Pelaksana Proker** atau **anggota Inti** membuka Proker `ACTIVE`.
+2. Klik `Tutup Proker` dan lihat ringkasan: tugas belum selesai, RAB tersedia, dokumen yang sudah ada.
+3. Bila masih ada tugas `TODO`/`IN_PROGRESS`, sistem menampilkan peringatan dan meminta konfirmasi; **tidak menghalangi penutupan**.
+4. Konfirmasi mengubah Proker `ACTIVE -> CLOSED` secara atomik dan membuat audit `actor`, `timestamp`, serta alasan opsional.
+5. **Seluruh isi Proker (tugas, RAB, panitia, kalender terkait, dokumen) menjadi read-only**; tidak ada task edit atau tambah laporan lewat alur biasa. Data historis tetap bisa dibuka. **[FINAL — v1.6]** Tugas TODO/IN_PROGRESS tetap tercatat belum selesai di arsip, tidak diubah menjadi DONE, dan tidak muncul lagi di kalender aktif atau sebagai pekerjaan aktif pada Beranda.
+6. Proker tidak lagi tampil pada `Proker Saya (Aktif)`/beranda, namun selalu bisa dicari di `Arsip Proker` dan dipakai sebagai referensi untuk Proker lain.
+
+Tidak ada syarat wajib semua task DONE, tidak ada final approval RAB/LPJ, dan tidak ada auto-close berdasarkan tanggal. **[TERBUKA]** Apakah fitur `Buka Kembali` akan disediakan dan siapa yang berwenang. Untuk MVP, **jangan implementasikan pembukaan kembali** sebelum ada keputusan; arsip tetap read-only.
+
+### 5.7 State machine
+
+```text
+CREATE_PROKER (otorisasi pembuat) → ACTIVE
+ACTIVE ── Tutup oleh Ketua Pelaksana / Inti ──► CLOSED (arsip/read-only)
+CLOSED ──[tidak ada transisi balik pada MVP]──► CLOSED
+```
+
+**Istilah `Proker`, `Acara Publik`, dan `Form Pendaftaran` tidak sama:** satu Proker boleh memiliki acara publik dan formulir pendaftaran, tetapi tidak semua Proker harus dipublikasikan atau membuka pendaftaran. **[TERBUKA]** Bila Proker ditutup ketika pendaftaran publiknya masih terbuka, sistem sebaiknya menampilkan peringatan tersendiri; menutup Proker tidak otomatis menghapus acara dari website publik.
+
+### 5.8 Jejak kepengurusan dan arsip periode [FINAL — v1.6]
+
+1. Hanya akun aktif yang memegang jabatan **Ketua Umum** dapat melihat dan menjalankan tombol `Arsipkan Periode`. Wakil Ketua, Inti lainnya, dan operator Proker tidak memiliki aksi ini hanya karena jabatan/assignment tersebut.
+2. Tampilkan ringkasan periode dan progresnya, termasuk Proker/tugas yang belum selesai, lalu konfirmasi pengarsipan. Pekerjaan belum selesai tetap menjadi bagian Jejak; tidak dipalsukan menjadi DONE.
+3. Seluruh progres operasional milik periode tersebut — Proker, penugasan, kepanitiaan, tugas Umum/Departemen/Bidang/Proker, RAB, agenda, serta dokumen terkait bila tersedia — dibekukan sebagai arsip read-only. Riwayat aktor, jabatan, dan perubahan tetap dapat ditelusuri.
+4. Pengurus aktif periode berikutnya dapat membuka `Jejak Kepengurusan`, memilih periode lama, dan membaca progres yang tersimpan. Ini berlaku berulang untuk setiap pergantian periode. Pengecualian data pribadi/secret tetap berlaku.
+5. Progres arsip tidak muncul sebagai pekerjaan aktif atau agenda pada kalender aktif. Label belum selesai tetap terlihat di Jejak. Arsip bukan penghapusan database, reset data, atau pembuatan database baru.
+6. API wajib menolak seluruh mutasi ke progres periode arsip; perubahan status periode dan audit pengarsipan harus konsisten. Penutupan Proker saja tidak otomatis mengarsipkan seluruh periode.
+
+**[REKOMENDASI teknis]** Gunakan `period.status=ARCHIVED` sebagai kunci bersama, dengan `archived_at` dan `archived_by`. Status historis Proker/task dapat dipertahankan; semua query pekerjaan aktif dan policy memeriksa status periode. Dengan demikian, Proker ACTIVE saat pengarsipan tetap diketahui belum selesai tetapi tidak dapat diedit. Histori nama/jabatan tidak ikut berubah saat pengurus baru masuk.
+
+**[TERBUKA — alur serah terima]** Siapa yang menyiapkan/mengaktifkan periode baru dan jabatan Ketua Umum berikutnya, nasib akun/jabatan lama, serta apakah ada pekerjaan yang disalin ke periode baru belum diputuskan. Jangan otomatis menonaktifkan semua akun atau menyalin progres lama. Model arsip tidak boleh mengunci akses pengurus berikutnya karena tidak ada akun penerus yang disiapkan.
+
+---
+
+## 6. Kanban dan kalender terintegrasi
+
+### 6.1 Definisi empat scope Kanban [FINAL]
+
+| Papan | Data utama | Hak lihat | Hak buat/edit/memindahkan tugas asli |
+|---|---|---|---|
+| **Umum UKM** | Tugas yang memang dibuat dalam scope organisasi | Semua pengurus aktif | **Semua pengurus aktif** |
+| **Departemen** | Tugas asli departemen tertentu | Semua pengurus aktif | **Anggota aktif departemen tersebut** |
+| **Bidang/Divisi** | Tugas asli bidang tertentu | Semua pengurus aktif (unit lain read-only) | **Anggota aktif bidang tersebut**; hak Kepala Departemen atas board bidang perlu mandat/assignment eksplisit bila bukan anggota bidang |
+| **Proker** | Tugas asli pada Proker tertentu | Semua pengurus aktif | **Akun yang ditugaskan pada Proker**, dan hanya selama ACTIVE |
+
+Papan Departemen/Divisi boleh menampilkan tugas Proker milik unit tersebut sebagai **view agregasi**. Tugas tersebut tetap mengikuti **izin Proker** dan tidak otomatis bisa diedit oleh semua anggota departemen. Begitu pula papan Umum tidak menjadi jalan pintas untuk mengedit tugas Proker.
+
+### 6.2 Model tugas tunggal [FINAL/REKOMENDASI]
+
+`task_id`, `title`, `description?`, `scope_type` (`ORGANIZATION`, `DEPARTMENT`, `DIVISION`, `PROGRAM`), `scope_id`, `assignee_user_id?`, `committee_member_id?`, `status`, `deadline?`, `priority?`, `created_by`, `updated_at`, dan `version`.
+
+- Status aktif setelah klarifikasi 18 November 2026: `TODO`, `IN_PROGRESS`, `REVIEW`, `DONE`. Review berlabel Perlu ditinjau dan bersifat fleksibel; pemegang izin edit boleh langsung berpindah ke DONE. `BLOCKED` tetap ditunda.
+- Task harus mempunyai **satu pemilik scope**, bukan digandakan ke beberapa database/papan.
+- Perubahan task asli tampil pada semua view terkait setelah refresh/sinkronisasi.
+- Papan menunjukkan jumlah tugas per status, tugas melewati tenggat, dan filter PIC.
+- Panitia tanpa akun bisa muncul sebagai PIC tertulis; operator berakun yang memperbarui statusnya.
+- **[FINAL — v1.6]** Menunjuk pengurus aktif berakun sebagai PIC task scope PROGRAM otomatis memberikan akses edit **Proker itu**, bukan hanya satu task. Penunjuk PIC harus sudah mempunyai hak edit task; proses ini menjadi jalur grant berbasis PIC yang terpisah dari pengaturan assignment manual oleh anggota departemen pemilik. Simpan grant akses dan penunjukan PIC dalam satu transaksi beserta audit.
+- Penunjukan PIC pada task Umum/Departemen/Bidang tidak otomatis memberi keanggotaan unit atau akses ke Proker yang tidak terkait. Panitia teks nonakun tidak diberi akun otomatis.
+- **[TERBUKA]** Aturan mencabut akses ketika PIC diganti/dihapus dan transfer task antar-scope belum final; jangan menganggap assignment manual lain ikut tercabut.
+- Jika Proker `CLOSED`, semua task scope PROGRAM itu read-only, meskipun sedang terlihat pada tampilan departemen/umum.
+- Audit mencatat create/edit/status/delete (soft delete jika histori diperlukan), aktor, waktu, ringkasan perubahan.
+
+### 6.3 Kalender [FINAL/REKOMENDASI]
+
+Satu `event` record dengan `scope`, periode, jadwal, judul, dan relasi opsional ke Proker/acara publik. Tampilan: **Kalender Umum UKM**, **Departemen/Bidang**, **Proker**, dan **Jadwal Saya**. Pengurus dapat menjelajahi kalender unit lain sebagai read-only, kecuali untuk jadwal nonpublik yang secara khusus diberi atribut sensitif. Perubahan tanggal Proker yang ditampilkan di kalender tidak memerlukan input tanggal kedua. Kalender tidak otomatis menerbitkan acara ke website publik.
+
+**[FINAL — v1.6]** Semua pengurus dapat menggunakan kalender, sedangkan buat/ubah/hapus agenda **mengikuti hak unit dan penugasan Proker**, sesuai klarifikasi pengguna:
+
+| Agenda | Hak mutasi |
+|---|---|
+| Umum UKM | Semua pengurus aktif |
+| Departemen | Anggota efektif departemen, termasuk anggota bidang anak |
+| Bidang | Anggota aktif bidang terkait |
+| Proker | Pengelola dengan assignment edit pada Proker ACTIVE di periode yang belum diarsipkan |
+| Proker CLOSED / periode arsip | Tidak dapat dimutasi dan tidak tampil di kalender aktif |
+
+Hak kalender tidak memberi jalan pintas mengubah tanggal Proker tanpa assignment. **[REKOMENDASI]** Jadwal Saya pada MVP berupa agregasi agenda relevan/PIC, bukan kalender privat terpisah. Jika agenda pribadi independen diperlukan, spesifikasi privasi dan scope-nya masih perlu ditetapkan. Tanggal turunan diedit dari sumbernya; jangan menyimpan dua salinan tanggal yang dapat berbeda.
+
+### 6.4 Monitoring Departemen [FINAL]
+
+Sidebar `Monitoring Departemen` memberikan ringkasan per departemen, bidang, dan fungsi HR yang relevan: jumlah `TODO`, `IN_PROGRESS`, `DONE`, tugas terlambat, dan tautan drill-down. **[REKOMENDASI]** Inti dan Kepala HR memiliki tampilan agregasi lintas organisasi; pengguna lain memakai board/browse unit. **Jangan menghitung satu tugas Proker dua kali** ketika Proker tersebut juga terlihat pada agregat departemen. **[FINAL — v1.6]** Pekerjaan aktif mengecualikan Proker CLOSED dan periode arsip; ringkasan Jejak/arsip tetap menunjukkan jumlah tugas belum selesai secara historis. Rumus penggabungan unit induk/anak harus didokumentasikan agar total UKM tidak menjumlahkan task yang sama berulang kali.
+
+---
+
+## 7. Manajemen RAB, dokumen, dan laporan
+
+### 7.1 RAB sebagai pencatatan [FINAL]
+
+- Tiap Proker dapat memiliki item RAB: nama, kategori, jumlah, satuan, harga satuan, total per item, total keseluruhan, keterangan.
+- Total dihitung **di backend**, gunakan integer rupiah atau `Decimal` agar akurat.
+- Pengelola Proker dapat menambah/mengubah RAB selama Proker `ACTIVE`; setiap perubahan jumlah dan harga dicatat di audit log.
+- **Tidak ada RAB approval**, budget threshold untuk persetujuan, atau verifikasi wajib oleh Bendahara/Ketua/Sekretaris.
+- Setelah Proker `CLOSED`, RAB tidak dapat diedit dan dapat menjadi referensi histori.
+- P1: catatan realisasi dan bukti transaksi; `RAB` dan `actual` ditampilkan terpisah; tidak menyiratkan fungsi payment gateway.
+
+### 7.2 Dokumen [FINAL/REKOMENDASI]
+
+Unggahan maksimal **20 MB per file**. Pertahankan tautan Google Drive untuk file besar, foto/video, atau dokumen kolaboratif. Validasi tipe, batas ukuran pada reverse proxy dan backend, dan streaming file ke storage persisten. Lampiran Proker tetap bisa dibaca oleh pengurus berakun aktif sesuai kebijakan keterbukaan Proker; informasi pribadi peserta dan rahasia kredensial digital tidak disimpan sebagai lampiran publik Proker.
+
+### 7.3 LPJ dan arsip
+
+Laporan kegiatan sederhana dapat berisi narasi, capaian, hambatan, dan tautan dokumentasi (P1). Data Proker, tugas, tanggal, RAB dan panitia dipakai ulang, bukan diketik berulang. **LPJ bukan syarat tombol `Tutup Proker` untuk MVP**. Jika LPJ dibuat kemudian, putuskan apakah harus diselesaikan **sebelum** menutup karena arsip sudah read-only.
+
+---
+
+## 8. Modul Inventaris Asset dan Property [P1; fitur resmi]
+
+### 8.1 Ruang lingkup [FINAL]
+
+Departemen Asset dan Property bertanggung jawab atas logistik/inventaris sekretariat, **buku**, peralatan, aset digital (folder, Drive, akun layanan, domain, hosting, website, repo), dan aktivitas pengembangan website yang dapat ditrack melalui Kanban/Proker biasa. Modul inventaris terpisah dari papan Kanban, namun boleh ditautkan ke Proker.
+
+### 8.2 Tabel inventaris fisik [FINAL/REKOMENDASI]
+
+| Field | Keterangan |
+|---|---|
+| `asset_code` | Kode unik per unit; beberapa tripod/buku identik tetap bisa dibedakan |
+| `name`, `category` | Kamera/tripod/buku/elektronik/furnitur/perlengkapan/dll. |
+| `location`, `custodian` | Sekretariat/gudang dan penanggung jawab |
+| `condition` | `BAIK`, `RUSAK_RINGAN`, `RUSAK_BERAT` (dapat diperluas) |
+| `availability_status` | `TERSEDIA`, `DIPINJAM`, `DISEWAKAN`, `PERBAIKAN`, `HILANG` |
+| `notes`, `photo?` | Keterangan opsional; unggah sesuai batas file |
+| `archived_at?` | Nonaktif/arsip, bukan hapus permanen riwayat |
+
+**Kondisi bukan status.** Barang dapat berkondisi `BAIK` tetapi berstatus `DIPINJAM`. Item yang `HILANG` tidak boleh dipinjam sebelum statusnya diperbaiki. Untuk buku, catat per eksemplar bila perlu dibedakan siapa yang meminjamnya.
+
+### 8.3 Alur pinjam/sewa/kembali [FINAL]
+
+1. Pengurus Asset dan Property membuka inventaris, pilih aset `TERSEDIA`.
+2. Pilih `Pinjam` atau `Sewakan` lalu isi **nama peminjam/penyewa secara manual**, kontak bila perlu, tanggal keluar, tanggal rencana kembali, kondisi awal, serta biaya sewa bila ada.
+3. Peminjam **boleh siapa saja**: pengurus, anggota umum, atau pihak luar; **tidak perlu akun dan tidak wajib ada pada database anggota**.
+4. Simpan transaksi: status aset menjadi `DIPINJAM` atau `DISEWAKAN`, catatan aktor dibuat.
+5. Saat kembali, catat tanggal aktual, kondisi setelah pemakaian, dan keterangan kerusakan jika ada; jika layak, kembali `TERSEDIA`, jika rusak pindah `PERBAIKAN`/kondisi sesuai fakta.
+6. Keterlambatan dihitung bila belum kembali dan melewati tanggal rencana; tampilkan indikator, tanpa wajib email/WA otomatis.
+7. **Riwayat semua transaksi tidak dihapus** walaupun barang sudah kembali. Pengurus dapat melihat siapa, kapan, dan petugas pencatatnya.
+
+**Tidak perlu alur persetujuan peminjaman pada MVP.** Pencatatan penyewaan berbayar tidak otomatis berarti pembayaran online; catatan biaya sewa bisa dihubungkan ke realisasi keuangan P1.
+
+### 8.4 Inventaris digital dan keamanan [FINAL/REKOMENDASI]
+
+Field: jenis aset (`DRIVE_FOLDER`, `ACCOUNT`, `DOMAIN`, `HOSTING`, `WEBSITE`, `REPOSITORY`, lainnya), nama, URL/referensi, PIC/pengelola, status, tanggal berakhir/perpanjangan opsional, dan referensi tempat kredensial. **Jangan menyimpan password, API token, recovery code atau private key dalam kolom teks biasa maupun audit log.** Jika perlu kredensial, gunakan password manager dengan pengaturan akses yang sesuai; ERP hanya menyimpan rujukan aman. Anggota Asset dan Property berizin mengelola inventaris; unit lain dapat membaca metadata aset yang tidak sensitif, bukan kredensial atau data pribadi peminjam.
+
+---
+
+## 9. Website publik, acara, formulir pendaftaran, dan Short Link [P1]
+
+**[FINAL — v1.6] Bagian ini merupakan backlog fase berikutnya.** API acara, galeri, karya/voting, file publik, dan chatbot diabaikan dahulu untuk fokus alur pengurus; tidak ada kewajiban memulihkan backend publik dalam P0. Fitur Form Builder/versioning tetap harus memenuhi requirement di bawah saat fasenya dikerjakan.
+
+### 9.1 Pemisahan konsep [FINAL]
+
+- `Program (Proker)` adalah kegiatan kerja internal, dapat hidup tanpa pengumuman publik.
+- `PublicEvent` adalah konten yang muncul di landing page/website pengunjung setelah **Publish**; bisa terhubung ke Proker tetapi tidak wajib.
+- `RegistrationForm` adalah formulir pendaftaran yang diaktifkan untuk sebuah acara, tidak otomatis ada untuk semua acara.
+- `RegistrationSubmission` adalah jawaban publik, termasuk data pribadi; **bukan akun pengguna internal**.
+
+### 9.2 Acara publik [FINAL/REKOMENDASI]
+
+Semua pengurus aktif boleh membuat acara publik. Field awal: judul, deskripsi, tanggal/waktu, lokasi, poster opsional, tautan terkait, `program_id?`, status `DRAFT`/`PUBLISHED`/`UNPUBLISHED`. Konten internal Proker (RAB, Kanban, panitia pengelola) **tidak otomatis diekspos** di API website publik. Pembuat dapat mengedit/menghapus kontennya sendiri; **Inti** bisa mengelola konten pengurus lain. **[TERBUKA]** Apakah perlu review konten sebelum Publish; untuk MVP usulkan publish oleh pembuat tanpa approval tambahan karena UKM ingin operasional ringan.
+
+### 9.3 Template Form Builder — hanya titik awal [FINAL]
+
+Ketika pengurus membuat formulir baru, sistem **dapat mengisi template awal** berikut:
+
+| Urutan awal | Label | Jenis awal | Detail awal |
+|---|---|---|---|
+| 1 | Nama Lengkap | Short text | Contoh label yang boleh diubah/dihapus |
+| 2 | NIM | Short text | Nilai diperlakukan string, termasuk nol di depan |
+| 3 | Fakultas | Dropdown | Pilihan awal **FIF, FKS, FIK, FIT, FRI, FEB, FTE** |
+| 4 | Prodi / Jurusan | Short text | Placeholder **`S1 Informatika`** |
+
+**Keempatnya bukan kolom wajib permanen.** Pembuat formulir boleh **menghapus keempatnya, menambah, mengganti label, opsi, tipe, urutan, placeholder, instruksi, dan status wajib/opsional**. Jangan hardcode validasi `NIM/fakultas` pada semua acara karena kegiatan bisa terbuka untuk peserta nonmahasiswa. Contohnya, acara umum bisa hanya meminta `Nama` dan `Nomor Kontak`.
+
+### 9.4 Fitur Form Builder [FINAL/REKOMENDASI]
+
+- Tipe field awal: teks pendek, paragraf/teks panjang, pilihan tunggal (radio), dropdown, checkbox/multi-pilihan; tanggal/angka/email bisa ditambahkan tanpa mengubah model.
+- Tambah/ubah/hapus pertanyaan, tambah/ubah/hapus pilihan jawaban, atur required, placeholder, hint, urutan drag-and-drop **atau** tombol naik/turun (untuk mobile), dan **section/bagian baru**.
+- Editor melakukan preview sebagaimana peserta melihatnya.
+- Form dapat disimpan `DRAFT`, diterbitkan, dibuka atau ditutup untuk menerima pendaftaran; status acara publik tidak harus identik dengan status penerimaan pendaftaran.
+- **Tidak ada kewajiban mempertahankan field fakultas/prodi pada hasil ekspor.** Kolom ekspor berdasarkan pertanyaan yang ada pada versi form.
+- Section baru berarti pengelompokan pertanyaan. **Conditional branching/skip logic bukan kebutuhan MVP P1 awal**; masuk P2 bila diinginkan.
+- **[FINAL — v1.6] Versioning wajib.** Schema yang sudah diterbitkan bersifat immutable; perubahan draft tidak mengubah schema aktif sampai Publish, dan penerbitan perubahan membuat **versi form baru** dengan ID pertanyaan stabil. Jawaban lama tetap terhubung ke versi pertanyaan saat diisi, sehingga ekspor/histori tidak rusak. Penghapusan pertanyaan pada form baru tidak menghapus respons versi lama. Kualitas preview, validasi, dan ekspor boleh ditingkatkan tanpa mengorbankan aturan ini.
+- **[TERBUKA sebelum P1]** Penanganan peserta yang membuka versi lama lalu submit setelah versi baru terbit, duplicate submission, dan format ekspor lintas versi harus dirinci; jangan diam-diam memasangkan jawaban versi lama ke pertanyaan versi baru.
+
+### 9.5 Alur pendaftaran peserta [FINAL/REKOMENDASI]
+
+1. Pengurus berakun aktif membuat acara dan, bila diperlukan, membuat atau menautkan formulir pendaftaran khusus untuk acara tersebut.
+2. Pengurus memilih template empat field sebagai titik awal, lalu bebas mengganti seluruh isi form; preview dan Publish.
+3. Website publik menampilkan detail acara yang telah diterbitkan dan tombol **Daftar** jika form penerimaan sedang dibuka.
+4. Peserta mengisi form dari browser **tanpa membuat akun ERP**. Backend memvalidasi field yang **benar-benar ada** pada form versi aktif dan menyimpan jawaban, timestamp, serta `form_version`.
+5. Setelah kirim, peserta melihat konfirmasi yang tidak membocorkan identitas pendaftar lain.
+6. Pengurus pengelola acara/form dapat melihat jumlah dan daftar respons, memfilter, serta mengekspor **Excel/CSV**. **Respons pribadi tidak otomatis terlihat oleh semua pengurus** walau detail kegiatan/proker dapat dilihat semua.
+7. Jika pendaftaran ditutup, endpoint publik menolak pengiriman baru dan halaman menjelaskan bahwa pendaftaran berakhir. Respons lama tetap tersedia bagi yang berwenang.
+
+**MVP P1 awal** mencakup form fleksibel sederhana, publish/open/close, respons tanpa akun, list, dan ekspor. Tidak perlu kuota kompleks, pembayaran, QR attendance, sertifikat, integrasi Google Forms, atau unggah berkas oleh pendaftar pada tahap awal.
+
+### 9.6 Hak akses Form Builder dan data peserta [REKOMENDASI]
+
+Semua pengurus aktif boleh membuat formulir/acara sendiri. Pembuat dan pengelola Proker yang diberi assignment dapat mengedit formulir acara yang dikelolanya; Inti dapat mengelola sesuai mandat. Pendaftaran bisa dilakukan publik tanpa akun, tetapi **hanya pemilik/pengelola acara dan petugas yang ditugaskan** dapat membaca/mengunduh detail respons berisi data pribadi. Semua ekspor dan tindakan penghapusan jawaban perlu audit. Aturan akses final terhadap data peserta perlu konfirmasi pengurus, terutama masa retensi data.
+
+### 9.7 Short Link [FINAL]
+
+Semua pengurus berakun aktif bisa membuat short link (`slug` unik + `destination_url`). Pembuat boleh memperbarui, menonaktifkan, atau soft-delete short link **miliknya sendiri**. **Anggota Inti** berwenang melakukan hal tersebut untuk short link milik pengurus lain. Validasi slug; batasi skema tujuan ke `https://`/`http://` sesuai kebijakan keamanan; cegah skema seperti `javascript:` dan tujuan berbahaya/internal sesuai aturan redirect aman. Redirect publik hanya untuk link aktif; hapus/ubah tujuan harus masuk audit. Statistik klik detail dan QR generator dapat P2.
+
+---
+
+## 10. Matriks role, akses baca, dan akses mutasi
+
+**ABAC ringan:** kebijakan dievaluasi dari identitas aktif, jabatan/keanggotaan unit, kepemilikan konten, assignment Proker, status Proker, scope tugas, dan aksi. Semua pemeriksaan dilakukan **server-side**; frontend hanya menyesuaikan tombol/menunya.
+
+| Aksi | Siapa berwenang | Catatan |
+|---|---|---|
+| Login ERP | Pengurus dengan akun aktif | Peserta/panitia nonakun tidak bisa login |
+| Buat/kelola/nonaktifkan akun, reset password, memberikan akses dan mengelola organisasi | Seluruh pemegang 12 jabatan Inti aktif | Tidak memerlukan mandat tambahan; audit perubahan; password lama tidak ditampilkan |
+| Arsipkan seluruh progres periode | **Hanya Ketua Umum** aktif | Inti lain tidak boleh; Jejak read-only dapat dibaca pengurus periode berikutnya |
+| Ganti Ketua Pelaksana | Seluruh Inti aktif | Per-Proker, progres berlanjut; ditolak pada Proker CLOSED atau periode arsip |
+| Lihat detail Proker lintas departemen | Semua akun pengurus aktif | Termasuk RAB dan arsip; tidak mencakup kredensial atau PII pendaftaran |
+| Buat Proker | Kepala Departemen atau anggota Inti | Status langsung ACTIVE |
+| Edit isi Proker ACTIVE | Pengurus dengan `ProgramAssignment` edit pada Proker itu | Inti yang tidak ditugaskan tetap read-only untuk edit operasional |
+| Tambah/cabut penugasan Proker secara manual | Anggota efektif departemen pemilik Proker | Anggota bidang anak termasuk anggota departemen; lintas departemen tidak otomatis punya aksi manual ini |
+| Grant assignment awal / melalui PIC | Sistem dalam aksi buat Proker / tunjuk PIC yang sah | Pencipta, Ketupel berakun, dan PIC task Proker memperoleh akses edit; lintas departemen boleh; audit wajib |
+| Ubah template/struktur kepanitiaan Proker | Ketua Pelaksana berakun dengan penugasan Proker | Boleh menambah, menghapus, menamai ulang kelompok/jabatan, memecah PDD, sebelum CLOSED; bukan pemberian hak edit aplikasi |
+| Tutup Proker ACTIVE | Ketua Pelaksana yang login / anggota Inti | Konfirmasi meski task belum DONE |
+| Edit Proker CLOSED | **Tidak ada pada MVP** | Termasuk task/RAB/dokumen yang menjadi arsip |
+| Buat/edit tugas asli Kanban Umum | Semua akun pengurus aktif | Tidak mencakup tugas Proker yang hanya terlihat sebagai agregasi |
+| Buat/edit tugas asli Departemen | Anggota aktif departemen tersebut | Orang luar view-only |
+| Buat/edit tugas asli Bidang | Anggota aktif bidang tersebut | Orang luar view-only; mandat lintas bidang eksplisit jika diperlukan |
+| Buat/edit tugas asli Proker | Akun dengan assignment Proker ACTIVE | Tidak bisa lewat papan agregasi setelah hak dicabut |
+| Lihat Kanban unit lain | Semua pengurus aktif | Mode read-only sesuai scope |
+| Buat/ubah/hapus agenda | Pengurus sesuai hak Umum/unit/assignment Proker | Sama dengan matriks §6.3; arsip tidak dapat diubah |
+| Baca Jejak kepengurusan | Pengurus aktif, termasuk kepengurusan berikutnya | Pilih periode; read-only; akses PII/secret tetap dibatasi |
+| Lihat Monitoring lintas UKM | Inti/Kepala HR menurut rekomendasi | Bisa diperluas oleh admin |
+| Kelola inventaris fisik/digital | Anggota aktif Asset dan Property yang berwenang | Pengurus lain membaca metadata nonsensitif |
+| Lihat data peminjam dan respons pendaftaran | Petugas modul/pengelola yang ditugaskan | Di luar keterbukaan data umum Proker |
+| Buat acara, formulir, short link | Semua akun pengurus aktif | Di luar workflow approval |
+| Ubah/hapus acara/short link orang lain | Inti | Soft-delete disarankan, audit wajib |
+
+**Policy contoh (semantik):**
+
+```text
+ALLOW edit_program IF
+  user.active AND program.status == ACTIVE
+  AND user has active ProgramAssignment(program.id, can_edit=true)
+
+ALLOW manage_committee_structure IF
+  user.active AND program.status == ACTIVE
+  AND user.id == program.chairperson_user_id
+  AND user has active ProgramAssignment(program.id, can_edit=true)
+
+ALLOW manage_program_assignments IF
+  user.active AND user is active member of program.owner_department
+  AND program.status == ACTIVE
+
+ALLOW update_department_task IF
+  user.active AND task.owner_scope == DEPARTMENT
+  AND user belongs to task.owner_department
+  AND task is not a locked/archived program task
+
+ALLOW close_program IF
+  user.active AND program.status == ACTIVE
+  AND program.period.status != ARCHIVED
+  AND (
+    user has an active Inti position
+    OR (user is program.chairperson AND user has active edit ProgramAssignment)
+  )
+
+ALLOW manage_users_and_organization IF
+  user.active AND user has an active Inti position
+
+ALLOW replace_program_chairperson IF
+  user.active AND user has an active Inti position
+  AND program.status == ACTIVE AND program.period.status != ARCHIVED
+
+ALLOW archive_period IF
+  user.active AND user has active Ketua Umum position for target period
+  AND target_period.status == ACTIVE
+
+ON valid_assign_program_task_pic(task, pic_user):
+  CHECK actor can edit task AND program and period are not archived
+  CHECK pic_user is an active eligible user
+  ATOMICALLY assign PIC + grant ProgramAssignment(can_edit=true) + write audit
+```
+
+**Catatan implementasi:** `program.chairperson_user_id` dalam contoh policy merupakan identitas akun yang ditautkan secara sah ke `chairperson_member_id`, bukan field wajib baru; relasinya perlu dijaga agar tidak ada dua pemilik Ketua Pelaksana yang bertentangan.
+
+**Catatan prioritas kebijakan:** hak dari satu papan tidak mengesampingkan pembatasan scope task asli. `DENY` pada Proker `CLOSED` atau periode `ARCHIVED` selalu menang untuk seluruh mutasi terkait, termasuk policy contoh yang tidak mengulang guard global ini. Audit log tidak menggantikan kontrol akses untuk data pribadi atau kredensial.
+
+---
+
+## 11. Functional Requirements & Acceptance Criteria
+
+### F01/F02 — Auth, jabatan dan akses (P0)
+
+| ID | Kebutuhan | Diterima bila |
+|---|---|---|
+| FR-001 | Login username/password | Akun aktif bisa login; nonaktif/invalid ditolak; password selalu di-hash kuat; rate limit login |
+| FR-002 | Admin akun personal | Seluruh 12 jabatan Inti aktif dapat mengelola akun, memberikan akses, dan mengelola organisasi; non-Inti ditolak; tidak ada akun password bersama per departemen |
+| FR-003 | Struktur organisasi | 4 Super Inti, 3 departemen, 4 bidang, fungsi HR, dan posisi Inti dapat dimodelkan sebagai data dan periode |
+| FR-004 | Assignment ganda | Satu pengurus dapat memegang beberapa posisi/proker tanpa akun kedua |
+| FR-005 | Otorisasi server-side | Percobaan mutasi lintas scope mengembalikan 403 tanpa mengubah data |
+
+### F03/F04/F05 — Beranda, Proker, kepanitiaan (P0)
+
+| ID | Kebutuhan | Diterima bila |
+|---|---|---|
+| FR-006 | Dashboard personal | Hanya tugas/proker pengguna yang ditugaskan muncul sebagai fokus pekerjaan; proker lain tetap dapat dicari |
+| FR-007 | Buat Proker langsung aktif | Kepala Departemen/Inti menciptakan proker `ACTIVE` tanpa workflow persetujuan |
+| FR-008 | Baca lintas departemen | Akun pengurus aktif dapat membuka detail Proker lain termasuk RAB dan histori operasional |
+| FR-009 | Edit berdasarkan penugasan | Pengurus bukan pengelola mendapat read-only dan endpoint mutasinya 403 |
+| FR-010 | Kelola assignment oleh anggota departemen | Anggota efektif departemen pemilik, termasuk bidang anak, dapat grant/revoke manual; luar departemen tidak otomatis boleh. Grant awal dan PIC mengikuti FR-046/047; seluruhnya diaudit |
+| FR-011 | Ketua Pelaksana fleksibel | Bisa ditunjuk dari orang berbeda/ketua departemen; operasi dalam sistem membutuhkan akun dan assignment |
+| FR-012 | Panitia tanpa akun | Nama dan jabatan panitia disimpan tanpa meminta kredensial |
+| FR-041 | Template panitia default | Proker baru menawarkan Ketua Pelaksana, Wakil, Sekben (Sekretaris/Bendahara), divisi Humas, Acara, PDD, Logistik tanpa mewajibkan semuanya diisi |
+| FR-042 | Custom struktur oleh Ketua Pelaksana | Ketupel berakun dan ditugaskan bisa tambah/ubah/hapus/reorder posisi/divisi, memecah PDD menjadi Desain + Pubdok atau susunan lain; non-Ketupel tanpa mandat tidak boleh |
+| FR-043 | Struktur panitia terpisah dari akses | Nama panitia tanpa akun boleh dicatat; penambahan/penempatan peran tidak memberikan hak edit secara otomatis atau mengubah `units` resmi UKM |
+| FR-044 | Audit dan arsip panitia | Perubahan struktur/keanggotaan panitia diaudit; penutupan Proker atau arsip periode menjadikannya read-only dan API menolak mutasi |
+| FR-046 | Assignment awal otomatis | Pencipta dan Ketupel berakun memperoleh assignment edit dalam transaksi pembuatan Proker tanpa assignment aktif duplikat |
+| FR-048 | Pergantian Ketupel | Inti dapat mengganti Ketupel per-Proker; tugas/RAB/progres tetap utuh; hak struktur mengikuti Ketupel baru dan histori pergantian diaudit |
+| FR-013 | Tutup manual & warning | Ketua Pelaksana/Inti dapat menutup, task tertinggal memunculkan warning dan tidak memblokir |
+| FR-014 | Arsip immutable secara operasional | Setelah CLOSED seluruh perubahan Proker/task/RAB ditolak; task belum selesai tetap tersimpan di arsip dan tidak muncul pada kalender/pekerjaan aktif |
+
+### F06/F07/F08/F09/F10 — RAB, Kanban, kalender, monitoring, audit (P0)
+
+| ID | Kebutuhan | Diterima bila |
+|---|---|---|
+| FR-015 | RAB pencatatan | Tambah/ubah item, total backend; tidak ada permintaan approval atau status verifikasi |
+| FR-016 | 4 scope Kanban | Task asli berada di Umum/Departemen/Bidang/Proker; satu `task_id` tanpa duplikasi |
+| FR-017 | Hak edit Kanban Umum | Semua pengurus aktif dapat edit task scope ORGANIZATION |
+| FR-018 | Hak edit Kanban Departemen/Bidang | Anggota unit dapat edit task asli unit; luar unit read-only |
+| FR-019 | Hak edit Kanban Proker | Pengelola proker ditugaskan dapat edit; pengguna di luar assignment tidak, termasuk pada papan agregasi |
+| FR-020 | Kalender satu sumber data | Agenda umum dan unit tampil menurut filter; tanggal Proker tidak harus diinput dua kali |
+| FR-021 | Monitoring & drill-down | Inti/HR melihat jumlah task per status per unit; tugas tidak dihitung ganda |
+| FR-022 | Audit perubahan | Rekam actor/timestamp/resource/action dan nilai before/after yang aman untuk Proker, RAB, tugas, penugasan, penutupan, dan arsip periode |
+| FR-045 | Keanggotaan departemen turunan | Anggota Hunting/Modeling otomatis anggota efektif Internal; Medkom/PR otomatis Eksternal; tidak memberi keanggotaan balik ke semua bidang |
+| FR-047 | PIC memberi akses Proker | PIC berakun pada task Proker memperoleh assignment edit Proker terkait secara atomik dan diaudit; PIC nonakun tidak dibuatkan akun |
+| FR-049 | Arsip periode oleh Ketua Umum | Hanya Ketua Umum dapat mengarsipkan seluruh progres periode; tugas belum selesai tetap historis, mutasi ditolak, dan periode dapat dibaca kepengurusan berikutnya |
+| FR-050 | Kalender berdasarkan scope | Semua pengurus memakai kalender; mutasi sesuai Umum/unit/assignment Proker; Proker CLOSED dan periode arsip tidak tampil di kalender aktif |
+
+### F11/F12 — Lampiran dan realisasi (P1)
+
+| ID | Kebutuhan | Diterima bila |
+|---|---|---|
+| FR-023 | Batas file | Berkas valid <=20 MB dapat diunggah; >20 MB ditolak (413) tanpa ditampung seluruhnya di RAM |
+| FR-024 | File aman | MIME/ekstensi divalidasi, penyimpanan persisten, akses unduh diperiksa |
+| FR-025 | Realisasi | Pengelola Proker mencatat pengeluaran aktual dan melihat selisih dari RAB tanpa approval |
+
+### F13/F14 — Inventaris (P1)
+
+| ID | Kebutuhan | Diterima bila |
+|---|---|---|
+| FR-026 | Aset fisik termasuk buku | Kode unik, lokasi, kondisi dan status disimpan sebagai field terpisah |
+| FR-027 | Peminjam manual | Transaksi menerima nama peminjam eksternal tanpa user_id/akun dan mencatat due date |
+| FR-028 | Pinjam, sewa, kembali | Status mengikuti transaksi; kondisi awal/akhir dan tanggal kembali tersedia |
+| FR-029 | Histori terlacak | Peminjaman lama tetap dapat dibuka setelah barang kembali; penghapusan hanya arsip |
+| FR-030 | Aset digital | Folder/Drive/akun/domain/hosting/repo dapat dicatat tanpa password/API key plaintext |
+
+### F15/F16/F17/F18 — Website publik, Form Builder, pendaftaran, Short Link (P1)
+
+| ID | Kebutuhan | Diterima bila |
+|---|---|---|
+| FR-031 | Acara publik | Semua pengurus aktif dapat membuat; hanya konten PUBLISHED terlihat oleh pengunjung |
+| FR-032 | Ownership konten | Pembuat dapat mengelola miliknya; Inti dapat mengelola milik orang lain; selain itu 403 |
+| FR-033 | Form template awal | Form baru dapat diisi Nama/NIM/Fakultas/Prodi-Jurusan sebagai **template saja** |
+| FR-034 | Fully editable | Semua field bawaan dapat dihapus/ubah; pengguna menambah field/opsi/section dan mengatur required/urutan |
+| FR-035 | Pilihan fakultas & placeholder | Dropdown awal FIF/FKS/FIK/FIT/FRI/FEB/FTE dan placeholder `S1 Informatika` tampil bila template dipakai |
+| FR-036 | Public registration | Peserta tanpa akun dapat mengirim jawaban sesuai form versi aktif; input tervalidasi dan antispam dasar |
+| FR-037 | Data respons | Pengelola dapat melihat respons dan ekspor Excel/CSV; pihak luar tidak melihat PII |
+| FR-038 | Versioning form | Mengubah form setelah menerima respons tidak menghapus atau merusak respons historis |
+| FR-039 | Short Link | Semua pengurus bisa membuat; pembuat bisa edit/nonaktif/hapus milik sendiri; Inti bisa mengelola semua |
+| FR-040 | Redirect aman | Slug unik dan URL tervalidasi; link nonaktif tidak redirect; aktivitas mutasi diaudit |
+
+---
+
+## 12. Model data konseptual
+
+| Entitas | Field/relasi pokok | Modul pemilik logis (semua dalam `erp_ukm`) |
+|---|---|---|
+| `users` | id, username, password_hash, is_active | Identity & Org |
+| `members` | id, name, contact?, user_id? | Identity & Org |
+| `periods` | id, label, start_at?, end_at?, status, archived_at?, archived_by? | Identity & Org |
+| `units` | id, name, type, parent_id?, active_period | Identity & Org |
+| `unit_memberships` | member_id/user_id, unit_id, period_id, valid_from, valid_until?; departemen efektif dari parent bidang | Identity & Org |
+| `position_assignments` | member_id/user_id, role, unit_id?, period, active | Identity & Org |
+| `programs` | id, period_id, title, owner_unit_id, owner_department_id? (untuk unit yang berada di bawah departemen), owner_division_id?, creator_id, chairperson_member_id, status, dates, closed_at?, closed_by? | Operations / Program |
+| `program_assignments` | program_id, user_id, can_edit, granted_by, valid_from, revoked_at?; satu assignment efektif aktif per user/Proker | Operations / Program |
+| `program_assignment_sources` [rekomendasi] | assignment_id, source (creator/chairperson/manual/task_pic), source_task_id?, granted_by, revoked_at?; beberapa sumber dapat menopang satu assignment efektif | Operations / Program |
+| `committee_groups` | id, program_id, parent_group_id?, label, sort_order, template_version? | Operations / Program |
+| `committee_roles` | id, program_id, group_id?, title, sort_order, is_chairperson? | Operations / Program |
+| `committee_members` | id, program_id, committee_role_id?, member_id?, user_id?, display_name, notes? | Operations / Program |
+| `budget_lines` | program_id, label, category, quantity, unit_price, amount, version | Operations / Finance |
+| `tasks` | task_id, period_id, scope_type, scope_id, assignee_user_id?, committee_member_id?, status, due_at?, version | Operations / Program |
+| `calendar_events` | id, period_id, scope_type, scope_id, program_id?, public_event_id?, start_at, end_at | Operations / Program |
+| `audit_logs` | actor_id, action, resource_id/type, timestamp, safe_before_after | Owner domain / audit |
+| `physical_assets` | code, name, category, location, condition, status, custodian, archived_at? | Asset submodule |
+| `asset_loans` | asset_id, transaction_type, borrower_name, contact?, loan_at, due_at, returned_at?, condition_before/after, logged_by | Asset submodule |
+| `digital_assets` | name, type, url?, owner_id?, reference_to_password_manager?, notes | Asset submodule |
+| `public_events` | title, content, poster, starts_at, owner_user_id, program_id?, publish_status | Public Content submodule |
+| `registration_forms` | id, public_event_id, owner_id, published_version_id?, accepting_submissions | Registration submodule |
+| `form_versions` | form_id, version, sections, ordered questions/options schema, published_at | Registration submodule |
+| `form_submissions` | form_id, form_version_id, timestamp, responses JSON, optional dedupe token | Registration submodule |
+| `short_links` | slug, destination, owner_user_id, active, deleted_at? | Public Content submodule |
+| `files` | id, owning_resource, path/storage_key, size, mime, uploaded_by | Owner domain / shared storage |
+
+**Model ini konseptual**, bukan perintah membuat seluruh tabel pada minggu pertama. Semua tabel berada dalam **satu database PostgreSQL `erp_ukm`**, sehingga foreign key dan transaksi lintas tabel dapat digunakan untuk menjaga integritas. Kepemilikan domain bersifat **modular/logis**, bukan pemisahan database fisik. Modul mengakses aturan bisnis modul lain melalui *application service* atau antarmuka internal, bukan menulis ke tabel milik modul lain sembarangan. `owner_unit_id` memungkinkan proker di bawah departemen/bidang maupun fungsi HR; **[TERBUKA]** detail pengelolaan assignment untuk proker milik fungsi HR atau tingkat UKM. Data form dinamis menyimpan **ID pertanyaan stabil dan versi**; kolom Nama/NIM/Fakultas/Prodi tidak boleh dianggap selalu ada.
+
+**[REKOMENDASI teknis]** Relasi sumber grant dapat berupa tabel terpisah atau bentuk setara dengan integritas yang teruji. Jika pencipta sekaligus Ketupel/PIC, simpan sumbernya tanpa menduplikasi assignment efektif. Aturan pencabutan per sumber masih mengikuti keputusan terbuka §18; mengganti satu PIC tidak boleh diam-diam menghapus sumber grant lain. `erp_ukm` adalah nama logis rancangan; target PostgreSQL di luar Docker mengikuti konfigurasi existing sesuai §13.2.
+
+---
+
+## 13. Arsitektur teknis dan batas infrastruktur — Modular Monolith [FINAL]
+
+### 13.1 Prinsip arsitektur
+
+**Keputusan final v1.4:** ERP UKM menggunakan **modular monolith**, bukan microservices. Seluruh modul backend berjalan sebagai **satu aplikasi FastAPI**, berbagi **satu database PostgreSQL** dan **satu proses rilis/migrasi**. Batas modul ditetapkan pada kode, kepemilikan business rules, antarmuka internal, serta pengujian, bukan melalui jaringan.
+
+- **Satu backend deployment:** tidak ada Auth Service, Program Service, Finance Service terpisah.
+- **Satu PostgreSQL database:** `erp_ukm`; foreign key dan transaksi lintas entitas dipakai saat masuk akal. Kepemilikan tabel tetap per modul secara logis.
+- **Satu sistem autentikasi dan authorization:** central policy code; semua endpoint melakukan enforcement server-side, dan pengecekan sesuai aksi/scope.
+- **Interaksi modul in-process:** panggil application service melalui antarmuka yang jelas; **tidak membuat HTTP call ke localhost antar modul**.
+- **Satu audit trail:** perubahan penting ditulis dalam transaksi database terkait bila memungkinkan, sehingga tidak kehilangan jejak saat operasi gagal.
+- **Satu unit deployment tidak berarti satu file besar:** modular monolith memerlukan disiplin dependensi antar modul dan tests, bukan pembagian folder kosmetik.
+
+### 13.2 Deployment mengikuti Compose existing [FINAL — v1.6]
+
+```text
+Pengurus (Browser, HTTPS)
+             |
+  Reverse proxy / jaringan existing
+  (production: jaringan caddy_net)
+             |
+       Next.js frontend
+             |
+     /api -> FastAPI monolith
+             |
+  PostgreSQL existing / eksternal
+      DI LUAR DOCKER COMPOSE
+             |
+   Backup di luar host utama
+```
+
+**[FINAL]** Frontend menggunakan **Next.js**, backend **FastAPI**, database **PostgreSQL di luar Docker**. Acuan deployment adalah `docker-compose.yml` dan `docker-compose-dev.yml` existing; tidak membuat alternatif `compose.yaml`/Caddyfile baru sebagai kewajiban.
+
+Saat dokumen ini disusun, Compose production hanya memiliki frontend dan jaringan eksternal `caddy_net`; Compose development memiliki frontend serta proxy Nginx. Backend FastAPI ditambahkan pada Compose yang relevan saat implementasi. Ikuti pola proxy/jaringan masing-masing; jangan menganggap Caddy production wajib menjadi service baru dalam repo.
+
+**Dilarang menambah service/container database, termasuk database development/test dummy.** Backend memakai `DATABASE_URL` yang dikonfigurasi untuk PostgreSQL di luar Docker. Jangan mencetak atau menyalin kredensial ke dokumen/log. Alamat koneksi dari container harus diuji ke target yang disepakati; `localhost` di container bukan otomatis host PostgreSQL.
+
+Nama `erp_ukm` dalam model adalah nama logis rancangan, bukan instruksi membuat/mengganti database existing. Tindakan terhadap data atau migrasi memerlukan preflight target; jangan mengasumsikan database kosong. Tidak perlu integrasi API publik yang sedang ditunda untuk menyelesaikan fondasi P0.
+
+### 13.3 Batas modul internal
+
+| Modul FastAPI | Kepemilikan aturan bisnis dan data | Catatan integrasi |
+|---|---|---|
+| `auth` | Akun, password hash, sesi/login, status akun | Semua aksi internal memerlukan identitas aktif |
+| `organization` | Anggota, unit, bidang, posisi, HR, periode dan Jejak | Pewarisan keanggotaan bidang; arsip periode oleh Ketua Umum; menyediakan cek jabatan/keanggotaan |
+| `permissions` | RBAC+ABAC, pemeriksaan scope dan aksi | Kebijakan terpusat; identitas & assignment diverifikasi melalui API internal Python |
+| `programs` | Proker, panitia, assignment, lifecycle ACTIVE/CLOSED | Menentukan siapa boleh edit/menutup; arsip harus immutable secara operasional |
+| `tasks` | Tugas Kanban umum/unit/bidang/proker, assignee, status | Asal scope menentukan hak edit meskipun muncul di agregat |
+| `calendar` | Agenda umum, unit, proker, pengguna | Menggunakan referensi tanggal proker/tugas, tanpa input ganda |
+| `budgets` | Item RAB dan total, realisasi P1 | Pencatatan saja; tidak ada approval |
+| `monitoring` | Rekap tugas/proker lintas unit | Query read-only/agregat terhadap sumber yang sama |
+| `audit` | Catatan mutasi penting, actor dan timestamp | Redaksi/larangan menyimpan secret/PII yang tidak perlu |
+| `assets` (P1) | Inventaris fisik/digital, status, kondisi, pinjam/sewa/kembali | Transaksi peminjaman dan master aset terpisah |
+| `public_content` (P1) | Acara publik, short link dan ownership | API publik tidak mengekspos RAB/proker/PII internal |
+| `registrations` (P1) | Form, versi pertanyaan, jawaban peserta, ekspor | Template 4 field sepenuhnya dapat diubah/dihapus |
+| `files` (P1) | Metadata, validasi ukuran/jenis, penyimpanan lampiran | Maksimum 20 MB per file; tidak buffering penuh di RAM |
+
+**Aturan dependensi:** router tidak melakukan query SQL langsung; router memanggil *application service*; repository fokus pada persistence. Modul tidak mengimpor router atau repository privat modul lain. Kebutuhan lintas modul memakai method/service internal yang diekspos, dengan pengujian kontrak modul. `permissions` memutuskan boleh/tidak, bukan hanya menyembunyikan tombol frontend.
+
+### 13.4 Struktur kode awal (ilustrasi)
+
+```text
+erp-ukm/
+  backend/
+    app/
+      main.py                    # FastAPI app, register routers
+      core/
+        config.py                # environment config
+        database.py              # engine, session, transaction
+        security.py              # password hash, session
+        dependencies.py          # current user, db session
+      modules/
+        auth/
+          router.py
+          schemas.py
+          models.py
+          service.py
+          repository.py
+        organization/
+          router.py, schemas.py, models.py, service.py, repository.py
+        permissions/
+          policies.py, dependencies.py
+        programs/
+          router.py, schemas.py, models.py, service.py, repository.py
+        tasks/
+          router.py, schemas.py, models.py, service.py, repository.py
+        calendar/
+        budgets/
+        monitoring/
+        audit/
+        assets/                  # P1
+        public_content/          # P1
+        registrations/          # P1
+        files/                   # P1
+    alembic/                     # satu migration history
+    tests/
+  frontend/
+  docker-compose.yml             # existing, tambah backend; tanpa service database
+  docker-compose-dev.yml         # existing, proxy development; tanpa database Docker
+  nginx/                         # konfigurasi proxy development existing
+  README.md
+  .env.example                   # tidak menyimpan secret asli
+```
+
+Struktur file tidak perlu diikuti secara mekanis. Tujuannya: **fitur punya ownership kode yang jelas**, mudah diuji, tidak menjadi `main.py` atau `models.py` raksasa.
+
+### 13.5 Database, transaction, dan consistency
+
+- **Satu database PostgreSQL existing/eksternal di luar Docker** (`erp_ukm` sebagai nama logis rancangan). **Satu Alembic migration stream**, disertai constraints `UNIQUE`, `CHECK`, foreign keys, indeks dan lock/version bila diperlukan.
+- Satu request yang mengubah Proker, assignment, dan audit dapat menggunakan **satu transaksi PostgreSQL**. Contoh `Tutup Proker`: validasi role → lock/update status → tulis audit → commit; semua berhasil bersama atau rollback bersama.
+- `CLOSED` dan status periode `ARCHIVED` wajib diperiksa oleh service dan policy pada setiap operasi perubahan terkait Proker maupun progres unit/umum dalam periode, termasuk Task, RAB, assignment, panitia, lampiran/kalender; jangan hanya mengandalkan UI. Pengarsipan periode dan mutasi bersamaan harus diserialisasi/ditolak dengan transaksi yang konsisten.
+- Field `scope_type` + `scope_id` untuk task perlu constraint/pemeriksaan integritas sesuai desain ERD final; hindari foreign key polimorfik yang tidak dapat divalidasi tanpa aturan tambahan.
+- Tambahkan `updated_at`/version counter untuk operasi rentan *lost update* ketika dua pengurus mengedit data bersamaan; API mengembalikan konflik 409 bila versi tidak cocok.
+- Untuk Form Builder P1 gunakan PostgreSQL JSONB untuk **schema form versi tetap** dan jawaban peserta dengan pertanyaan ber-ID stabil; jangan menggunakan kolom universal `nim`/`fakultas` pada semua formulir.
+- Untuk jumlah data MVP, laporan monitoring cukup query/agregasi indeks pada database yang sama; **tidak perlu event bus, cache Redis atau materialized view sejak awal**.
+
+### 13.6 API dan proses latar belakang
+
+- API publik dan pengurus bisa berbagi codebase **dengan router terpisah** (`/api/admin/...` dan `/api/public/...`) serta middleware/rate limit yang sesuai.
+- REST API FastAPI + OpenAPI untuk antarmuka frontend; **tidak perlu service-to-service API**.
+- Background pekerjaan kecil bisa menggunakan mekanisme sederhana yang sesuai, tetapi jangan mengandalkan `BackgroundTasks` in-process untuk pekerjaan kritikal/harus dijamin (misalnya ekspor besar atau notifikasi resmi) tanpa penyimpanan status job yang persisten.
+- Untuk MVP, permintaan ekspor kecil dapat dibuat langsung dengan batas baris/memori; proses berat baru memakai worker terpisah jika terbukti perlu (bukan mengubah sistem menjadi microservices).
+- Short link endpoint redirect publik harus memvalidasi tujuan URL; API publik pendaftaran melakukan validasi form versi aktif, rate limit, dan mencegah kebocoran informasi pendaftar lain.
+
+### 13.7 Infrastruktur dan batas RAM
+
+| Komponen | Rancangan ringan |
+|---|---|
+| Reverse proxy | Ikuti existing: jaringan `caddy_net` production; Nginx pada Compose development; routing Next.js + `/api` |
+| Backend | **Satu** container FastAPI, awalnya satu Uvicorn worker; ukur RAM dan latensi sebelum menambah worker |
+| Database | **Satu PostgreSQL existing/eksternal, di luar Docker**; koneksi backend melalui konfigurasi rahasia; jangan menambah service/container database |
+| Frontend | **Next.js existing**; container/runtime mengikuti Dockerfile dan Compose proyek, lalu ukur RAM bersama backend |
+| File storage | Volume persisten dengan hard limit file 20 MB, validasi tipe, kuota total menyusul |
+| Backup | PostgreSQL dump/PITR sesuai kapasitas + file storage, **off-host**, rutin diuji restore |
+| Observability | JSON logs/rotasi, health check, statistik container/disk; stack monitoring berat ditunda |
+
+**VPS 2 GB:** cocok sebagai target awal yang perlu diuji dengan satu worker, query efisien, pool terbatas, dan traffic rendah. **VPS 4 GB:** ruang cadangan lebih baik. Jumlah request yang sanggup ditangani **tidak dijamin** hanya dari RAM; uji beban sesuai data dan perangkat riil. Satu VPS tetap menjadi *single point of failure* dan bukan high availability. Hindari RabbitMQ, Redis, Kubernetes, banyak worker, dan service tambahan kecuali pengukuran menunjukkan kebutuhan.
+
+### 13.8 Non-functional requirements
+
+| ID | Aspek | Kriteria |
+|---|---|---|
+| NFR-01 | Auth | HTTPS, sesi/cookie aman, password Argon2id atau hash kuat setara, rate limit login, invalidasi sesi saat akun dinonaktifkan |
+| NFR-02 | ABAC | Kebijakan terpusat namun dipanggil dari seluruh endpoint mutasi/sensitif; `default deny`; test 401/403 terpisah |
+| NFR-03 | Audit | Actor dan perubahan penting tercatat dalam transaksi yang sama bila memungkinkan; jangan audit password, token, secret atau PII berlebihan |
+| NFR-04 | Data | Foreign key satu PostgreSQL di luar Docker, transaksi atomik, constraints, locking/version untuk race, **satu** Alembic migration history |
+| NFR-05 | Resource | Ukur RAM app/Postgres, batasi workers/connection pool, pagination, indeks; log rotation dan monitor disk |
+| NFR-06 | File | Batas **20 MB/file** ditegakkan di proxy+backend, upload streaming ke disk persisten, kuota total terbuka |
+| NFR-07 | Privasi | Respons peserta dan identitas peminjam terproteksi; retensi/izin ekspor data masih perlu keputusan |
+| NFR-08 | Keamanan form publik | Validasi schema versi aktif, rate limit/antispam, sanitasi saat render, CSRF jika relevan dengan cookie |
+| NFR-09 | Redirect | Validasi slug dan destination URL; larang skema berbahaya dan tujuan jaringan internal yang berisiko |
+| NFR-10 | Backup | Backup DB + media off-host secara berkala; restore diuji sebelum dipakai secara riil |
+| NFR-11 | UX | Mobile-first sekitar 360px; Kanban bisa list view, label status familiar |
+| NFR-12 | Availability | Satu VPS = satu titik kegagalan; tidak mengklaim high availability |
+| NFR-13 | API | OpenAPI, status/error jelas, request validation, health endpoint, test API/authorization; **tanpa timeout antarservice internal** |
+| NFR-14 | Performa | Usulan target p95 operasi umum <1 detik dalam dataset/beban uji terukur, belum hasil benchmark |
+| NFR-15 | Modularitas | Setiap modul punya service/repository/policy yang diuji; larang dependensi siklik dan akses langsung ke repository internal modul lain |
+| NFR-16 | Jejak | Arsip periode read-only di seluruh endpoint terkait; histori tetap tersedia lintas periode; tidak ada reset data atau tugas yang dipalsukan DONE |
+
+### 13.9 Performa Form Builder (P1)
+
+- Skema form versi JSONB dengan batas pertanyaan/section wajar; editor tidak memuat seluruh respons.
+- Validasi submission sesuai versi form aktif di server; pagination untuk respons; ekspor CSV streaming dengan batas keamanan dan audit.
+- Ekspor Excel besar perlu batas jumlah respons, memori, dan pengujian; jangan `load all rows` tanpa ukur RAM.
+- Foto/video resolusi tinggi tidak disimpan di disk VPS kecil; gunakan link eksternal atau storage terpisah bila sesuai kebutuhan UKM.
+
+---
+
+## 14. Pemetaan API tingkat tinggi (bukan kontrak final)
+
+| Area | Contoh endpoint |
+|---|---|
+| Auth | `POST /auth/login`, `POST /auth/logout`, `GET /me` |
+| Organisasi | `GET /units`, `GET /members`, `POST /users`, `PATCH /position-assignments/{id}`; seluruh Inti mengelola |
+| Periode/Jejak | `GET /periods`, `GET /periods/{id}/history`, `POST /periods/{id}/archive` (hanya Ketua Umum) |
+| Pergantian Ketupel | `PUT /programs/{id}/chairperson` (Inti; progres berlanjut) |
+| Proker | `POST /programs` (langsung ACTIVE), `GET /programs`, `GET /programs/{id}`, `POST /programs/{id}/close` |
+| Assignment | `POST /programs/{id}/assignments`, `DELETE /programs/{id}/assignments/{assignmentId}` |
+| Kepanitiaan/RAB | `GET /programs/{id}/committee`, `PUT /programs/{id}/committee/structure` (Ketupel), `POST /programs/{id}/committee/members` (sesuai mandat), `GET/PUT /programs/{id}/budget` |
+| Kanban | `GET /tasks?scope=...`, `POST /tasks`, `PATCH /tasks/{id}` |
+| Kalender/Monitoring | `GET /events?scope=...`, `GET /monitoring/units` |
+| Inventaris P1 | `GET/POST /assets`, `POST /assets/{id}/loans`, `POST /asset-loans/{id}/return` |
+| Aset digital P1 | `GET/POST /digital-assets` (tanpa secret plaintext) |
+| Acara publik P1 | `GET /public/events`, `POST /admin/events`, `PATCH /admin/events/{id}` |
+| Form Builder P1 | `POST /admin/events/{id}/forms`, `PUT /admin/forms/{id}/draft`, `POST /admin/forms/{id}/publish` |
+| Pendaftaran P1 | `GET /public/forms/{slug}`, `POST /public/forms/{slug}/submissions`, `GET /admin/forms/{id}/submissions`, `GET /admin/forms/{id}/export` |
+| Short Link P1 | `POST /admin/short-links`, `PATCH /admin/short-links/{id}`, `GET /s/{slug}` |
+
+Endpoint final harus mendefinisikan: parameter, skema Pydantic, respons 200/201/204, error 400/401/403/404/409/413/422, kebijakan ABAC, idempotensi pada aksi penting, dan audit. Hindari endpoint `submit`, `approve`, `reject` untuk Proker: **tidak ada approval Proker pada desain ini**.
+
+---
+
+## 15. Roadmap implementasi yang realistis
+
+### 15.1 Empat minggu — MVP inti P0
+
+| Minggu | Pekerjaan | Bukti selesai |
+|---|---|---|
+| 1 — Fondasi | Next.js + FastAPI monolith, Compose existing, PostgreSQL di luar Docker, login, seluruh 12 Inti admin, unit/periode, keanggotaan turunan, ABAC, migrasi | Inti bisa mengelola akun; non-Inti ditolak; tidak ada database Docker |
+| 2 — Proker | Proker langsung ACTIVE, assignment awal otomatis, Ketupel per-Proker dan pergantian oleh Inti, template panitia, akses baca/edit, RAB, tutup, audit | Pergantian Ketupel tidak mereset progres; template fleksibel; arsip menjaga status tugas |
+| 3 — Kanban, Kalender & Jejak | Scope tugas, PIC memberi assignment Proker, kalender mengikuti scope, dashboard/monitoring, Arsipkan Periode oleh Ketua Umum | Tidak ada task duplikat; arsip tidak muncul di kalender; pengurus berikutnya membaca Jejak |
+| 4 — Stabilitas | Test akses/arsip/audit, responsive UI, load test ringan, backup/restore, dokumentasi, deploy, uji 5–8 pengurus | Demo lengkap dan dapat dioperasikan pada VPS terukur |
+
+**[REKOMENDASI perencanaan]** Target empat minggu adalah perkiraan awal. Jejak periode dan skenario akses baru harus masuk estimasi serta test; jangan mengurangi pengujian arsip/otorisasi agar kalender pengerjaan terlihat terpenuhi.
+
+### 15.2 Fase setelah MVP inti (P1)
+
+Urutan yang disarankan (bisa berubah menurut kebutuhan UKM): **(A) editor Acara Publik dan Short Link → (B) Form Builder & registrasi → (C) inventaris fisik + pinjam/sewa/kembali → (D) inventaris digital → (E) realisasi biaya/LPJ.** Ini adalah urutan pengembangan, **bukan penghapusan fitur PRD**. Form Builder yang benar-benar fleksibel, versi pertanyaan, dan ekspor peserta perlu waktu desain dan pengujian tersendiri.
+
+### 15.3 Definition of Done
+
+Fitur selesai jika: acceptance criteria dipenuhi; API dilindungi; test positif dan negatif berjalan; perubahan sensitif tercatat; validasi error state baik; UI responsif; migrasi dan seed demo tersedia; dokumentasi cukup untuk menjalankan ulang; penggunaan RAM sesuai hasil pengukuran. Rilis untuk penggunaan nyata memerlukan uji pengguna, kebijakan privasi, backup restore, dan penanggung jawab operasional.
+
+---
+
+## 16. UAT — skenario utama
+
+| ID | Skenario | Hasil diharapkan |
+|---|---|---|
+| UAT-01 | Pengurus biasa login, tidak ditugaskan ke Proker A | Proker A tidak jadi fokus dashboard; ditemukan di Semua Proker dalam read-only |
+| UAT-02 | Kepala Departemen atau anggota Inti membuat Proker | Proker langsung ACTIVE tanpa approval dan tercatat penciptanya |
+| UAT-03 | Pengurus tanpa wewenang mencoba membuat Proker via API | 403; tidak ada record baru |
+| UAT-04 | Anggota departemen pemilik menambahkan user lintas departemen sebagai pengelola | Assignment berhasil dan tercatat; user dapat edit Proker itu |
+| UAT-05 | Anggota departemen lain mencoba mengubah assignment Proker secara manual tanpa keanggotaan pemilik | 403; isi assignment tidak berubah. Grant PIC yang sah diuji terpisah |
+| UAT-06 | Pengurus tanpa assignment mencoba edit detail/RAB Proker yang boleh ia lihat | 403; hanya dapat membaca |
+| UAT-07 | Anggota semua unit mengedit task asli Kanban Umum | Perubahan diizinkan dan diaudit |
+| UAT-08 | Anggota Internal melihat dan mencoba mengedit task asli Departemen Eksternal | Bisa melihat; edit ditolak 403 |
+| UAT-09 | Task Proker terlihat pada agregat departemen | Edit mengikuti assignment Proker; tidak ada duplikasi task |
+| UAT-10 | Ketua Pelaksana menutup Proker dengan 3 tugas belum DONE | Muncul warning, lanjut bila dikonfirmasi, status CLOSED, audit tersimpan |
+| UAT-11 | Siapapun mencoba mengubah tugas/RAB dalam Proker CLOSED | Ditolak; arsip tetap dapat dibaca |
+| UAT-12 | Pengurus membuka Monitoring Departemen | Jumlah task tiap status per unit konsisten tanpa penghitungan ganda |
+| UAT-13 | Pengurus Asset menambah buku atau kamera | Kondisi dan status terpisah, kode unik, data dapat dicari (P1) |
+| UAT-14 | Pihak eksternal meminjam kamera, nama dimasukkan manual | Tidak perlu akun; status dipinjam, due date dan histori tersimpan (P1) |
+| UAT-15 | Kamera dikembalikan rusak | Condition berubah; histori before/after tersimpan; tidak otomatis layak dipinjam (P1) |
+| UAT-16 | Pengurus membuat form dan menghapus semua empat field template | Bisa; form valid sesuai pertanyaan pengganti, bukan memaksa NIM/fakultas (P1) |
+| UAT-17 | Pengurus menambah dropdown dan section baru | Preview dan form publik mengikuti konfigurasi; required berfungsi (P1) |
+| UAT-18 | Peserta tanpa login mendaftar; lalu pertanyaan form diubah | Data respons terdahulu tetap utuh dan terikat versi sebelumnya (P1) |
+| UAT-19 | Pengurus tak berwenang membuka respons peserta acara orang lain | Ditolak; data pribadi tidak bocor (P1) |
+| UAT-20 | Pengurus membuat short link; pengurus lain menghapusnya | Ditolak kecuali anggota Inti; pencipta boleh hapus miliknya (P1) |
+| UAT-21 | Unggah 21 MB pada endpoint lampiran | Ditolak 413 tanpa lonjakan memori akibat penampungan file penuh (P1) |
+| UAT-22 | Restore backup di lingkungan uji | Data utama dan audit kembali terbaca; tidak hanya sukses membuat file backup |
+| UAT-23 | Inti membuat Proker A dan B dengan Ketua Pelaksana berbeda; Ketupel membuka template pada Proker masing-masing | Ketupel merupakan peran per-Proker, bukan hak membuat Proker; template tersedia tanpa wajib akun bagi seluruh panitia |
+| UAT-24 | Ketupel mengubah struktur dan memecah PDD | Bisa menambah/rename/hapus/reorder serta membuat Desain dan Pubdok; struktur hanya berubah pada Proker itu |
+| UAT-25 | Operator non-Ketupel mengubah desain struktur panitia tanpa mandat | API mengembalikan 403; struktur tidak berubah. Izin mengisi nama panitia dibedakan dari izin desain struktur |
+| UAT-26 | Panitia dicatat tanpa akun lalu Proker ditutup | Nama tetap terlihat di arsip, tidak mempunyai akun/izin edit otomatis, mutasi struktur setelah CLOSED ditolak |
+| UAT-27 | Uji pemegang masing-masing dari 12 jabatan Inti mengelola akun/akses | Semua jabatan Inti aktif diizinkan tanpa mandat tambahan; non-Inti ditolak |
+| UAT-28 | Anggota Hunting mengelola task Departemen Internal dan assignment Proker Internal | Dihitung sebagai anggota efektif Internal; tidak memperoleh hak ke Modeling hanya karena anggota Internal |
+| UAT-29 | Pencipta dan Ketupel berakun berbeda membuat/memimpin Proker | Keduanya memiliki assignment awal; jika orang yang sama tidak ada duplikasi assignment aktif |
+| UAT-30 | Inti mengganti Ketupel Proker A | Progres/task/RAB/histori tetap; hak struktur mengikuti Ketupel baru; Ketupel Proker B tidak berubah |
+| UAT-31 | Pengelola menunjuk user Eksternal sebagai PIC task Proker Internal | PIC dan assignment edit Proker tercatat atomik dengan audit; user dapat mengedit Proker itu, bukan semua Proker Internal |
+| UAT-32 | Pengurus mengedit agenda unit/Proker di luar haknya | Ditolak; agenda Umum dapat diedit pengurus aktif, unit sendiri sesuai keanggotaan, Proker sesuai assignment |
+| UAT-33 | Proker ditutup dengan task belum DONE | Task tetap berlabel belum selesai dalam arsip; tidak muncul pada kalender dan pekerjaan aktif |
+| UAT-34 | Ketua Umum menekan Arsipkan Periode, lalu pengurus berikutnya membaca Jejak | Seluruh progres periode tersimpan read-only, termasuk yang belum selesai; tidak ada penghapusan/reset data |
+| UAT-35 | Wakil Ketua/Inti lain mencoba arsip periode melalui API | 403; arsip periode hanya oleh Ketua Umum |
+| UAT-36 | Mutasi task unit/Proker bersamaan atau setelah arsip periode | Tidak ada perubahan lolos ke periode yang sudah diarsipkan; histori dan audit konsisten |
+| UAT-37 | Periksa Compose dan koneksi database target | Next.js/FastAPI mengikuti Compose existing; tidak ada service/container database; backend memakai PostgreSQL di luar Docker |
+
+---
+
+## 17. Risiko dan mitigasi
+
+| Risiko | Mitigasi |
+|---|---|
+| Pengurus enggan memindah kerja dari WA | Beranda personal, sedikit input, satu proker sebagai sumber data; WA tetap untuk percakapan |
+| Semua anggota departemen dapat self-assign edit Proker | Audit grant/revoke, riwayat perubahan, evaluasi kebijakan bila muncul penyalahgunaan |
+| Keterbukaan Proker disalahartikan sebagai keterbukaan PII | Pisahkan permission respons pendaftaran, data peminjam, dan kredensial digital |
+| Kanban Umum jadi bypass izin Proker | Pemeriksaan scope asli setiap task, deny pada Proker CLOSED |
+| Task agregat dihitung lebih dari sekali | `task_id` tunggal, query DISTINCT/aggregation dengan scope jelas |
+| Ketua Pelaksana belum punya akun | Tetap bisa dicatat sebagai nama; Inti menutup; beri akun saat perlu aksi sistem |
+| Form Builder bebas merusak respons historis | Form versioning, immutable submission schema, migration/preview |
+| Form publik menerima spam/bot dan data salah | Rate-limit, validasi schema, honeypot/antispam dasar, batas panjang jawaban |
+| Banyak data peserta pada VPS kecil | Pagination, query indexed, batas ekspor, streaming bila memungkinkan |
+| Password organisasi bocor melalui inventaris | Tidak menyimpan password/API key sebagai plaintext; pakai password manager dan akses terbatas |
+| Peminjaman aset tertukar dengan kondisi barang | Pisahkan condition/status dan catat transaksi lengkap sebelum/selepas |
+| File 20 MB membebani RAM/disk | Streaming, pembatasan reverse proxy, volume persisten, kuota/backup |
+| One-server outage | Backup off-host, healthcheck, dokumentasi recovery; tidak mengklaim HA |
+| Scope P1 membengkak pada sprint MVP | P0 diprioritaskan, P1 dirilis setelahnya, definisi done diuji |
+| Struktur kepanitiaan diperlakukan sebagai jabatan organisasi | Pisahkan data `committee_*` per-Proker dari `units/position_assignments`; template hanya memberi struktur awal, tidak memberi role/permission |
+| Ketua Pelaksana nonakun ingin mengubah template | Harus masuk lewat akun berpenugasan Ketupel atau atur delegasi eksplisit di masa depan; jangan menyiasatinya dengan akun bersama |
+
+---
+
+## 18. Keputusan yang masih terbuka / bukan asumsi final
+
+Keputusan v1.6 tentang semua Inti sebagai pengelola akun, assignment awal otomatis, PIC memberi akses Proker, kalender berdasarkan scope, Next.js, dan larangan database Docker **sudah final**. Jangan memakai pertanyaan lama v1.5 untuk mengabaikan keputusan ini.
+
+1. **[TERBUKA P0] Serah terima periode:** siapa menyiapkan/mengaktifkan periode baru dan Ketua Umum penerus; apakah akun/jabatan lama berakhir otomatis; apakah pekerjaan disalin ke periode baru. Arsip seluruh progres oleh Ketua Umum dan pembacaan Jejak oleh pengurus berikutnya sudah final. Jangan menonaktifkan akun massal atau menyalin progres tanpa aturan ini.
+2. **[TERBUKA P0] Assignment Proker HR/tingkat UKM:** siapa yang mengelola grant/revoke manual jika tidak ada departemen pemilik. Pencipta/Ketupel/PIC tetap mendapatkan assignment otomatis sesuai aturan final; jangan menganggap jawaban tentang assignment awal menyelesaikan pengelola manual nondepartemen.
+3. **[TERBUKA P0] Pencabutan akses berbasis PIC:** jika PIC diganti/dihapus atau assignment dicabut manual sementara masih PIC, kapan akses Proker berakhir? Bedakan grant dari PIC, pencipta, Ketupel, dan manual agar sumber akses lain tidak hilang diam-diam.
+4. **[TERBUKA P0] Assignment Ketupel lama:** pergantian oleh Inti tidak mereset progres dan mengalihkan hak khusus Ketupel, tetapi mempertahankan/mencabut assignment edit biasa Ketupel lama belum diputuskan.
+5. **[TERBUKA P0] Panitia:** izin CRUD nama/penempatan anggota oleh pengelola non-Ketupel serta perilaku hapus/reset divisi yang mempunyai anggota/PIC tugas perlu dirinci. Ketua Pelaksana tetap otoritatif di Proker; label bagan tidak boleh menjadi cara mengganti pemegang izin tanpa aksi Inti.
+6. **[TERBUKA P0] Kalender pribadi dan transfer scope tugas:** default rancangan kalender pribadi berupa agregasi Jadwal Saya; privasi agenda independen dan pemindahan tugas antar-scope memerlukan spesifikasi sebelum dibangun.
+7. **[TERBUKA] Pilihan unit pemilik Proker lintas departemen** oleh anggota Inti; hak mengedit task bidang oleh Kepala Departemen yang bukan anggota bidang tetap read-only kecuali penugasan khusus.
+8. **[TERBUKA P1] Publikasi acara dan pendaftaran saat Proker CLOSED,** review publikasi bila diperlukan, izin respons peserta, retensi PII, dan duplicate submission. Fase API publik sedang ditunda.
+9. **[TERBUKA P1] Batas form, ekspor lintas versi, dan submission versi lama.** Versioning immutable dan perlindungan jawaban historis sudah wajib.
+10. **[TERBUKA P1] Kuota storage total, tipe file, klasifikasi dokumen, dan kebijakan sewa/denda.** Batas file 20 MB sudah final; jangan menyimpan secret plaintext.
+11. **[TERBUKA teknis]** Bootstrap akun pertama, reset password/sesi, ERD/kontrak API final, parameter beban uji, backup/restore dan kapasitas VPS. Gunakan konfigurasi PostgreSQL di luar Docker, tanpa membaca/menyalin secret ke dokumentasi.
+
+**Default MVP yang sudah berlaku:** Proker CLOSED tidak dapat dibuka kembali. Ketua Pelaksana nonakun harus memperoleh akun/assignment untuk mengubah struktur; jangan memberikan delegasi struktur kepada semua operator secara otomatis. Menjadi Ketupel satu Proker tidak otomatis memberi hak membuat Proker lain.
+
+**Arsitektur final:** Next.js + FastAPI modular monolith + satu PostgreSQL di luar Docker; Compose existing sebagai acuan. Tidak perlu membuka kembali keputusan approval Proker/RAB, template form bebas, akun opsional panitia, atau hak Inti yang sudah disepakati.
+
+---
+
+## 19. Checklist implementasi dan deliverables
+
+- [ ] `README.md`, `.env.example` tanpa kredensial, keputusan arsitektur **Next.js + FastAPI modular monolith**; gunakan `docker-compose.yml`/`docker-compose-dev.yml` existing, tanpa service/container database.
+- [ ] **Satu PostgreSQL di luar Docker dan satu Alembic migration history**; konfigurasi target dan preflight sebelum migrasi; seed struktur UKM (4 Super Inti, 3 Kepala Departemen, 4 Kepala Bidang, 1 Kepala HR), keanggotaan bidang→departemen, seluruh Inti dapat mengelola akun.
+- [ ] OpenAPI contract pada satu aplikasi FastAPI untuk login, Proker direct-active, **template/bagan panitia yang bebas dikustom Ketua Pelaksana**, penugasan, penutupan, RAB, Kanban, kalender, monitoring.
+- [ ] Unit/integration tests per modul, test batas dependensi, ABAC lintas scope, arsip read-only, atomisitas audit, self-assignment yang disepakati.
+- [ ] UX walkthrough mobile: login → Tugas Saya → proker ditugaskan → Kanban/PIC → tutup Proker → lihat arsip; Ketua Umum → Arsipkan Periode → pengurus berikutnya membaca Jejak.
+- [ ] P0: test RAM Next.js/FastAPI dan backup/restore PostgreSQL di luar Docker. Saat P1 unggahan dikerjakan: test batas 20 MB dan backup media; API file publik tetap ditunda pada fase sekarang.
+- [ ] Backlog tahap P1: inventaris fisik/digital, website publik, editor acara, Form Builder (empat field hanya template), respons publik + ekspor, short link.
+- [ ] UAT 5–8 pengurus lintas peran untuk memvalidasi kemudahan penggunaan sebelum memakai data UKM nyata.
+
+**Akhir PRD ERP UKM v1.6 — fokus alur pengurus, Jejak kepengurusan, klarifikasi akses, Next.js + FastAPI dan PostgreSQL di luar Docker, 17 November 2026.**

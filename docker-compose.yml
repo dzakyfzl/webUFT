@@ -6,38 +6,23 @@ services:
     env_file:
       - ./.env
     environment:
-      APP_ENV: production
-      DEBUG: "false"
-      STORAGE_DIR: /app/storage
-      MODULE_STORAGE_DIR: /app/storage/modules
-      PUBLIC_FILE_BASE_URL: /static/modules
-      DATABASE_URL: postgresql+psycopg2://${DATABASE_USERNAME}:${DATABASE_PASSWORD}@${DATABASE_HOST}:${DATABASE_PORT}/${DATABASE_DATABASE}
-      SECRET_KEY: ${SECRET_KEY}
-      ACCESS_TOKEN_EXPIRE_MINUTE: ${ACCESS_TOKEN_EXPIRE_MINUTE}
-      REFRESH_TOKEN_EXPIRE_DAYS: ${REFRESH_TOKEN_EXPIRE_DAYS}
-      ADMIN_USERNAME: ${ADMIN_USERNAME}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
-      IMAGE_QUALITY: ${IMAGE_QUALITY}
-      SHORTLINK_DOMAIN: ${SHORTLINK_DOMAIN} 
+      ERP_ENV: production
+      ERP_PUBLIC_ORIGIN: ${ERP_PUBLIC_ORIGIN:-https://ukmfotografitelkom.com}
+      DATABASE_HOST: ${ERP_DATABASE_HOST:-host.docker.internal}
+      FORWARDED_ALLOW_IPS: ${ERP_TRUSTED_PROXY_IPS:-127.0.0.1,::1}
+      ERP_MEDIA_DIR: /app/var/media
     volumes:
-      - backend_storage:/app/storage
-      - ./media:/media
-    expose:
-      - "8000"
-    healthcheck:
-      test:
-        - CMD
-        - python
-        - -c
-        - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
+      - erp_media:/app/var/media
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     networks:
       - caddy_net
-
   frontend:
     build:
       context: ./frontend
@@ -45,16 +30,21 @@ services:
     env_file:
       - path: ./frontend/.env
         required: false
+    restart: unless-stopped
     depends_on:
       backend:
         condition: service_healthy
-    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     networks:
       - caddy_net
-
-volumes:
-  backend_storage:
 
 networks:
   caddy_net:
     external: true
+
+volumes:
+  erp_media:

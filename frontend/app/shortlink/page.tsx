@@ -1,8 +1,12 @@
 "use client";
 
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { Check, Clipboard, LoaderCircle } from "lucide-react";
 import { buildShortlinkUrl, shortlinkHost } from "@/app/lib/shortlink-url";
+import DynamicButton from "@/app/components/ui/dynamic-button";
+import DirectionalPanels from "@/app/components/ui/directional-panels";
+import { shakeInvalidField } from "@/app/lib/motion-preference";
 
 type FormState = "idle" | "loading" | "success" | "error";
 
@@ -21,10 +25,16 @@ export default function ShortlinkPage() {
   const [formState, setFormState] = useState<FormState>("idle");
   const [resultUrl, setResultUrl] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const [slugConflict, setSlugConflict] = useState(false);
+  const [needsLogin, setNeedsLogin] = useState(false);
   const [copied, setCopied] = useState(false);
 
   // Guard mencegah double-submit (dari double-click atau React StrictMode)
   const isSubmitting = useRef(false);
+  const slugInput = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (slugConflict && slugInput.current) { slugInput.current.focus(); shakeInvalidField(slugInput.current); }
+  }, [slugConflict]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,17 +43,31 @@ export default function ShortlinkPage() {
 
     setFormState("loading");
     setErrorMessage("");
+    setSlugConflict(false);
+    setNeedsLogin(false);
     setResultUrl("");
 
     const finalSlug = slug.trim() || generateRandomSlug();
 
     try {
-      const res = await fetch("/api/shortlink/tambah", {
+      const identity = await fetch("/api/admin/me", { credentials: "same-origin", cache: "no-store" });
+      if (identity.status === 401 || identity.status === 403) {
+        setNeedsLogin(true);
+        setErrorMessage("Masuk sebagai pengurus aktif untuk membuat short link.");
+        setFormState("error");
+        return;
+      }
+      if (!identity.ok) throw new Error("Session unavailable");
+      const me = await identity.json();
+      const res = await fetch("/api/admin/links", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json", "X-CSRF-Token": me.csrf_token },
         body: JSON.stringify({
+          period_id: me.period_id,
           slug: finalSlug,
-          destinationUrl: destinationUrl.trim(),
+          destination_url: destinationUrl.trim(),
+          active: true,
         }),
       });
 
@@ -55,6 +79,7 @@ export default function ShortlinkPage() {
         setFormState("success");
         setSlug(data.slug); // sync tampilan slug dengan yang tersimpan
       } else if (res.status === 409) {
+        setSlugConflict(Boolean(slug.trim()));
         setErrorMessage(`Slug "${finalSlug}" sudah digunakan. Coba slug lain.`);
         setFormState("error");
       } else if (res.status === 422) {
@@ -63,11 +88,11 @@ export default function ShortlinkPage() {
         if (Array.isArray(detail) && detail.length > 0) {
           setErrorMessage(detail[0]?.msg || "Input tidak valid.");
         } else {
-          setErrorMessage("Input tidak valid. Periksa URL dan slug.");
+          setErrorMessage(data?.error?.message || "Input tidak valid. Periksa URL dan slug.");
         }
         setFormState("error");
       } else {
-        setErrorMessage(data?.message || "Terjadi kesalahan. Silakan coba lagi.");
+        setErrorMessage(data?.error?.message || data?.message || "Terjadi kesalahan. Silakan coba lagi.");
         setFormState("error");
       }
     } catch {
@@ -100,6 +125,7 @@ export default function ShortlinkPage() {
     setFormState("idle");
     setResultUrl("");
     setErrorMessage("");
+    setSlugConflict(false);
     setDestinationUrl("");
     setSlug("");
     setCopied(false);
@@ -107,12 +133,12 @@ export default function ShortlinkPage() {
 
   // ── Input base classes (mengikuti tema dark yang ada di project) ───────────
   const inputCls =
-    "w-full bg-white/[0.04] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-slate-600 text-sm focus:outline-none focus:border-red-500/50 focus:bg-white/[0.06] transition-all";
+    "w-full bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2.5 text-white placeholder-slate-400 text-sm focus:outline-none focus:border-red-500/50 focus:bg-white/[0.06] transition-all";
 
-  const labelCls = "block text-xs font-semibold text-slate-400 uppercase tracking-widest mb-2";
+  const labelCls = "block text-xs font-semibold text-slate-300 mb-1.5";
 
   return (
-    <main className="min-h-screen w-full bg-[#0f0f11] font-sans selection:bg-red-600/30 flex flex-col">
+    <main className="min-h-screen w-full bg-[#0f0f11] font-sans selection:bg-red-600/30 flex flex-col [--field-error-color:#fca5a5]">
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <header className="w-full border-b border-white/5 bg-[#18181b] px-6 py-4 flex items-center justify-between">
@@ -151,10 +177,11 @@ export default function ShortlinkPage() {
 
           {/* Card */}
           <div className="bg-[#18181b] border border-white/5 rounded-2xl p-6 md:p-8 shadow-2xl">
+            <DirectionalPanels step={formState === "success" ? 1 : 0}>
 
             {/* ── FORM STATE ── */}
             {(formState === "idle" || formState === "loading" || formState === "error") && (
-              <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+              <form onSubmit={handleSubmit} className="flex flex-col gap-4">
 
                 {/* Destination URL */}
                 <div>
@@ -163,6 +190,10 @@ export default function ShortlinkPage() {
                   </label>
                   <input
                     id="dest-url"
+                    name="destination_url"
+                    aria-describedby="destination-hint"
+                    maxLength={2000}
+                    data-step-focus
                     type="url"
                     value={destinationUrl}
                     onChange={(e) => setDestinationUrl(e.target.value)}
@@ -172,7 +203,7 @@ export default function ShortlinkPage() {
                     disabled={formState === "loading"}
                     autoFocus
                   />
-                  <p className="mt-1.5 text-xs text-slate-600">
+                  <p id="destination-hint" className="mt-1.5 text-xs text-slate-400">
                     Harus diawali dengan <code className="text-slate-500">https://</code> atau <code className="text-slate-500">http://</code>
                   </p>
                 </div>
@@ -180,59 +211,59 @@ export default function ShortlinkPage() {
                 {/* Custom Slug */}
                 <div>
                   <label htmlFor="custom-slug" className={labelCls}>
-                    Link Custom
+                    Slug (opsional)
                   </label>
-                  <div className="flex items-center gap-0">
-                    <span className="bg-white/[0.02] border border-r-0 border-white/10 rounded-l-xl px-3 py-3 text-slate-500 text-xs font-mono whitespace-nowrap flex-shrink-0">
+                  <div data-validation-anchor className="flex items-center gap-0">
+                    <span className="bg-white/[0.02] border border-r-0 border-white/10 rounded-l-lg px-2 py-2.5 text-slate-400 text-xs font-mono whitespace-nowrap flex-shrink-0">
                       {shortlinkHost}/
                     </span>
                     <input
                       id="custom-slug"
+                      name="slug"
+                      autoCapitalize="none"
+                      spellCheck={false}
+                      ref={slugInput}
                       type="text"
                       value={slug}
-                      onChange={(e) => setSlug(e.target.value)}
+                      onChange={(e) => { setSlug(e.target.value); setSlugConflict(false); }}
+                      aria-invalid={slugConflict || undefined}
+                      aria-describedby={slugConflict ? "slug-hint shortlink-error" : "slug-hint"}
                       placeholder="webLink"
-                      className="flex-1 bg-white/[0.04] border border-white/10 rounded-r-xl px-4 py-3 text-white placeholder-slate-600 text-sm focus:outline-none focus:border-red-500/50 focus:bg-white/[0.06] transition-all font-mono"
+                      className="min-w-0 flex-1 bg-white/[0.04] border border-white/10 rounded-r-lg px-3 py-2.5 text-white placeholder-slate-400 text-sm focus:outline-none focus:border-red-500/50 focus:bg-white/[0.06] transition-all font-mono"
                       disabled={formState === "loading"}
-                      pattern="[a-zA-Z0-9_-]*"
-                      maxLength={100}
+                      pattern={String.raw`[a-zA-Z0-9][a-zA-Z0-9_\-]*`}
+                      minLength={3}
+                      maxLength={80}
                     />
                   </div>
-                  <p className="mt-1.5 text-xs text-slate-600">
-                    Kosongkan untuk slug acak. Hanya huruf, angka, <code className="text-slate-500">-</code> dan <code className="text-slate-500">_</code>
+                  <p id="slug-hint" className="mt-1.5 text-xs text-slate-400">
+                    Kosongkan untuk slug acak. Awali dengan huruf atau angka. Karakter lain yang didukung <code className="text-slate-500">-</code> dan <code className="text-slate-500">_</code>
                   </p>
                 </div>
 
                 {/* Error message */}
                 {formState === "error" && errorMessage && (
-                  <div className="flex items-start gap-3 bg-red-600/10 border border-red-500/20 rounded-xl px-4 py-3">
-                    <span className="text-red-400 mt-0.5 flex-shrink-0">⚠️</span>
+                  <div id="shortlink-error" role="alert" className="flex flex-col gap-3 bg-red-600/10 border border-red-500/20 rounded-xl px-4 py-3">
                     <p className="text-red-400 text-sm">{errorMessage}</p>
+                    {needsLogin && <Link href="/admin/login" className="text-sm text-white underline">Masuk pengurus</Link>}
                   </div>
                 )}
 
                 {/* Submit */}
-                <button
+                <DynamicButton
                   id="btn-buat-shortlink"
                   type="submit"
-                  disabled={formState === "loading" || !destinationUrl.trim()}
+                  fullWidth
+                  icon={formState === "loading" && <LoaderCircle className="size-4 animate-spin"/>}
+                  disabled={formState === "loading"}
                   className={`w-full py-3.5 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${
-                    formState === "loading" || !destinationUrl.trim()
+                    formState === "loading"
                       ? "bg-white/5 text-slate-600 border border-white/5 cursor-not-allowed"
-                      : "bg-red-600 hover:bg-red-700 text-white shadow-[0_0_24px_rgba(220,38,38,0.3)] hover:shadow-[0_0_32px_rgba(220,38,38,0.5)] hover:scale-[1.01] active:scale-[0.99]"
+                      : "bg-red-600 hover:bg-red-700 text-white"
                   }`}
                 >
-                  {formState === "loading" ? (
-                    <>
-                      <div className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                      Membuat shortlink…
-                    </>
-                  ) : (
-                    <>
-                      <span>🔗</span> Buat Shortlink
-                    </>
-                  )}
-                </button>
+                  {formState === "loading" ? "Membuat shortlink…" : "Buat Shortlink"}
+                </DynamicButton>
               </form>
             )}
 
@@ -246,7 +277,7 @@ export default function ShortlinkPage() {
                       <polyline points="20 6 9 17 4 12" />
                     </svg>
                   </div>
-                  <p className="text-white font-bold text-lg">Shortlink berhasil dibuat!</p>
+                  <p className="text-white font-bold text-lg" role="status" data-step-focus tabIndex={-1}>Shortlink berhasil dibuat!</p>
                   <p className="text-slate-500 text-sm text-center">
                     Bagikan link di bawah ini kepada siapa saja.
                   </p>
@@ -268,9 +299,11 @@ export default function ShortlinkPage() {
                     </a>
                   </div>
                   {/* Copy button */}
-                  <button
+                  <DynamicButton
                     id="btn-copy-shortlink"
                     type="button"
+                    fullWidth
+                    icon={copied ? <Check size={16}/> : <Clipboard size={16}/>}
                     onClick={handleCopy}
                     className={`w-full py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
                       copied
@@ -278,12 +311,8 @@ export default function ShortlinkPage() {
                         : "bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white"
                     }`}
                   >
-                    {copied ? (
-                      <><span>✓</span> Tersalin!</>
-                    ) : (
-                      <><span>📋</span> Salin URL</>
-                    )}
-                  </button>
+                    {copied ? "Tersalin!" : "Salin URL"}
+                  </DynamicButton>
                 </div>
 
                 {/* Info: slug dipakai */}
@@ -304,6 +333,7 @@ export default function ShortlinkPage() {
                 </button>
               </div>
             )}
+            </DirectionalPanels>
           </div>
 
           {/* Footer note */}

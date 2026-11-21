@@ -8,6 +8,8 @@ import { GalleryCard } from './components/GalleryCard';
 import { ServiceGrid } from './components/ServiceGrid';
 
 import { ScrollArea, ScrollBar } from '@/app/components/ui/scroll-area';
+import ScrollFadeList from '@/app/components/ui/scroll-fade-list';
+import { scrollMotion } from '@/app/lib/motion-preference';
 import type { Acara, Koleksi, KoleksiOrigin } from './components/types';
 import { fetchGalleryData, fetchEventsData } from './lib/api';
 
@@ -17,8 +19,6 @@ import { HeroCarousel } from './components/sections/HeroCarousel';
 import { GalleryFull } from './components/sections/GalleryFull';
 
 // --- STATIC DATA ---
-const CAROUSEL_PARTNERS: { id: string; label: string; title: string; description: string; image: string }[] = [];
-
 const SERVICES = [
   { title: 'Kelas Fotografi', description: 'Belajar teknik kamera, cahaya, komposisi, dan proses kreatif bersama anggota.' },
   { title: 'Hunting Foto', description: 'Membaca ruang dan cerita kota melalui praktik memotret di berbagai lokasi.' },
@@ -27,6 +27,7 @@ const SERVICES = [
 ];
 
 const eventDetailHref = (event: Acara) => {
+  if (event.link.startsWith("/events/")) return event.link;
   const params = new URLSearchParams({
     title: event.title,
     description: event.description,
@@ -227,6 +228,14 @@ export default function LandingPage() {
 
   // --- Derived values (memoized) ---
   const visibleEvents = useMemo(() => events.slice(0, 10), [events]);
+  const posterHighlights = useMemo(() => events
+    .filter(event => event.image && event.image !== '/logo-uft.png')
+    .slice(0, 5)
+    .map(event => ({
+      id: String(event.id), label: event.status, title: event.title,
+      description: [event.waktu, event.tempat].filter(Boolean).join(' · '),
+      image: event.image,
+    })), [events]);
 
 
   const koleksiImageStyle = useMemo(() => {
@@ -248,7 +257,7 @@ export default function LandingPage() {
         {/* --- HERO CAROUSEL (self-contained: highlightIndex) --- */}
         <section id="home" className="px-4 pb-4 pt-20 sm:px-6 sm:pb-5 sm:pt-24 md:pb-8">
           <div className="mx-auto max-w-7xl">
-            <HeroCarousel partners={CAROUSEL_PARTNERS} />
+            <HeroCarousel partners={posterHighlights} />
           </div>
         </section>
 
@@ -294,14 +303,13 @@ export default function LandingPage() {
                 </div>
               ) : (
                 <ScrollReveal>
-                  <ScrollArea className="-mx-4 h-[580px] px-4 sm:-mx-6 sm:h-[600px] sm:px-6 md:mx-0 md:h-[620px] md:px-0">
-                    <div className="flex min-w-max gap-4 pb-4 sm:gap-5">
+                  <ScrollFadeList label="Daftar acara" className="-mx-4 sm:-mx-6 md:mx-0">
+                    <div className="flex min-h-[560px] gap-4 px-4 pb-4 sm:min-h-[580px] sm:gap-5 sm:px-6 md:min-h-[600px] md:px-0">
                       {visibleEvents.map((event) => (
                         <EventCard key={event.id} event={event} onSelect={setSelectedEvent} href={eventDetailHref(event)} />
                       ))}
                     </div>
-                    <ScrollBar orientation="horizontal" />
-                  </ScrollArea>
+                  </ScrollFadeList>
                 </ScrollReveal>
               )}
             </div>
@@ -361,7 +369,7 @@ export default function LandingPage() {
             )}
             {!isLoadingGaleri && !galeriError && koleksiData.length > 3 && (
             <div className="mt-10">
-              <button type="button" onClick={() => document.getElementById('galeri-lengkap')?.scrollIntoView({ behavior: 'smooth', block: 'start' })} className="inline-flex border border-slate-950 px-5 py-3 text-sm font-semibold text-slate-950 transition-colors hover:bg-slate-950 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-4">
+              <button type="button" onClick={() => document.getElementById('galeri-lengkap')?.scrollIntoView({ behavior: scrollMotion(), block: 'start' })} className="inline-flex border border-slate-950 px-5 py-3 text-sm font-semibold text-slate-950 transition-colors hover:bg-slate-950 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-4">
                 Lihat galeri lengkap
               </button>
             </div>

@@ -1,0 +1,167 @@
+/* Admin colors are scoped so the public site keeps its own theme. */
+.erp-app,
+.erp-app.erp-workspace {
+  --erp-red: #E11D2E;
+  --erp-red-hover: #B8121F;
+  --erp-red-pressed: #8F0D18;
+  --erp-red-tint: #FDECEE;
+  --erp-red-text: #C41625;
+  --erp-coral: #FF4D5A;
+  --erp-paper: #FAFAFA;
+  --erp-surface: #FFFFFF;
+  --erp-surface-alt: #F4F4F5;
+  --erp-line: #E4E4E7;
+  --erp-line-strong: #D4D4D8;
+  --erp-muted: #6B6B6B;
+  --erp-ink: #3F3F46;
+  --erp-heading: #0A0A0A;
+  --erp-success: #15803D;
+  --erp-success-fill: #16A34A;
+  --erp-success-tint: #DCFCE7;
+  --erp-warning: #B45309;
+  --erp-warning-fill: #F59E0B;
+  --erp-warning-tint: #FEF3C7;
+  --erp-error: #B91C1C;
+  --erp-error-fill: #DC2626;
+  --erp-error-tint: #FEE2E2;
+  --erp-info: #1D4ED8;
+  --erp-info-fill: #2563EB;
+  --erp-info-tint: #DBEAFE;
+  --erp-sidebar-bg: #FFFFFF;
+  --erp-sidebar-text: #3F3F46;
+  --erp-sidebar-hover: #F4F4F5;
+  --erp-sidebar-active: #FDECEE;
+  --erp-scroll-thumb: #A1A1AA;
+  color-scheme: light;
+}
+
+:root[data-erp-theme="dark"] .erp-app,
+:root[data-erp-theme="dark"] .erp-app.erp-workspace {
+  --erp-paper: #0A0A0A;
+  --erp-surface: #141414;
+  --erp-surface-alt: #1E1E1E;
+  --erp-line: #2E2E2E;
+  --erp-line-strong: #414141;
+  --erp-control-line: #707078;
+  --erp-muted: #8A8A8A;
+  --erp-ink: #D4D4D4;
+  --erp-heading: #FAFAFA;
+  --erp-red-tint: #2A0D10;
+  --erp-red-text: #FF4D5A;
+  --erp-success: #22C55E;
+  --erp-success-fill: #22C55E;
+  --erp-success-tint: #12311E;
+  --erp-warning: #F59E0B;
+  --erp-warning-fill: #F59E0B;
+  --erp-warning-tint: #352708;
+  --erp-error: #FF6B6B;
+  --erp-error-fill: #FF6B6B;
+  --erp-error-tint: #36191B;
+  --erp-info: #3B82F6;
+  --erp-info-fill: #3B82F6;
+  --erp-info-tint: #152640;
+  --erp-sidebar-bg: #141414;
+  --erp-sidebar-text: #D4D4D4;
+  --erp-sidebar-hover: #1E1E1E;
+  --erp-sidebar-active: #2A0D10;
+  --erp-scroll-thumb: #6B6B6B;
+  color-scheme: dark;
+}
+
+.erp-app h1, .erp-app h2, .erp-app h3, .erp-app h4,
+.erp-app .erp-stat { color: var(--erp-heading); }
+.erp-app :focus-visible { outline-color: var(--erp-red-text); }
+.erp-app ::selection { background: var(--erp-red-tint); color: var(--erp-heading); }
+.erp-app .erp-task-heading a { color: var(--erp-heading); }
+.erp-app .erp-summary-link { color: var(--erp-red-text) !important; }
+.erp-app button, .erp-app .erp-button,
+.erp-app input, .erp-app select, .erp-app textarea {
+  background: var(--erp-surface);
+  border-color: var(--erp-line-strong);
+  color: var(--erp-ink);
+}
+.erp-app input::placeholder, .erp-app textarea::placeholder { color: var(--erp-muted); opacity: 1; }
+.erp-app button:hover, .erp-app .erp-button:hover { background: var(--erp-surface-alt); border-color: var(--erp-line-strong); }
+.erp-app button.erp-primary, .erp-app a.erp-primary { background: var(--erp-red); border-color: var(--erp-red); color: #FFFFFF; }
+.erp-app button.erp-primary:hover, .erp-app a.erp-primary:hover { background: var(--erp-red-hover); border-color: var(--erp-red-hover); }
+.erp-app button.erp-primary:active, .erp-app a.erp-primary:active { background: var(--erp-red-pressed); border-color: var(--erp-red-pressed); }
+.erp-app button.erp-danger { color: var(--erp-error); border-color: var(--erp-error); }
+.erp-app .erp-panel, .erp-app .erp-topbar, .erp-program-group,
+.erp-app .erp-route-loading, .erp-app .erp-login-form { background: var(--erp-surface); }
+.erp-app .erp-login-story { background: var(--erp-surface-alt); color: var(--erp-ink); }
+.erp-app .erp-login-story > div > p:last-child, .erp-app .erp-login-story small { color: var(--erp-muted); }
+.erp-app .erp-login-story .erp-eyebrow { color: var(--erp-red-text); }
+.erp-app .erp-panel { border-color: var(--erp-line); }
+.erp-app .erp-tabs button[aria-pressed="true"],
+.erp-app .erp-board-views button[aria-pressed="true"] { background: var(--erp-surface); border-color: var(--erp-line-strong); color: var(--erp-heading); }
+.erp-app .erp-pill { background: var(--erp-surface-alt); border-color: var(--erp-line); color: var(--erp-ink); }
+.erp-app .erp-pill-active { background: var(--erp-success-tint); border-color: var(--erp-success); color: var(--erp-success); }
+.erp-app th, .erp-app .erp-program-group > header,
+.erp-app .erp-board-views { background: var(--erp-surface-alt); }
+.erp-app .erp-error { background: var(--erp-error-tint); border-color: var(--erp-error); color: var(--erp-error); }
+.erp-app .erp-success { background: var(--erp-success-tint); border-color: var(--erp-success); color: var(--erp-success); }
+.erp-app .erp-skip { background: var(--erp-surface); color: var(--erp-heading); }
+
+.erp-app .erp-sidebar, .erp-app .erp-mobile-bar {
+  background: var(--erp-sidebar-bg);
+  color: var(--erp-sidebar-text);
+  border-right: 1px solid var(--erp-line);
+}
+.erp-app .erp-sidebar .erp-brand::before { background: var(--erp-red); }
+.erp-app .erp-sidebar nav { padding-right: 4px; background: var(--erp-sidebar-bg); }
+.erp-app .erp-sidebar nav a,
+.erp-app .erp-sidebar .erp-nav summary { color: var(--erp-sidebar-text); }
+.erp-app .erp-sidebar nav a:hover,
+.erp-app .erp-sidebar .erp-nav summary:hover { background: var(--erp-sidebar-hover); color: var(--erp-heading); }
+.erp-app .erp-sidebar nav a[aria-current="page"] { background: var(--erp-sidebar-active); color: var(--erp-red-text); border-left-color: var(--erp-red); }
+.erp-app .erp-nav-group, .erp-app .erp-sidebar-bottom { border-color: var(--erp-line); }
+.erp-app .erp-nav-group > .motion-disclosure-body > .motion-disclosure-inner > div { border-color: var(--erp-line-strong); }
+.erp-app .erp-sidebar-bottom small { color: var(--erp-muted); }
+.erp-app .erp-mobile-bar .erp-icon-button { color: var(--erp-heading); border-color: var(--erp-line-strong); }
+.erp-app .erp-sidebar .erp-nav :is(a, summary):focus-visible { outline-color: var(--erp-red-text); }
+
+.erp-app .erp-sidebar nav, .erp-app .erp-kanban, .erp-app .erp-table-wrap {
+  scrollbar-width: thin;
+  scrollbar-color: var(--erp-scroll-thumb) var(--erp-sidebar-bg);
+}
+.erp-app .erp-kanban, .erp-app .erp-table-wrap { scrollbar-color: var(--erp-scroll-thumb) var(--erp-surface-alt); }
+.erp-app .erp-sidebar nav::-webkit-scrollbar { width: 8px; }
+.erp-app .erp-sidebar nav::-webkit-scrollbar-track { background: var(--erp-sidebar-bg); }
+.erp-app .erp-sidebar nav::-webkit-scrollbar-thumb { background: var(--erp-scroll-thumb); border: 2px solid var(--erp-sidebar-bg); border-radius: 8px; }
+
+.erp-app .erp-theme-label { display: flex; flex-direction: row; align-items: center; gap: 8px; font-size: 12px; font-weight: 400; white-space: nowrap; }
+.erp-app .erp-theme-label select { min-height: 38px; width: auto; padding: 6px 10px; }
+.erp-app .erp-topbar > span { margin-right: auto; }
+
+.erp-app .erp-calendar-cell.is-adjacent { background: var(--erp-surface-alt); }
+.erp-app .erp-calendar-cell.is-adjacent .erp-calendar-date { color: var(--erp-muted); }
+.erp-app .erp-calendar-cell.is-selected { background: var(--erp-red-tint); }
+.erp-app .erp-calendar-mobile-count, .erp-app .erp-task-footer .erp-scope-label { background: var(--erp-surface-alt); color: var(--erp-ink); }
+.erp-app .erp-calendar-chip, .erp-app .erp-event-TASK { background: var(--erp-warning-tint); color: var(--erp-warning); }
+.erp-app .erp-event-PROGRAM { background: var(--erp-success-tint); color: var(--erp-success); }
+.erp-app .erp-board-views button[aria-pressed="true"] { box-shadow: none; }
+.erp-app .erp-kanban-column { background: var(--erp-stage-bg, var(--erp-surface-alt)); }
+.erp-app .erp-task, .erp-app .erp-kanban-heading .erp-pill { background: var(--erp-surface); }
+.erp-app .erp-task:hover, .erp-app .erp-task:focus-within { border-color: var(--erp-line-strong); }
+.erp-app.erp-workspace .erp-drag-handle { color: var(--erp-muted); }
+.erp-app .erp-drag-handle:hover { background: var(--erp-surface-alt); }
+.erp-app .erp-skeleton { background: var(--erp-line-strong); }
+.erp-app .motion-drop-zone { background: var(--erp-surface-alt); border-color: var(--erp-line-strong); }
+.erp-app .motion-drop-zone[data-over="true"] { background: var(--erp-red-tint); border-color: var(--erp-red); }
+.erp-app .motion-drop-zone[data-invalid="true"] { border-color: var(--erp-error); }
+
+:root[data-erp-theme="dark"] .erp-app .erp-status-TODO { --erp-stage: #93C5FD; --erp-stage-bg: #152640; --erp-stage-heading: #203957; }
+:root[data-erp-theme="dark"] .erp-app .erp-status-IN_PROGRESS { --erp-stage: #FBBF24; --erp-stage-bg: #352708; --erp-stage-heading: #49360B; }
+:root[data-erp-theme="dark"] .erp-app .erp-status-REVIEW { --erp-stage: #C4B5FD; --erp-stage-bg: #28213F; --erp-stage-heading: #3B305B; }
+:root[data-erp-theme="dark"] .erp-app .erp-status-DONE { --erp-stage: #86EFAC; --erp-stage-bg: #12311E; --erp-stage-heading: #1E4730; }
+:root[data-erp-theme="dark"] .erp-app .erp-deadline[data-urgency="week"] { background: var(--erp-warning-tint); color: var(--erp-warning); }
+:root[data-erp-theme="dark"] .erp-app .erp-deadline[data-urgency="soon"] { background: #3B220F; color: #FDBA74; }
+:root[data-erp-theme="dark"] .erp-app .erp-deadline[data-urgency="today"] { background: var(--erp-red-tint); color: var(--erp-coral); }
+:root[data-erp-theme="dark"] .erp-app .erp-deadline[data-urgency="overdue"] { background: #8F0D18; color: #FFFFFF; }
+:root[data-erp-theme="dark"] .erp-app .erp-column-add:hover { background: #FFFFFF1A; }
+
+@media (max-width: 640px) {
+  .erp-app .erp-topbar { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+  .erp-app .erp-theme-label, .erp-app .erp-period-label { flex-direction: column !important; align-items: stretch; gap: 2px !important; width: auto; min-width: 0; }
+  .erp-app .erp-theme-label select, .erp-app .erp-period-label select { width: 100%; max-width: 100%; }
+}

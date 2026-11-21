@@ -1,0 +1,20 @@
+import type { ItemList } from "./types";
+
+export type Document = { id: string; name: string; mime: string; size: number; external_url: string | null };
+export type Expense = { id: string; name: string; category: string; amount: string; paid_on: string; attachment_id: string | null; notes: string; version: number };
+export type Actuals = ItemList<Expense> & { planned_rupiah: string; actual_rupiah: string; difference_rupiah: string };
+export type Report = { narrative: string; achievements: string; obstacles: string; documentation_url: string; version: number };
+export type Asset = { id: string; asset_code?: string; name: string; category?: string; location?: string; custodian?: string; condition?: string;
+  availability_status?: string; photo_url?: string; notes?: string; kind?: string; url?: string; status?: string; expires_on?: string | null;
+  credential_reference?: string; archived_at?: string | null; version: number };
+export type Loan = { id: string; asset_id: string; borrower_name: string; contact: string; transaction_type: string; loan_on: string; due_on: string;
+  returned_on: string | null; condition_before: string; condition_after: string | null; rental_fee: string; notes: string; overdue: boolean; version: number; logged_by_name?: string; returned_by_name?: string };
+export type PublicEvent = { id: string; period_id: string; program_id: string | null; owner_user_id: string; title: string; description: string;
+  starts_at: string; ends_at: string; location: string; poster_url: string; related_url: string; status: string; version: number;
+  capabilities: { edit: boolean; responses: boolean }; frozen?: boolean; can_staff?: boolean; staff_ids?: string[] };
+export type Question = { id: string; label: string; type: string; required: boolean; placeholder: string; hint: string; options: string[] };
+export type FormSchema = { title: string; description: string; sections: { id: string; title: string; questions: Question[] }[] };
+export type Registration = { id: string; draft_schema: FormSchema; published_version_id: string | null; accepting: boolean; version: number;
+  versions: { id: string; number: number; schema: FormSchema }[] };
+export type Submission = { id: string; form_version_id: string; answers: Record<string, string | string[]>; submitted_at: string };
+export type ShortLink = { id: string; slug: string; destination_url: string; active: boolean; version: number; can_edit: boolean; period_id: string };

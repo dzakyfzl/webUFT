@@ -1,0 +1,19 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "app/**/*.ts",
+    "app/**/*.tsx",
+    "next-env.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    ".next",
+    ".next-erp-qa",
+    ".next-erp-qa-prod",
+    ".next-erp-uat",
+    ".next-ui-check"
+  ],
+  "compilerOptions": {
+    "incremental": false
+  }
+}

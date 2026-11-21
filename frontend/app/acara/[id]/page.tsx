@@ -3,9 +3,9 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
-import { FormEvent, useEffect, useState, useMemo, useCallback, memo } from "react";
+import { FormEvent, useEffect, useState, useMemo, useCallback, useRef, memo } from "react";
 import { Search, X, LayoutGrid, List } from "lucide-react";
-import Toast from "../../components/Toast";
+import ModalDialog from "../../components/ui/modal-dialog";
 import type { Acara, Koleksi } from "../../components/types";
 import { generateDeviceHash } from "../../lib/device-hash";
 
@@ -34,15 +34,6 @@ type VoteForm = {
 };
 
 const fallbackImage = "https://images.unsplash.com/photo-1469474968028-56623f02e42e?q=80&w=1200";
-
-const MOCK_WORKS: Koleksi[] = [
-  { id: 1001, title: "Cahaya Pagi di Braga", photographer: "Alya Rahma", category: "Street Photography", image: "https://images.unsplash.com/photo-1519501025264-65ba15a82390?q=80&w=800", span: "", description: "Pantulan cahaya pagi yang membingkai aktivitas kota sebelum jalanan mulai ramai.", exif: "Fujifilm X-T4 / 35mm / f/2.0" },
-  { id: 1002, title: "Ruang yang Tenang", photographer: "Raka Pratama", category: "Architecture", image: "https://images.unsplash.com/photo-1497366811353-6870744d04b2?q=80&w=800", span: "", description: "Garis dan cahaya dalam sebuah ruang sederhana yang menghadirkan jeda di tengah kesibukan.", exif: "Sony A7III / 24mm / f/5.6" },
-  { id: 1003, title: "Menyusuri Senja", photographer: "Nadia Putri", category: "Landscape", image: "https://images.unsplash.com/photo-1500534623283-312aade485b7?q=80&w=800", span: "", description: "Perjalanan pulang yang direkam dalam warna hangat dan bayangan panjang.", exif: "Canon EOS R5 / 50mm / f/4.0" },
-  { id: 1004, title: "Wajah Kota", photographer: "Dimas Aditya", category: "Portrait", image: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?q=80&w=800", span: "", description: "Potret seorang warga yang menyimpan cerita panjang tentang perubahan kota.", exif: "Nikon Z6 / 85mm / f/1.8" },
-  { id: 1005, title: "Di Balik Jendela", photographer: "Fajar Maulana", category: "Documentary", image: "https://images.unsplash.com/photo-1511818966892-d7d671e672a2?q=80&w=800", span: "", description: "Momen kecil yang terlihat dari balik jendela, antara ruang pribadi dan kehidupan jalanan.", exif: "Leica Q2 / 28mm / f/2.8" },
-  { id: 1006, title: "Jejak Setelah Hujan", photographer: "Sinta Lestari", category: "Experimental", image: "https://images.unsplash.com/photo-1518837695005-2083093ee35b?q=80&w=800", span: "", description: "Tekstur air dan cahaya yang menyusun ulang lanskap setelah hujan reda.", exif: "Sony A6400 / 50mm / f/2.8" },
-];
 
 const imageUrl = (fileID?: number | null) =>
   fileID ? `/api/file/ambil/${fileID}` : fallbackImage;
@@ -73,13 +64,13 @@ const WorkCard = memo(function WorkCard({
       className="group cursor-pointer text-left outline-none focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-4"
     >
       <div
-        className="relative aspect-[4/5] overflow-hidden bg-stone-200 transition-[box-shadow,transform] duration-200 ease-out group-hover:shadow-[0_12px_32px_rgba(0,0,0,0.32)] group-hover:-translate-y-[3px]"
+        className="relative aspect-[4/5] overflow-hidden bg-stone-200 transition-[box-shadow,transform] duration-200 ease-out group-hover:shadow-[0_12px_32px_rgba(0,0,0,0.32)] motion-safe:group-hover:-translate-y-[3px]"
       >
         <Image
           src={work.image}
           alt={work.title}
           fill
-          className="object-cover transition-transform duration-300 ease-out group-hover:scale-[1.06]"
+          className="object-cover transition-transform duration-300 ease-out motion-safe:group-hover:scale-[1.06]"
           unoptimized
         />
         <div className="absolute inset-0 bg-slate-950/0 transition-colors duration-200 group-hover:bg-slate-950/[0.42]" />
@@ -122,9 +113,6 @@ function KaryaDisplay({
     );
   }, [works, debouncedQuery]);
 
-  // Stable callback for WorkCard
-  const stableOnSelect = useCallback(onSelectWork, [onSelectWork]);
-
   return (
     <div>
       {/* Search Input */}
@@ -136,6 +124,7 @@ function KaryaDisplay({
           />
           <input
             type="search"
+            aria-label="Cari karya atau fotografer"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Cari karya atau fotografer..."
@@ -169,7 +158,7 @@ function KaryaDisplay({
         viewMode === "grid" ? (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             {filteredWorks.map((work) => (
-              <WorkCard key={work.id} work={work} onSelect={stableOnSelect} />
+              <WorkCard key={work.id} work={work} onSelect={onSelectWork} />
             ))}
           </div>
         ) : (
@@ -187,11 +176,11 @@ function KaryaDisplay({
                     key={work.id}
                     tabIndex={0}
                     role="button"
-                    onClick={() => stableOnSelect(work)}
+                    onClick={() => onSelectWork(work)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" || e.key === " ") {
                         e.preventDefault();
-                        stableOnSelect(work);
+                        onSelectWork(work);
                       }
                     }}
                     className="group cursor-pointer transition-colors hover:bg-stone-50 focus:bg-stone-50 focus:outline-none"
@@ -239,8 +228,8 @@ export default function AcaraDetailPage() {
   const [form, setForm] = useState<VoteForm>({ nama: "", nim: "", universitas: "" });
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const submitting = useRef(false);
   const [message, setMessage] = useState("");
-  const [gpsError, setGpsError] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [voteSuccess, setVoteSuccess] = useState(false);
   const [viewMode, setViewMode] = useState<"grid" | "table">("table");
@@ -283,14 +272,14 @@ export default function AcaraDetailPage() {
             description: work.deskripsi ?? "",
             exif: "",
           }));
-          setWorks(loadedWorks.length > 0 ? loadedWorks : MOCK_WORKS);
+          if (isCurrent) setWorks(loadedWorks);
         } else {
-          setWorks(MOCK_WORKS);
+          if (isCurrent) setWorks([]);
         }
       } catch {
         if (isCurrent) {
           setEvent(localEvent);
-          setWorks(MOCK_WORKS);
+          setWorks([]);
         }
       } finally {
         if (isCurrent) setIsLoading(false);
@@ -311,17 +300,14 @@ export default function AcaraDetailPage() {
 
   const submitVote = async (submitEvent: FormEvent<HTMLFormElement>) => {
     submitEvent.preventDefault();
-    if (!event || !selectedWork) return;
-
+    if (!event || !selectedWork || submitting.current) return;
+    submitting.current = true;
     setIsSubmitting(true);
     setMessage("");
 
     try {
       if (typeof event.id !== "number") {
-        setForm({ nama: "", nim: "", universitas: "" });
-        setModalOpen(false);
-        setVoteSuccess(true);
-        // setTimeout(() => router.push("/"), 2500);
+        setMessage("Voting belum tersedia untuk acara ini.");
         return;
       }
 
@@ -348,8 +334,7 @@ export default function AcaraDetailPage() {
           if (err.code === 1) msg = "Izin lokasi ditolak. Aktifkan akses lokasi di pengaturan browser.";
           if (err.code === 2) msg = "Lokasi tidak dapat dideteksi. Pastikan GPS aktif dan coba di area terbuka.";
           if (err.code === 3) msg = "Waktu pencarian lokasi habis. Coba lagi dalam beberapa saat.";
-          setGpsError(msg);
-          setIsSubmitting(false);
+          setMessage(msg);
           return; // STOP — tidak kirim request jika GPS gagal
         }
       }
@@ -376,6 +361,7 @@ export default function AcaraDetailPage() {
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Voting belum berhasil dikirim.");
     } finally {
+      submitting.current = false;
       setIsSubmitting(false);
     }
   };
@@ -390,14 +376,6 @@ export default function AcaraDetailPage() {
 
   return (
     <main className="min-h-screen bg-stone-50 text-slate-950">
-      {gpsError && (
-        <Toast
-          message={gpsError}
-          type="error"
-          duration={6000}
-          onClose={() => setGpsError(null)}
-        />
-      )}
       <section className="relative isolate flex min-h-[420px] items-end overflow-hidden bg-slate-950 px-4 py-10 sm:min-h-[520px] sm:px-8 sm:py-14">
         <Image src={event.image} alt="" fill aria-hidden="true" className="-z-20 scale-110 object-cover opacity-45 blur-2xl" unoptimized />
         <Image src={event.image} alt="" fill aria-hidden="true" className="-z-10 object-cover opacity-35" unoptimized />
@@ -437,7 +415,7 @@ export default function AcaraDetailPage() {
       <button
         type="button"
         onClick={() => setViewMode((prev) => (prev === "table" ? "grid" : "table"))}
-        className="fixed bottom-6 left-6 z-40 flex items-center gap-2.5 rounded-full bg-slate-950 px-5 py-3 text-xs font-bold uppercase tracking-wider text-white shadow-[0_8px_24px_rgba(0,0,0,0.35)] backdrop-blur-md transition-all duration-200 hover:bg-slate-900 hover:scale-105 active:scale-95 border border-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600"
+        className="fixed bottom-6 left-6 z-40 flex items-center gap-2.5 rounded-full bg-slate-950 px-5 py-3 text-xs font-bold uppercase tracking-wider text-white shadow-[0_8px_24px_rgba(0,0,0,0.35)] backdrop-blur-md transition-all duration-200 hover:bg-slate-900 border border-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600"
         aria-label={viewMode === "grid" ? "Beralih ke mode tabel" : "Beralih ke mode grid"}
       >
         {viewMode === "grid" ? (
@@ -455,24 +433,14 @@ export default function AcaraDetailPage() {
 
       {/* ── MODAL POPUP KARYA ──────────────────────────────────────── */}
       {modalOpen && selectedWork && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-label={`Detail karya: ${selectedWork.title}`}
-        >
-          {/* Backdrop */}
-          <div
-            className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm"
-            onClick={() => setModalOpen(false)}
-          />
-
-          {/* Panel */}
-          <div className="relative z-10 w-full max-w-4xl overflow-y-auto bg-white shadow-2xl max-h-[90vh] lg:max-h-[90vh]">
+        <ModalDialog className="m-auto max-h-[calc(100dvh-24px)] w-[calc(100%-24px)] max-w-4xl overflow-y-auto rounded-xl bg-white text-slate-950 backdrop:bg-slate-950/70"
+          aria-label={`Voting untuk ${selectedWork.title}`} dismissBackdrop onDismiss={() => { if (!isSubmitting) setModalOpen(false); }}>
+          <div className="motion-pop-in relative">
             {/* Tombol tutup */}
             <button
               type="button"
               onClick={() => setModalOpen(false)}
+              disabled={isSubmitting}
               className="absolute right-3 top-3 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-slate-700 shadow transition-colors hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 sm:right-4 sm:top-4"
               aria-label="Tutup"
             >
@@ -496,7 +464,6 @@ export default function AcaraDetailPage() {
 
               {/* Info + form vote */}
               <div className="p-5 pb-8 sm:p-7 lg:overflow-y-auto lg:p-9">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-red-700">Pilih karya ini</p>
                 <h2 className="mt-3 text-xl font-extrabold leading-tight sm:text-2xl lg:text-3xl">{selectedWork.title}</h2>
                 <p className="mt-1 text-sm text-slate-500">{selectedWork.photographer}</p>
                 {selectedWork.description && (
@@ -504,33 +471,39 @@ export default function AcaraDetailPage() {
                 )}
 
                 <form
-                  onSubmit={async (e) => {
-                    await submitVote(e);
-                  }}
+                  onSubmit={submitVote}
                   className="mt-5 space-y-3 sm:mt-7 sm:space-y-4"
                 >
                   <label className="block text-sm font-semibold">
-                    Nama lengkap
+                    Nama lengkap *
                     <input
+                      name="nama"
+                      autoComplete="name"
                       required
+                      disabled={isSubmitting}
                       value={form.nama}
                       onChange={(input) => setForm({ ...form, nama: input.target.value })}
                       className="mt-1.5 block w-full border border-stone-300 px-3 py-2.5 text-base font-normal outline-none focus:border-red-600 focus:ring-2 focus:ring-red-200 sm:mt-2 sm:py-3"
                     />
                   </label>
                   <label className="block text-sm font-semibold">
-                    NIM mahasiswa
+                    NIM mahasiswa *
                     <input
+                      name="nim"
                       required
+                      disabled={isSubmitting}
                       value={form.nim}
                       onChange={(input) => setForm({ ...form, nim: input.target.value })}
                       className="mt-1.5 block w-full border border-stone-300 px-3 py-2.5 text-base font-normal outline-none focus:border-red-600 focus:ring-2 focus:ring-red-200 sm:mt-2 sm:py-3"
                     />
                   </label>
                   <label className="block text-sm font-semibold">
-                    Asal universitas
+                    Asal universitas *
                     <input
+                      name="universitas"
+                      autoComplete="organization"
                       required
+                      disabled={isSubmitting}
                       value={form.universitas}
                       onChange={(input) => setForm({ ...form, universitas: input.target.value })}
                       className="mt-1.5 block w-full border border-stone-300 px-3 py-2.5 text-base font-normal outline-none focus:border-red-600 focus:ring-2 focus:ring-red-200 sm:mt-2 sm:py-3"
@@ -544,26 +517,21 @@ export default function AcaraDetailPage() {
                     {isSubmitting ? "Mengirim..." : "Kirim vote"}
                   </button>
                   {message && (
-                    <p role="status" className="text-sm text-red-600 font-medium">{message}</p>
+                    <p role="alert" className="text-sm text-red-700 font-medium">{message}</p>
                   )}
                 </form>
               </div>
             </div>
           </div>
-        </div>
+        </ModalDialog>
       )}
       {/* ── END MODAL ─────────────────────────────────────────────────── */}
 
       {/* ── SUCCESS POPUP ──────────────────────────────────────────── */}
       {voteSuccess && (
-        <div
-          className="fixed inset-0 z-[60] flex items-center justify-center p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Voting berhasil"
-        >
-          <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm" />
-          <div className="relative z-10 w-full max-w-sm overflow-hidden bg-white shadow-2xl text-center animate-[popIn_0.35s_ease-out_both]">
+        <ModalDialog className="m-auto max-h-[calc(100dvh-24px)] w-[calc(100%-24px)] max-w-sm overflow-y-auto rounded-xl bg-white text-center text-slate-950 backdrop:bg-slate-950/70"
+          aria-label="Voting berhasil" onDismiss={() => setVoteSuccess(false)}>
+          <div className="motion-pop-in">
             {/* Checkmark circle */}
             <div className="pt-10 pb-2 flex justify-center">
               <div className="flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100 animate-[scaleUp_0.4s_ease-out_0.1s_both]">
@@ -581,7 +549,7 @@ export default function AcaraDetailPage() {
               </div>
             </div>
             <div className="px-6 pb-10 pt-4">
-              <h3 className="text-xl font-extrabold text-slate-900">Voting Berhasil!</h3>
+              <h3 tabIndex={-1} data-form-focus className="text-xl font-extrabold text-slate-900">Voting berhasil</h3>
               <p className="mt-2 text-sm text-slate-500 leading-relaxed">
                 Pilihan kamu sudah tercatat.<br />Terima kasih sudah ikut memilih.
               </p>
@@ -615,19 +583,14 @@ export default function AcaraDetailPage() {
               </div>
             </div>
           </div>
-        </div>
+        </ModalDialog>
       )}
       {/* ── END SUCCESS POPUP ──────────────────────────────────────── */}
 
       {/* Keyframe animations for success popup */}
       <style jsx>{`
-        @keyframes popIn {
-          0% { opacity: 0; transform: scale(0.85) translateY(20px); }
-          100% { opacity: 1; transform: scale(1) translateY(0); }
-        }
         @keyframes scaleUp {
-          0% { opacity: 0; transform: scale(0); }
-          60% { transform: scale(1.15); }
+          0% { opacity: 0; transform: scale(.97); }
           100% { opacity: 1; transform: scale(1); }
         }
         @keyframes drawCheck {

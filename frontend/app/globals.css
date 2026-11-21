@@ -14,9 +14,151 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme]) {
     --background: #0a0a0a;
     --foreground: #ededed;
+  }
+}
+
+:root[data-theme="dark"] {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+}
+
+.theme-switching, .theme-switching *, .theme-switching *::before, .theme-switching *::after {
+  transition: none !important;
+}
+
+:root {
+  --motion-enter-ease: cubic-bezier(.22, 1, .36, 1);
+  --motion-enter-duration: 240ms;
+}
+
+@layer base {
+  button, input:is([type="submit"], [type="button"], [type="reset"]) {
+    transition-duration: 140ms;
+    transition-timing-function: ease-out;
+  }
+}
+
+:is(button, .erp-button, input:is([type="submit"], [type="button"], [type="reset"])):not([data-no-press]) {
+  scale: 1;
+  transition-property: color, background-color, border-color, box-shadow, opacity, transform, scale;
+}
+
+:is(button, .erp-button, input:is([type="submit"], [type="button"], [type="reset"])):not(:disabled, [aria-disabled="true"], [data-no-press]):active {
+  scale: .97;
+}
+
+.motion-pop-in { animation: motion-pop-in var(--motion-enter-duration) var(--motion-enter-ease) both; }
+.motion-pop-out { animation: motion-pop-out 150ms ease-in both; }
+@keyframes motion-pop-in {
+  from { opacity: 0; transform: scale(.97); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes motion-pop-out {
+  to { opacity: 0; transform: scale(.97); }
+}
+
+.motion-field-error {
+  display: block;
+  margin-block: 4px;
+  color: var(--field-error-color, #b91c1c);
+  font-size: .8125rem;
+  overflow-wrap: anywhere;
+}
+
+:is(input, select, textarea)[aria-invalid="true"] {
+  border-color: #dc3545 !important;
+  outline-color: #dc3545;
+}
+
+.motion-dynamic-button { position: relative; max-inline-size: 100%; overflow: hidden; }
+.motion-dynamic-button-full { inline-size: 100%; }
+.motion-dynamic-slot { position: relative; display: inline-grid; }
+.motion-dynamic-label { grid-area: 1 / 1; display: inline-flex; align-items: center; justify-content: center; gap: .5rem; white-space: nowrap; }
+
+.motion-step-viewport { position: relative; overflow: clip; overflow-clip-margin: 4px; }
+.motion-step-panel-exiting { position: absolute; inset: 0; pointer-events: none; }
+
+.motion-tooltip-position { z-index: 10020; }
+.motion-tooltip {
+  max-width: min(18rem, calc(100vw - 24px));
+  padding: 5px 9px;
+  border-radius: 5px;
+  background: #231e1d;
+  color: white;
+  font-size: .75rem;
+  overflow-wrap: anywhere;
+  transform-origin: var(--transform-origin);
+  transition: opacity 120ms ease-out, transform 120ms ease-out;
+}
+.motion-tooltip[data-starting-style], .motion-tooltip[data-ending-style] { opacity: 0; transform: scale(.97); }
+.motion-tooltip[data-instant] { transition: none; }
+
+.motion-scroll-fade { position: relative; }
+.motion-scroll-fade-viewport { overflow-x: auto; padding-block-end: 6px; }
+.motion-scroll-fade::before, .motion-scroll-fade::after {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  z-index: 1;
+  inset-block: 0 18px;
+}
+.motion-scroll-fade::before {
+  inset-inline-start: 0;
+  inline-size: var(--scroll-fade-start, 0px);
+  background: linear-gradient(to right, var(--scroll-fade-background, white), transparent);
+}
+.motion-scroll-fade::after {
+  inset-inline-end: 0;
+  inline-size: var(--scroll-fade-end, 0px);
+  background: linear-gradient(to left, var(--scroll-fade-background, white), transparent);
+}
+
+.hero-carousel-control {
+  display: inline-grid;
+  place-items: center;
+  min-height: 44px;
+  min-width: 32px;
+  color: white;
+  pointer-events: auto;
+  border-radius: 5px;
+}
+.hero-carousel-control:focus-visible { outline: 2px solid white; outline-offset: -4px; }
+.hero-carousel-control[aria-disabled="true"] { opacity: .42; }
+.hero-carousel-dot > span { width: 10px; height: 10px; border: 1px solid white; border-radius: 50%; }
+.hero-carousel-dot[aria-current="true"] > span { background: white; }
+
+@supports selector(details::details-content) {
+  details:has(> .motion-disclosure-body)::details-content {
+    transition: content-visibility 320ms allow-discrete;
+  }
+  details[open]:has(> .motion-disclosure-body)::details-content { transition: none; }
+
+  .motion-disclosure-body {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 320ms cubic-bezier(.25, .8, .25, 1);
+  }
+
+  details[open] > .motion-disclosure-body { grid-template-rows: 1fr; }
+  .motion-disclosure-inner { min-height: 0; overflow: clip; }
+  details:not([open]) > .motion-disclosure-body { interactivity: inert; }
+
+  @supports (interpolate-size: allow-keywords) {
+    details:has(> .motion-disclosure-body) { interpolate-size: allow-keywords; }
+    details:has(> .motion-disclosure-body)::details-content {
+      block-size: 0;
+      overflow: clip;
+      transition: block-size 320ms cubic-bezier(.25, .8, .25, 1), content-visibility 320ms allow-discrete;
+    }
+    details[open]:has(> .motion-disclosure-body)::details-content {
+      block-size: auto;
+      transition: block-size 320ms cubic-bezier(.25, .8, .25, 1);
+    }
+    .motion-disclosure-body { display: block; }
+    .motion-disclosure-inner { overflow: visible; }
   }
 }
 
@@ -27,21 +169,41 @@ body {
 }
 
 /* --- ScrollReveal: CSS-only animation (zero React re-renders) --- */
-.scroll-reveal {
+.scroll-reveal.is-observed {
   opacity: 0;
   transform: translateY(1.5rem);
   transition: opacity 700ms ease-out, transform 700ms ease-out;
 }
 
-.scroll-reveal.is-revealed {
+.scroll-reveal.is-revealed, .scroll-reveal:focus-within {
   opacity: 1;
   transform: translateY(0);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .scroll-reveal {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0ms !important;
+    transition-delay: 0ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  details::details-content { transition: none !important; }
+
+  .motion-step-panel { transform: none !important; }
+  .motion-step-panel-exiting { visibility: hidden; }
+
+  :is(button, .erp-button, input:is([type="submit"], [type="button"], [type="reset"])):active {
+    scale: 1 !important;
+  }
+
+  .scroll-reveal.is-observed {
     opacity: 1;
     transform: none;
     transition: none;
   }
 }
+
+html:has(dialog[data-modal-root][open]) { overflow: hidden; }

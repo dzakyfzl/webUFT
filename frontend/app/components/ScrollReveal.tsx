@@ -46,6 +46,8 @@ export function ScrollReveal({ children, delay = 0, className = "" }: ScrollReve
       return;
     }
 
+    if (!("IntersectionObserver" in window)) return;
+    element.classList.add("is-observed");
     const observer = getSharedObserver();
     observer.observe(element);
 

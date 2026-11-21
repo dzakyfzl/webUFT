@@ -1,4 +1,5 @@
 .env
+/Backend/scripts/.uat-password
 mysql_data/
 media/
 __pycache__/
@@ -8,3 +9,9 @@ Sandboxes/
 .agents/
 SKILL.md
 AGENTS.md
+
+# Keep this project's design instructions and selected skill in version control.
+!/AGENTS.md
+!/.agent/skills/gpt-taste/SKILL.md
+# Private ERP attachments are runtime data.
+Backend/var/

@@ -15,6 +15,9 @@
 
 # next.js
 /.next/
+/.next-*/
+/tsconfig.erp-qa.json
+/tsconfig.erp-uat.json
 /out/
 
 # production

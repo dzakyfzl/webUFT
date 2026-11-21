@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { CheckCircle2, CircleAlert, Info, TriangleAlert, X } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { prefersReducedMotion } from "../lib/motion-preference";
 
 export type ToastType = "error" | "success" | "info" | "warning";
 
@@ -11,11 +13,11 @@ interface ToastProps {
   onClose: () => void;
 }
 
-const ICONS: Record<ToastType, string> = {
-  error:   "❌",
-  success: "✅",
-  info:    "ℹ️",
-  warning: "⚠️",
+const ICONS = {
+  error: CircleAlert,
+  success: CheckCircle2,
+  info: Info,
+  warning: TriangleAlert,
 };
 
 const COLORS: Record<ToastType, string> = {
@@ -31,28 +33,21 @@ export default function Toast({
   duration = 4000,
   onClose,
 }: ToastProps) {
-  const [visible, setVisible] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const closeTimer = useRef<number>(0);
+  const Icon = ICONS[type];
+  const close = useCallback(() => {
+    if (closeTimer.current) return;
+    if (prefersReducedMotion()) { onClose(); return; }
+    setClosing(true);
+    closeTimer.current = window.setTimeout(onClose, 150);
+  }, [onClose]);
 
-  // Animasi masuk
   useEffect(() => {
-    const t = setTimeout(() => setVisible(true), 10);
-    return () => clearTimeout(t);
-  }, []);
-
-  // Auto-dismiss
-  useEffect(() => {
-    if (!duration) return;
-    const t = setTimeout(() => {
-      setVisible(false);
-      setTimeout(onClose, 300); // tunggu animasi keluar
-    }, duration);
-    return () => clearTimeout(t);
-  }, [duration, onClose]);
-
-  const handleClose = () => {
-    setVisible(false);
-    setTimeout(onClose, 300);
-  };
+    const timer = duration ? window.setTimeout(close, duration) : 0;
+    return () => window.clearTimeout(timer);
+  }, [duration, close]);
+  useEffect(() => () => window.clearTimeout(closeTimer.current), []);
 
   return (
     <div
@@ -60,22 +55,22 @@ export default function Toast({
       aria-live="assertive"
       className={`
         fixed top-5 right-5 z-[9999] flex items-start gap-3
-        max-w-sm w-full px-4 py-3.5
+        max-w-[min(24rem,calc(100vw-2.5rem))] w-full px-4 py-3.5
         border rounded-xl shadow-2xl backdrop-blur-md
-        transition-all duration-300 ease-out
         ${COLORS[type]}
-        ${visible ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-3"}
+        ${closing ? "motion-pop-out" : "motion-pop-in"}
       `}
     >
-      <span className="text-lg shrink-0 mt-0.5">{ICONS[type]}</span>
+      <Icon size={18} className="mt-0.5 shrink-0" aria-hidden="true"/>
       <p className="text-sm font-medium leading-snug flex-1">{message}</p>
       <button
         type="button"
-        onClick={handleClose}
+        onClick={close}
+        disabled={closing}
         aria-label="Tutup notifikasi"
         className="shrink-0 mt-0.5 opacity-60 hover:opacity-100 transition-opacity text-base leading-none"
       >
-        ✕
+        <X size={16} aria-hidden="true"/>
       </button>
     </div>
   );

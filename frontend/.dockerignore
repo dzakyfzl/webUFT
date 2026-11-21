@@ -3,6 +3,9 @@ node_modules/
 
 # Mengabaikan folder hasil build sementara di lokal
 .next/
+.next-*/
+.cache/
+tsconfig.erp-qa.json
 out/
 build/
 

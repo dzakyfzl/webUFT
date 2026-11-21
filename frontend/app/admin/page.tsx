@@ -1,192 +1,65 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import Link from "next/link";
+import { ArrowRight, CalendarDays, ListChecks, Plus, Presentation } from "lucide-react";
+import { query } from "../lib/erp/client";
+import type { CalendarEvent, Program, Task } from "../lib/erp/types";
+import { useErp } from "./erp-context";
+import { TaskDeadline, useJakartaDay } from "./task-deadline";
+import { LoadState, PageHeading, dateLabel, statusLabels, useResource } from "./ui";
 
-import { jwtDecode, JwtPayload } from "jwt-decode";
-import { useRouter } from 'next/navigation';
-import KelolaAcara from '../components/subdashboard/KelolaAcara';
-import KelolaAkun from '../components/subdashboard/KelolaAkun';
-import KelolaMigrasi from '../components/subdashboard/KelolaMigrasi';
-import KelolaGaleri from '../components/subdashboard/KelolaGaleri';
-import KelolaSertifikat from '../components/subdashboard/KelolaSertifikat';
-import KelolaLink from '../components/subdashboard/KelolaLink';
-import KelolaChatbot from '../components/subdashboard/KelolaChatbot';
-import MyUFT from '../components/widget/LogoMyUFT'
+type Dashboard = { tasks: Task[]; events: CalendarEvent[]; programs: Program[] };
 
-interface CustomJwtPayload extends JwtPayload {
-  access?: string[];
-  role?: string;
+function Summary({ title, icon: Icon, href, action, children }: {
+  title: string; icon: typeof ListChecks; href: string; action: string; children: React.ReactNode;
+}) {
+  return <section className="erp-panel erp-summary">
+    <h2><Icon size={18} aria-hidden="true"/>{title}</h2>
+    <div className="erp-summary-items">{children}</div>
+    <Link className="erp-summary-link" href={href}>{action}<ArrowRight size={14} aria-hidden="true"/></Link>
+  </section>;
 }
 
-// --- KOMPONEN UTAMA (SIDEBAR + LAYOUT) ---
-export default function AdminDashboardLayout() {
-  const router = useRouter();
+export default function DashboardPage() {
+  const { me } = useErp();
+  const today = useJakartaDay();
+  const resource = useResource<Dashboard>(`/dashboard${query({ period_id: me.period_id })}`);
+  const tasks = [...(resource.data?.tasks ?? [])].sort((a, b) => (a.deadline ?? "9999").localeCompare(b.deadline ?? "9999")).slice(0, 3);
+  const events = resource.data?.events.slice(0, 3) ?? [];
+  const programs = resource.data?.programs.slice(0, 3) ?? [];
+  const writable = !me.periods.find(period => period.id === me.period_id)?.archived_at;
 
-  // 1. Jadikan menuItems sebagai State di React
-  const [menuItems, setMenuItems] = useState<{id: string, icon: string}[]>([]);
-  const [activeMenu, setActiveMenu] = useState('');
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-
-  // Daftar menu sidebar bawaan
-  const list_menuItems = [
-    { id: 'Kelola Acara', icon: '📅' },
-    { id: 'Kelola Akun', icon: '👤' },
-    { id: 'Kelola Galeri', icon: '🖼' },
-    { id: 'Kelola Migrasi', icon: '🔄' },
-    { id: 'Kelola Certificate', icon: '🎓' },
-    { id: 'Kelola Link', icon: '🔗' },
-    { id: 'Kelola Chatbot', icon: '🤖' },
-  ];
-
-  useEffect(() => {
-    const token = localStorage.getItem('access_token');
-
-    // 2. Proteksi jika token tidak ada
-    if (!token) {
-      router.push('/admin/login');
-      return;
-    }
-
-    try {
-      const decodedToken = jwtDecode<CustomJwtPayload>(token);
-      const userAccess = decodedToken.access || [];
-
-      // 3. Filter menu berdasarkan akses dari token
-      const filteredMenu = list_menuItems.filter(item => userAccess.includes(item.id));
-
-      // 4. Simpan ke dalam state agar layar merender ulang
-      setMenuItems(filteredMenu);
-
-      // 5. Atur default active menu ke menu pertama yang mereka punya akses
-      if (filteredMenu.length > 0) {
-        setActiveMenu(filteredMenu[0].id);
-      }
-    } catch (error) {
-      console.error("Token tidak valid:", error);
-      router.push('/admin/login');
-    }
-  }, [router]);
-
-  // Fungsi untuk merender konten berdasarkan state
-  const renderContent = () => {
-    switch (activeMenu) {
-      case 'Kelola Acara':
-        return <KelolaAcara />;
-      case 'Kelola Akun':
-        return <KelolaAkun />;
-      case 'Kelola Migrasi':
-        return <KelolaMigrasi />;
-      case 'Kelola Galeri':
-        return <KelolaGaleri/>;
-      case 'Kelola Certificate':
-        return <KelolaSertifikat />;
-      case 'Kelola Link':
-        return <KelolaLink />;
-      case 'Kelola Chatbot':
-        return <KelolaChatbot />;
-      default:
-        // Render kosong jika activeMenu belum di-set / user tidak punya akses apa-apa
-        return <div className="p-8 text-slate-500">Silakan pilih menu...</div>;
-    }
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
-    router.push('/admin/login');
-  };
-
-  return (
-    <div className="flex flex-col md:flex-row min-h-screen bg-[#0f0f11] font-sans selection:bg-red-600/30 overflow-hidden">
-
-      {/* --- MOBILE NAVBAR --- */}
-      <nav className="w-full md:hidden bg-[#18181b] border-b border-white/5 flex items-center px-6 h-[73px] flex-shrink-0 z-20">
-        <button onClick={() => setIsSidebarOpen(true)} className="">
-          <MyUFT/>
-        </button>
-      </nav>
-
-      {/* --- MOBILE OVERLAY --- */}
-      {isSidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/60 z-30 md:hidden backdrop-blur-sm"
-          onClick={() => setIsSidebarOpen(false)}
-        />
-      )}
-
-      {/* --- SIDEBAR --- */}
-      <aside className={`fixed md:sticky top-0 left-0 h-screen w-64 bg-[#18181b] border-r border-white/5 flex flex-col z-40 transform transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
-        {/* Logo Brand */}
-        <div className="p-6 flex items-center justify-between border-b border-white/5 h-[73px]">
-          <MyUFT/>
-          {/* Close button on mobile */}
-          <button className="md:hidden text-white/50 hover:text-white" onClick={() => setIsSidebarOpen(false)}>
-            ✕
-          </button>
-        </div>
-
-        {/* Navigasi Menu */}
-        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-          <div className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-4 mt-2 px-2">
-            Menu Utama
-          </div>
-
-          {/* Menu dirender dari State, bukan variabel mati */}
-          {menuItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => {
-                setActiveMenu(item.id);
-                setIsSidebarOpen(false);
-              }}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-medium text-sm ${
-                activeMenu === item.id
-                  ? 'bg-red-600/10 text-red-500 border border-red-500/20 shadow-[0_0_15px_rgba(220,38,38,0.1)]'
-                  : 'text-slate-400 hover:bg-white/5 hover:text-white border border-transparent'
-              }`}
-            >
-              <span>{item.icon}</span>
-              {item.id}
-            </button>
-          ))}
-
-          {/* Pesan jika user tidak punya akses menu apa pun */}
-          {menuItems.length === 0 && (
-            <div className="px-2 text-sm text-slate-600">Tidak ada akses.</div>
-          )}
-
-
-        </nav>
-
-        {/* Tombol Logout di Bawah */}
-        <div className="p-4 border-t border-white/5 bg-white/[0.01]">
-          <button
-            onClick={handleLogout}
-            className="w-full px-4 py-3 bg-white/5 hover:bg-red-600 hover:text-white text-slate-300 rounded-xl text-sm font-semibold transition-all border border-white/10 hover:border-red-500 flex justify-center items-center gap-2"
-          >
-            Keluar <span>🚪</span>
-          </button>
-        </div>
-
-        {/* Tombol Kembali ke Beranda */}
-        <div className="p-4 border-t border-white/5 bg-white/[0.01]">
-          <button
-            onClick={() => router.push('/')}
-            className="w-full px-4 py-3 bg-white/5 hover:bg-slate-600 hover:text-white text-slate-300 rounded-xl text-sm font-semibold transition-all border border-white/10 hover:border-slate-500 flex justify-center items-center gap-2"
-          >
-            Kembali ke Beranda <span>🏠</span>
-          </button>
-        </div>
-      </aside>
-
-      {/* --- KONTEN UTAMA --- */}
-      <main className="flex-1 flex flex-col h-[calc(100vh-73px)] md:h-screen overflow-y-auto w-full relative z-0">
-        {/* Area Render Komponen */}
-        <div className="flex-1">
-          {renderContent()}
-        </div>
-      </main>
-
-    </div>
-  );
+  return <>
+    <PageHeading title={`Halo, ${me.user.display_name.split(" ")[0]}.`}>
+      {writable && <Link className="erp-button erp-primary" href="/admin/tasks?new=1"><Plus size={16} aria-hidden="true"/>Tambah Tugas</Link>}
+    </PageHeading>
+    {!resource.data && resource.error ? <LoadState error={resource.error} reload={resource.reload}/> : <div className="erp-dashboard">
+      <div className="erp-summary-grid" aria-busy={resource.refreshing}>
+        <Summary title="Tugas Prioritas" icon={ListChecks} href="/admin/tasks" action="Buka papan tugas">
+          {!resource.data ? <LoadState error={resource.error} reload={resource.reload}/> : tasks.length ? tasks.map(task => (
+            <Link className="erp-summary-item" key={task.id} href={`/admin/tasks/${task.id}`}>
+              <strong>{task.title}</strong>
+              <span>{statusLabels[task.status]} {task.deadline && <TaskDeadline deadline={task.deadline} today={today}/>}</span>
+            </Link>
+          )) : <p className="erp-muted">Tidak ada tugas yang perlu dikerjakan.</p>}
+        </Summary>
+        <Summary title="Agenda Terdekat" icon={CalendarDays} href="/admin/calendar" action="Buka kalender">
+          {!resource.data ? <LoadState error={resource.error} reload={resource.reload}/> : events.length ? events.map(event => {
+            const href = event.resource_id && event.source !== "AGENDA"
+              ? `/admin/${event.source === "TASK" ? "tasks" : "programs"}/${event.resource_id}` : "/admin/calendar";
+            return <Link className="erp-summary-item" key={event.id} href={href}>
+              <strong>{event.title}</strong><span>{dateLabel(event.starts_at ?? event.starts_on)}{event.starts_at && ` · ${new Date(event.starts_at).toLocaleTimeString("id-ID", { timeZone: "Asia/Jakarta", hour: "2-digit", minute: "2-digit" })} WIB`}</span>
+            </Link>;
+          }) : <p className="erp-muted">Belum ada agenda terdekat.</p>}
+        </Summary>
+        <Summary title="Proker Saya" icon={Presentation} href="/admin/programs" action="Lihat program kerja">
+          {!resource.data ? <LoadState error={resource.error} reload={resource.reload}/> : programs.length ? programs.map(program => (
+            <Link className="erp-summary-item" key={program.id} href={`/admin/programs/${program.id}`}>
+              <strong>{program.name}</strong><span>{dateLabel(program.starts_on)}</span>
+            </Link>
+          )) : <p className="erp-muted">Belum ada Proker yang ditugaskan kepada Anda.</p>}
+        </Summary>
+      </div>
+    </div>}
+  </>;
 }

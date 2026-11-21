@@ -1,1 +1,1 @@
-"""WebUFT backend application package."""
+"""Internal ERP application."""

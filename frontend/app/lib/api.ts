@@ -234,15 +234,14 @@ export async function fetchGalleryData(): Promise<Koleksi[]> {
   }
 }
 
-// --- Backend Acara type (SQLAlchemy model serialized by FastAPI) ---
+// Public P1 event summaries contain published content only.
 type AcaraBackend = {
-  acaraID: number;
-  fileID: number | null;
-  nama: string;
-  deskripsi: string | null;
-  tempat: string | null;
-  waktu: string | null;
-  status: string | null;
+  id: string;
+  title: string;
+  description: string;
+  location: string;
+  starts_at: string;
+  poster_url: string;
 };
 
 /**
@@ -278,25 +277,26 @@ export async function fetchEventsData(): Promise<Acara[]> {
   }
 
   try {
-    const res = await fetch("/api/acara/list");
+    const res = await fetch("/api/public/events?limit=100", { cache: "no-store" });
     if (!res.ok) {
       throw new Error(`Gagal mengambil daftar acara (status ${res.status})`);
     }
-    const acaras: AcaraBackend[] = await res.json();
+    const payload: { items: AcaraBackend[] } = await res.json();
+    const acaras = payload.items;
 
     if (!Array.isArray(acaras) || acaras.length === 0) {
       return [];
     }
 
     return acaras.map((acara) => ({
-      id: acara.acaraID,
-      title: acara.nama,
-      description: acara.deskripsi || "",
-      waktu: formatWaktu(acara.waktu),
-      tempat: acara.tempat || "Belum ditentukan",
-      image: acara.fileID ? `/api/file/ambil/${acara.fileID}` : "",
-      link: `#acara`,
-      status: acara.status || "",
+      id: acara.id,
+      title: acara.title,
+      description: acara.description || "",
+      waktu: formatWaktu(acara.starts_at),
+      tempat: acara.location || "Belum ditentukan",
+      image: acara.poster_url || "/logo-uft.png",
+      link: `/events/${acara.id}`,
+      status: "Acara UKM",
     }));
   } catch (err) {
     // Jika backend tidak bisa dijangkau, lempar error dengan pesan yang ramah
