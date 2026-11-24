@@ -5,11 +5,11 @@ import MagneticDropZone from "../../../components/ui/magnetic-drop-zone";
 import DynamicButton from "../../../components/ui/dynamic-button";
 
 import { FormActions, FormSurface, SearchableSelect } from "../../form-surface";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api, query } from "../../../lib/erp/client";
 import type { Program, ItemList } from "../../../lib/erp/types";
 import type { Actuals, Document, Expense, Report } from "../../../lib/erp/p1-types";
-import { Feedback, LoadState, RevealAction, formText, rupiah, useAction, useResource } from "../../ui";
+import { Feedback, LoadState, RevealAction, formText, rupiah, readAllPages, useAction, useResource } from "../../ui";
 
 export function DocumentsPanel({ program }: { program: Program }) {
   const [offset, setOffset] = useState(0);
@@ -39,7 +39,13 @@ export function ActualsPanel({ program }: { program: Program }) {
   const editing = editor === "new" ? null : editor;
   const path = `/programs/${program.id}/expenses`;
   const resource = useResource<Actuals>(path + query({ offset }));
-  const documents = useResource<ItemList<Document>>(`/programs/${program.id}/documents?limit=100`);
+  const documents = useResource<Document[]>(editor ? `/programs/${program.id}/documents` : null, readAllPages<Document>);
+  const reloadDocuments = documents.reload;
+  useEffect(() => {
+    if (!editor) return;
+    window.addEventListener("focus", reloadDocuments);
+    return () => window.removeEventListener("focus", reloadDocuments);
+  }, [editor, reloadDocuments]);
   const action = useAction();
   return <section className="erp-panel erp-stack"><header className="erp-panel-heading"><h2>Rencana & realisasi</h2>{program.capabilities.edit && <button className="erp-primary" aria-haspopup="dialog" onClick={() => { action.clear(); setEditor("new"); }}>Tambah realisasi</button>}</header>{!editor && <Feedback {...action}/>}
     {!resource.data ? <LoadState error={resource.error} reload={resource.reload}/> : <>
@@ -52,7 +58,9 @@ export function ActualsPanel({ program }: { program: Program }) {
     }); }}><Feedback {...action}/><div className="erp-form-grid"><label className="erp-full">Pengeluaran *<input name="name" required defaultValue={editing?.name} maxLength={160}/></label><label>Kategori<input name="category" defaultValue={editing?.category} maxLength={100}/></label><label>Jumlah rupiah *<input name="amount" inputMode="numeric" pattern="[0-9]+" required defaultValue={editing?.amount}/></label><label>Tanggal transaksi *<input name="paid_on" type="date" required defaultValue={editing?.paid_on}/></label>
       </div>
       <SearchableSelect name="attachment_id" label="Bukti dari dokumen Proker" empty="Belum ditautkan" defaultValue={editing?.attachment_id ?? ""}
-        options={(documents.data?.items ?? []).map(item => ({ value: item.id, label: item.name }))}/>
+        options={(documents.data ?? []).map(item => ({ value: item.id, label: item.name }))}/>
+      {documents.data?.length === 0 && <small>Belum ada dokumen untuk ditautkan. Bukti boleh ditambahkan setelah realisasi disimpan.</small>}
+      <a href={`/admin/programs/${program.id}?tab=documents`} target="_blank" rel="noopener noreferrer">Buka Dokumen di tab baru</a>
       {documents.error && <LoadState error={documents.error} reload={documents.reload}/>}
       <details open={!!editing?.notes || undefined}><summary>Catatan</summary><label><span className="erp-visually-hidden">Catatan</span><textarea name="notes" defaultValue={editing?.notes} maxLength={5000}/></label></details>
       <FormActions><button className="erp-primary" disabled={action.busy}>{action.busy ? "Menyimpan…" : "Simpan realisasi"}</button><button type="button" onClick={close}>Batal</button></FormActions>

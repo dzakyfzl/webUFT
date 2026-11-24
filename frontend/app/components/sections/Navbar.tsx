@@ -4,6 +4,7 @@ import { scrollMotion } from "../../lib/motion-preference";
 
 import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 
 const NAV_ITEMS = [
   { label: 'Beranda', sectionId: 'home', targetId: 'home' },
@@ -108,6 +109,9 @@ export function Navbar() {
               {item.label}
             </button>
           ))}
+          <Link href="/announcement" prefetch={false} className="px-1 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-700 outline-none transition-colors hover:text-slate-950 focus-visible:ring-2 focus-visible:ring-slate-950">
+            Pengumuman
+          </Link>
         </div>
 
         <button
@@ -140,6 +144,9 @@ export function Navbar() {
               {item.label}
             </button>
           ))}
+          <Link href="/announcement" prefetch={false} className="px-2 py-3 text-sm font-semibold text-slate-700 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950">
+            Pengumuman
+          </Link>
         </div>
       </div>
     </nav>

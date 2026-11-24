@@ -11,7 +11,7 @@ export type Loan = { id: string; asset_id: string; borrower_name: string; contac
   returned_on: string | null; condition_before: string; condition_after: string | null; rental_fee: string; notes: string; overdue: boolean; version: number; logged_by_name?: string; returned_by_name?: string };
 export type PublicEvent = { id: string; period_id: string; program_id: string | null; owner_user_id: string; title: string; description: string;
   starts_at: string; ends_at: string; location: string; poster_url: string; related_url: string; status: string; version: number;
-  capabilities: { edit: boolean; responses: boolean }; frozen?: boolean; can_staff?: boolean; staff_ids?: string[] };
+  capabilities: { edit: boolean; responses: boolean }; frozen?: boolean; has_form?: boolean; published_form_version?: number | null; registration_open?: boolean; can_staff?: boolean; staff_ids?: string[] };
 export type Question = { id: string; label: string; type: string; required: boolean; placeholder: string; hint: string; options: string[] };
 export type FormSchema = { title: string; description: string; sections: { id: string; title: string; questions: Question[] }[] };
 export type Registration = { id: string; draft_schema: FormSchema; published_version_id: string | null; accepting: boolean; version: number;

@@ -1,7 +1,7 @@
 export type ItemList<T> = { items: T[]; has_more?: boolean };
 export type Unit = { id: string; name: string; kind: "ORGANIZATION" | "DEPARTMENT" | "DIVISION" | "FUNCTION"; parent_id?: string | null; period_id?: string };
 export type Person = { id: string; display_name: string };
-export type Period = { id: string; name: string; archived_at?: string | null };
+export type Period = { successor_ready?: boolean; id: string; name: string; archived_at?: string | null };
 export type Account = Person & { username: string; active: boolean; member_id: string };
 export type Me = {
   user: Account; period_id: string; periods: Period[]; units: Unit[]; positions: string[]; csrf_token: string;
@@ -10,7 +10,7 @@ export type Me = {
 export type Program = {
   id: string; period_id: string; owner_unit_id: string; name: string; description: string;
   chairperson_name: string; chairperson_user_id: string | null; created_by: string; created_at: string;
-  starts_on: string | null; ends_on: string | null; closed_at: string | null; status: "ACTIVE" | "CLOSED";
+  starts_on: string | null; ends_on: string | null; closed_at: string | null; period_archived: boolean; status: "ACTIVE" | "CLOSED";
   version: number; unfinished_tasks?: number;
   assignments?: { user_id: string; source: string; source_id: string }[];
   capabilities: { edit: boolean; close: boolean; assign: boolean; change_chairperson: boolean; structure: boolean };
@@ -18,7 +18,7 @@ export type Program = {
 export type ScopeType = "ORGANIZATION" | "DEPARTMENT" | "DIVISION" | "PROGRAM";
 export type TaskStatus = "TODO" | "IN_PROGRESS" | "REVIEW" | "DONE";
 export type Task = {
-  id: string; title: string; description: string; period_id: string; scope_type: ScopeType; scope_id: string | null;
+  id: string; title: string; description: string; board_name: string; period_id: string; scope_type: ScopeType; scope_id: string | null;
   program_id: string | null; unit_id: string | null; status: TaskStatus; deadline: string | null;
   assignee_user_id: string | null; committee_member_id: string | null; version: number; can_edit: boolean;
 };

@@ -19,7 +19,7 @@ export default function TaskDetailPage() {
   const [saved, setSaved] = useState(false);
   if (!resource.data) return <LoadState error={resource.error} reload={resource.reload}/>;
   const task = resource.data;
-  const source = task.program_id ? `/admin/programs/${task.program_id}` : task.unit_id ? `/admin/tasks/unit/${task.unit_id}` : "/admin/tasks/common";
+  const source = task.program_id ? `/admin/programs/${task.program_id}/tasks` : task.unit_id ? `/admin/tasks/unit/${task.unit_id}` : "/admin/tasks/common";
   const owner = people.data?.items.find(person => person.id === task.assignee_user_id)?.display_name
     ?? committee.data?.members.find(person => person.id === task.committee_member_id)?.display_name
     ?? (task.assignee_user_id || task.committee_member_id ? "Nama PIC belum tersedia" : "Belum ada PIC");
@@ -31,6 +31,7 @@ export default function TaskDetailPage() {
     <Feedback {...action}/>{saved && <p className="erp-success" role="status">Perubahan tugas tersimpan.</p>}
     <section className="erp-panel erp-stack erp-reading-form">
       <dl className="erp-form-grid erp-record-details">
+        <div><dt>Papan asal</dt><dd>{task.board_name}</dd></div>
         <div><dt>Tenggat</dt><dd>{dateLabel(task.deadline)}</dd></div>
         <div><dt>PIC</dt><dd>{owner}</dd></div>
       </dl>

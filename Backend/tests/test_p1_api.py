@@ -182,6 +182,8 @@ class P1ApiTest(unittest.TestCase):
         program = self.create_program()
         event = self.event(program_id=program["id"])
         path, form = self.published_form(event)
+        admin = f'/api/admin/events/{event["id"]}'
+        self.assertTrue(self.ok(self.client.get(admin))["registration_open"])
         self.assertEqual(self.submission(event, form, website="spam").status_code, 422)
         self.ok(self.client.post(path + "/acceptance", json={"expected_version": form["version"], "accepting": False}))
         self.assertEqual(self.submission(event, form).status_code, 409)
@@ -190,6 +192,7 @@ class P1ApiTest(unittest.TestCase):
             ("/publish", "POST", {"expected_version": form["version"]}),
             ("/acceptance", "POST", {"expected_version": form["version"], "accepting": True})):
             self.assertEqual(self.client.request(method, path + suffix, json=body).status_code, 409)
+        self.assertFalse(self.ok(self.client.get(f'/api/admin/events/{event["id"]}'))["registration_open"])
         self.assertFalse(self.ok(self.client.get(f'/api/public/events/{event["id"]}'))["registration"]["accepting"])
 
     def test_public_only_published_ownership_and_submission_rate_limit(self):
@@ -250,4 +253,5 @@ class P1ApiTest(unittest.TestCase):
             with self.subTest(path=path):
                 self.assertEqual(self.client.request(method, path, json=body).status_code, 409)
         self.assertEqual(self.submission(event, form).status_code, 409)
+        self.assertFalse(self.ok(self.client.get(f'/api/admin/events/{event["id"]}'))["registration_open"])
         self.assertFalse(self.ok(self.client.get(f'/api/public/events/{event["id"]}'))["registration"]["accepting"])

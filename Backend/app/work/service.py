@@ -45,8 +45,10 @@ def pic(session, policy, period_id, program_id, user_id, committee_id):
 
 
 def task_dto(row, actor, policy):
+    board = policy.program(row.program_id) if row.program_id else policy.unit(row.unit_id)
     return {"id": row.id, "period_id": row.period_id, "scope_type": row.scope_type,
             "scope_id": row.program_id or row.unit_id, "program_id": row.program_id,
+            "board_name": board.name if board else "Umum UKM",
             "unit_id": row.unit_id, "title": row.title, "description": row.description,
             "status": row.status, "deadline": row.deadline, "assignee_user_id": row.assignee_user_id,
             "committee_member_id": row.committee_member_id, "version": row.version,

@@ -167,7 +167,7 @@ def list_loans(asset_id: str, period_id: str, offset: int = Query(0, ge=0), limi
                user=Depends(current_user), session=Depends(transaction, scope="function")):
     inventory_access(session, user.id, period_id, manage=True)
     rows = session.scalars(select(LoanRow).where(LoanRow.asset_id == asset_id).order_by(
-        LoanRow.loan_on.desc(), LoanRow.id).offset(offset).limit(limit + 1)).all()
+        LoanRow.returned_on.is_not(None), LoanRow.loan_on.desc(), LoanRow.id).offset(offset).limit(limit + 1)).all()
     return {"items": [loan_dto(row, session) for row in rows[:limit]], "has_more": len(rows) > limit}
 
 

@@ -131,21 +131,22 @@ export function RevealAction({ label, target, primary = false }: { label: string
   }}>{label}</button>;
 }
 
-async function readProgramPages(path: string, signal: AbortSignal) {
-  const programs = new Map<string, Program>();
+export async function readAllPages<T extends { id: string }>(path: string, signal: AbortSignal) {
+  const items = new Map<string, T>();
   let offset = 0;
   for (;;) {
-    const page = await api<ItemList<Program>>(`${path}&limit=100&offset=${offset}`, { signal });
-    const before = programs.size;
-    for (const program of page.items) programs.set(program.id, program);
-    if (!page.has_more) return Array.from(programs.values());
-    if (before === programs.size) throw new Error("Daftar Proker belum lengkap. Coba kembali.");
+    const separator = path.includes("?") ? "&" : "?";
+    const page = await api<ItemList<T>>(`${path}${separator}limit=100&offset=${offset}`, { signal });
+    const before = items.size;
+    for (const item of page.items) items.set(item.id, item);
+    if (!page.has_more) return Array.from(items.values());
+    if (before === items.size) throw new Error("Daftar belum lengkap. Coba kembali.");
     offset += page.items.length;
   }
 }
 
 export function useProgramList(periodId: string | null, view: "all" | "mine" | "archive") {
-  return useResource<Program[]>(periodId ? `/programs${query({ period_id: periodId, view })}` : null, readProgramPages);
+  return useResource<Program[]>(periodId ? `/programs${query({ period_id: periodId, view })}` : null, readAllPages<Program>);
 }
 
 export function unitLabel(unit: Unit, units: Unit[]) {

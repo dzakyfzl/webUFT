@@ -2,7 +2,8 @@
 
 import Disclosure from "../../../components/ui/disclosure";
 
-import { useParams } from "next/navigation";
+import Link from "next/link";
+import { useParams, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { api, query } from "../../../lib/erp/client";
 import type { Activity, Budget, Committee, Group, ItemList, Person, Program } from "../../../lib/erp/types";
@@ -16,7 +17,8 @@ import { ActualsPanel, DocumentsPanel, ReportPanel } from "./p1-panels";
 export default function ProgramDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { me } = useErp();
-  const [tab, setTab] = useState("summary");
+  const initialTab = useSearchParams().get("tab");
+  const [tab, setTab] = useState(initialTab === "documents" ? "documents" : "summary");
   const [editing, setEditing] = useState<Program | null>(null);
   const [assigning, setAssigning] = useState(false);
   const resource = useResource<Program>(`/programs/${id}`);
@@ -29,7 +31,7 @@ export default function ProgramDetailPage() {
   const program = resource.data;
   const path = `/programs/${id}`;
   return <><PageHeading title={program.name} description={`Ketua Pelaksana: ${program.chairperson_name}`}>
-    <span className={`erp-pill ${program.status === "ACTIVE" ? "erp-pill-active" : ""}`}>{program.status === "ACTIVE" ? "Aktif" : "Ditutup"}{!program.capabilities.edit ? " · Hanya lihat" : ""}</span>
+    <span className={`erp-pill ${program.status === "ACTIVE" ? "erp-pill-active" : ""}`}>{program.period_archived ? "Periode arsip" : program.status === "ACTIVE" ? "Aktif" : "Ditutup"}{!program.capabilities.edit ? " · Hanya lihat" : ""}</span>
   </PageHeading><div className="erp-tabs">{[["summary", "Ringkasan"], ["committee", "Kepanitiaan"], ["budget", "RAB"], ["actuals", "Realisasi"], ["documents", "Dokumen"], ["report", "LPJ"], ["tasks", "Tugas"], ["access", "Pengelola"], ["activity", "Aktivitas"]].map(([value, label]) =>
     <button key={value} aria-pressed={tab === value} onClick={() => setTab(value)}>{label}</button>)}</div>
     {!editing && <Feedback {...action}/>}
@@ -37,7 +39,14 @@ export default function ProgramDetailPage() {
       <header className="erp-panel-heading"><h2>Informasi Proker</h2>{program.capabilities.edit && <button className="erp-primary" aria-haspopup="dialog" onClick={() => { action.clear(); setEditing(program); }}>Edit Proker</button>}</header>
       <div className="erp-row-between"><span className="erp-muted">{dateLabel(program.starts_on)}{program.ends_on ? ` – ${dateLabel(program.ends_on)}` : ""}</span><span className="erp-scope-label">{program.unfinished_tasks ?? 0} tugas belum selesai</span></div>
       <p className="erp-record-text">{program.description || "Belum ada deskripsi."}</p>
+      {program.status === "ACTIVE" && <div className="erp-row">
+        {program.capabilities.structure && <button onClick={() => setTab("committee")}>Susun kepanitiaan</button>}
+        <Link className="erp-button" href={`/admin/programs/${id}/tasks`}>Buka papan tugas</Link>
+        {!program.capabilities.edit && !program.period_archived &&
+          <p className="erp-muted">Untuk ikut mengelola kegiatan, hubungi {program.chairperson_name} selaku Ketua Pelaksana.</p>}
+      </div>}
       {program.capabilities.close && <div style={{ borderTop: "1px solid var(--erp-line)", paddingTop: 20 }}><h3>Tutup Proker</h3><p className="erp-muted">Setelah ditutup, seluruh isi Proker menjadi arsip yang hanya dapat dibaca.</p>
+        {!!program.unfinished_tasks && <p><Link href={`/admin/programs/${id}/tasks`}>Periksa tugas yang belum selesai</Link></p>}
         <button className="erp-danger" disabled={action.busy} onClick={() => {
           if (!window.confirm(`Tutup ${program.name}?\n${program.unfinished_tasks ?? 0} tugas belum selesai akan tetap tercatat.\nTotal RAB: ${budget.data ? rupiah(budget.data.total_rupiah) : "belum dimuat"}.\nSeluruh isi Proker akan dikunci.`)) return;
           action.run(async () => { await api(path + "/close", { method: "POST", body: { expected_version: program.version, confirmed_unfinished: true } }); reload(); }, "Proker ditutup. Histori tetap tersimpan.");

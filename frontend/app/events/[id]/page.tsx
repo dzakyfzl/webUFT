@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import RegistrationFields, { type Answers } from "../../components/RegistrationFields";
@@ -9,6 +10,11 @@ type EventData = PublicEvent & { registration: { form_id: string; form_version_i
 
 export default function RegistrationPage() {
   const { id } = useParams<{ id: string }>();
+  return <Registration key={id} id={id}/>;
+}
+
+function Registration({ id }: { id: string }) {
+  const [unavailable, setUnavailable] = useState(false);
   const [event, setEvent] = useState<EventData | null>(null);
   const [values, setValues] = useState<Answers>({});
   const [error, setError] = useState("");
@@ -21,12 +27,17 @@ export default function RegistrationPage() {
   const errorNotice = useRef<HTMLParagraphElement>(null);
   const load = useCallback(async () => {
     const response = await fetch(`/api/public/events/${id}`, { cache: "no-store" });
-    if (!response.ok) throw Error("Acara tidak ditemukan atau belum dipublikasikan.");
+    if (response.status === 404 || response.status === 410) {
+      setUnavailable(true);
+      setEvent(null);
+      throw Error("Acara tidak ditemukan atau belum dipublikasikan.");
+    }
+    if (!response.ok) throw Error("Acara belum dapat dimuat. Silakan coba lagi.");
     const data: EventData = await response.json();
     setEvent(data);
     return data;
   }, [id]);
-  useEffect(() => { load().catch(error => setError(error.message)); }, [load]);
+  useEffect(() => { load().catch(() => setError("Halaman acara belum dapat dimuat.")); }, [load]);
   useEffect(() => { if (complete) result.current?.focus(); }, [complete]);
   useEffect(() => { if (error) errorNotice.current?.focus(); }, [error]);
   const form = event?.registration;
@@ -52,7 +63,10 @@ export default function RegistrationPage() {
       setError("");
     } catch (error) { setError(error instanceof Error ? error.message : "Formulir belum dapat dimuat."); }
   }
-  return <div className="erp-stack">{error && !event && <p ref={errorNotice} tabIndex={-1} className="erp-error" role="alert">{error}</p>}{!event ? <p role="status">{error ? "Halaman tidak tersedia." : "Memuat acara…"}</p> : <>
+  return <div className="erp-stack">{!event ? error ? <section>
+    <p ref={errorNotice} tabIndex={-1} className="erp-error" role="alert">{unavailable ? "Acara tidak ditemukan atau belum dipublikasikan." : "Halaman acara belum dapat dimuat."}</p>
+    {unavailable ? <Link href="/events">Lihat acara lain</Link> : <button onClick={() => { setError(""); void reloadForm(); }}>Coba lagi</button>}
+  </section> : <p role="status">Memuat acara…</p> : <>
     <header><h1>{event.title}</h1><p>{new Date(event.starts_at).toLocaleString("id-ID", { timeZone: "Asia/Jakarta" })} WIB{event.location && ` · ${event.location}`}</p></header>
     {(event.description || event.poster_url || event.related_url) && <section className="erp-panel erp-stack"><p style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{event.description}</p>{event.poster_url && <a href={event.poster_url} target="_blank" rel="noopener noreferrer">Lihat poster</a>}{event.related_url && <a href={event.related_url} target="_blank" rel="noopener noreferrer">Informasi terkait</a>}</section>}
     {complete ? <section ref={result} tabIndex={-1} className="erp-panel motion-pop-in" role="status"><h2>Pendaftaran diterima</h2><p>Jawaban Anda sudah tercatat. Terima kasih sudah mendaftar.</p></section>
@@ -67,10 +81,17 @@ export default function RegistrationPage() {
             const answers = Object.fromEntries(Object.entries(values).filter(([key]) => activeIds.has(key)));
             const website = String(new FormData(submit.currentTarget).get("website") ?? "");
             const response = await fetch(`/api/public/events/${id}/submissions`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ form_version_id: form.form_version_id, request_id: requestId.current, answers, website }) });
+            if (response.status >= 500) throw Error("Pengiriman belum dapat dikonfirmasi. Coba kirim kembali dengan isian yang sama.");
             const payload = await response.json();
+            if (!response.ok && payload.error?.code === "registration_closed") {
+              setEvent({ ...event, registration: { ...form, accepting: false } });
+              return;
+            }
+            if (!response.ok && payload.error?.code === "no_form") { setEvent({ ...event, registration: null }); return; }
+            if (response.status === 404) { setUnavailable(true); setEvent(null); throw Error("Acara tidak tersedia."); }
             if (!response.ok) { if (payload.error?.code === "stale_form") setStale(true); throw Error(payload.error?.message ?? "Pendaftaran belum terkirim."); }
             setComplete(true);
-          } catch (error) { setError(error instanceof Error ? error.message : "Koneksi terputus. Isian tetap tersimpan; silakan kirim kembali."); }
+          } catch (error) { setError(error instanceof Error && !(error instanceof TypeError) ? error.message : "Koneksi terputus. Isian Anda masih ada. Silakan kirim kembali."); }
           finally { submitting.current = false; setBusy(false); }
         }}><div className="erp-honeypot" aria-hidden="true"><label>Website<input name="website" tabIndex={-1} autoComplete="off"/></label></div><RegistrationFields key={form.form_version_id} schema={form.schema} values={values} onChange={setValues} disabled={busy || stale}/><div><button type="submit" className="erp-primary" disabled={busy || stale}>{busy ? "Mengirim…" : "Kirim pendaftaran"}</button></div></form>
       </section>}

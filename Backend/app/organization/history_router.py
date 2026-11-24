@@ -9,6 +9,7 @@ from app.authorization import actor_snapshot, policy_snapshot, require
 from app.errors import ApiError
 from app.http import current_user, transaction
 from app.organization.models import BoardMembershipRow, MemberRow, PeriodRow, PositionRow, UserRow
+from app.organization.service import active_chair_periods
 from app.schemas import Input
 from app.permissions.policy import Action, Position
 from app.programs.models import ProgramRow
@@ -48,20 +49,16 @@ def archive(period_id: str, body: ArchiveInput, user=Depends(current_user), sess
     is_chair = any(p.active and p.period_id == period_id and p.position == Position.CHAIR for p in actor.positions)
     if not actor.active or not is_chair or period_id not in actor.governing_period_ids:
         raise ApiError(403, "forbidden", "Hanya Ketua Umum periode ini dapat mengarsipkan.")
+    remaining_access = any(p.id != period.id and p.id in actor.governing_period_ids and p.archived_at is None for p in periods)
     if period.archived_at is not None:
-        return {"id": period.id, "archived_at": period.archived_at}
+        return {"id": period.id, "archived_at": period.archived_at, "remaining_access": remaining_access}
     require(session, user.id, Action.ARCHIVE_PERIOD, period_id=period_id)
     if not body.confirmed:
         raise ApiError(409, "confirmation_required", "Konfirmasi pengarsipan seluruh progres periode.")
     successor = next((p for p in periods if p.id == body.successor_period_id), None)
     if successor is None or successor.id == period.id or successor.archived_at is not None:
         raise ApiError(422, "invalid_successor", "Siapkan periode penerus yang belum diarsipkan.")
-    ready = session.scalar(select(UserRow.id).join(PositionRow, PositionRow.user_id == UserRow.id)
-        .join(BoardMembershipRow, BoardMembershipRow.user_id == UserRow.id).where(
-            PositionRow.period_id == successor.id, PositionRow.position == Position.CHAIR.value,
-            PositionRow.active.is_(True), UserRow.active.is_(True),
-            BoardMembershipRow.period_id == successor.id, BoardMembershipRow.active.is_(True)).limit(1))
-    if ready is None:
+    if session.scalar(active_chair_periods().where(PositionRow.period_id == successor.id).limit(1)) is None:
         raise ApiError(409, "successor_not_ready", "Tetapkan akun Ketua Umum aktif pada periode penerus terlebih dahulu.")
     identities = session.execute(select(UserRow.id, MemberRow.display_name).join(MemberRow, MemberRow.id == UserRow.member_id)
         .join(BoardMembershipRow, BoardMembershipRow.user_id == UserRow.id).where(BoardMembershipRow.period_id == period.id)).all()
@@ -69,4 +66,4 @@ def archive(period_id: str, body: ArchiveInput, user=Depends(current_user), sess
     record_audit(session, actor=actor, action="period.archived", resource_id=period.id, period_id=period.id,
                  before={"archived": False}, after={"archived": True, "successor_period_id": successor.id,
                      "identities": [{"id": identity.id, "display_name": identity.display_name} for identity in identities]})
-    return {"id": period.id, "archived_at": period.archived_at}
+    return {"id": period.id, "archived_at": period.archived_at, "remaining_access": remaining_access}

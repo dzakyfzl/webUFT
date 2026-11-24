@@ -5,6 +5,6 @@ import ChatWidget from "./ChatWidget";
 
 export default function PublicChatBoundary() {
   const pathname = usePathname();
-  if (pathname === "/admin" || pathname.startsWith("/admin/")) return null;
+  if (pathname === "/announcement" || pathname === "/admin" || pathname.startsWith("/admin/")) return null;
   return <ChatWidget />;
 }

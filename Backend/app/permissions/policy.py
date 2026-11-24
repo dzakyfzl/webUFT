@@ -63,6 +63,7 @@ class Unit:
     period_id: str
     kind: UnitType
     parent_id: str | None = None
+    name: str = ""
 
 
 @dataclass(frozen=True)
@@ -95,6 +96,7 @@ class Program:
     owner_unit_id: str
     chairperson_user_id: str | None = None
     closed: bool = False
+    name: str = ""
 
 
 class GrantSource(StrEnum):

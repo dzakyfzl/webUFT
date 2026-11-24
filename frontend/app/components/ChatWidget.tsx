@@ -7,26 +7,27 @@ import { ActionTooltip, TooltipGroup } from "./ui/tooltip";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+const chatSessionKey = "angie_session_id";
+
 function getOrCreateSessionId(): string {
-  const KEY = "angie_session_id";
   if (typeof window === "undefined") return crypto.randomUUID();
-  let id = sessionStorage.getItem(KEY);
-  // Validasi: pastikan value yang tersimpan adalah UUID canonical (format xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  if (!id || !uuidRegex.test(id)) {
-    id = crypto.randomUUID();
-    sessionStorage.setItem(KEY, id);
+  try {
+    const id = sessionStorage.getItem(chatSessionKey);
+    if (id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) return id;
+  } catch {
+    return crypto.randomUUID();
   }
-  return id;
+  return resetSessionId();
 }
 
 function resetSessionId(): string {
-  const KEY = "angie_session_id";
-  const newId = crypto.randomUUID();
-  if (typeof window !== "undefined") {
-    sessionStorage.setItem(KEY, newId);
+  const id = crypto.randomUUID();
+  try {
+    sessionStorage.setItem(chatSessionKey, id);
+  } catch {
+    // React state keeps the conversation usable when tab storage is unavailable.
   }
-  return newId;
+  return id;
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────

@@ -106,3 +106,19 @@ Pemeriksaan berikut menambah checklist existing; hasil otomatis tidak menggantik
 - [ ] Pilih bulan lampau: Agenda mendatang tetap menampilkan 30 hari dari hari ini sesuai filter, bukan dari bulan lampau.
 - [ ] Periksa seluruh informasi kalender pada layar 320/390 piksel, agenda padat melalui rincian tanggal, dan scroll kanban tanpa overflow halaman.
 - [ ] Periksa koneksi gagal/loading/refresh: struktur tetap terlihat, data lama diberi pesan saat refresh gagal, retry bekerja, pratinjau formulir dan isian bertahan.
+
+## Penerimaan alur per peran
+
+Mulai dari Beranda pengurus atau tautan acara untuk peserta. Berikan tujuan pada tabel tanpa membacakan nama menu. Catat langkah pertama, salah arah, istilah yang membingungkan, bantuan fasilitator, dan hasil akhirnya. Ulangi pada desktop dan layar 320 atau 390 px. Untuk lulus, penguji dapat menyelesaikan tujuan dan menjelaskan hasil atau siapa yang bekerja berikutnya tanpa petunjuk. Catat hasil manusia secara terpisah dari regresi Chromium.
+
+| Penguji | Tujuan yang diberikan | Hasil manusia |
+|---|---|---|
+| Pengurus biasa | Temukan kegiatan unit lain saat belum mendapat penugasan dan cari siapa yang dapat melibatkan Anda. | BELUM |
+| Ketupel A dan B | Siapkan kepanitiaan masing-masing, catat panitia tanpa akun, dan periksa tugas terbuka sebelum memutuskan penutupan. | BELUM |
+| Hunting, Eksternal dan PIC | Temukan dua tugas berjudul sama pada Proker berbeda. Tunjuk PIC berakun dan jelaskan akses yang diterimanya. PIC kembali ke papan yang tepat. | BELUM |
+| Wakil dan pengurus Inti | Dari ringkasan unit, telusuri pekerjaan departemen, lalu temukan tugas pribadi. Jelaskan siapa yang bisa memberi akses respons acara. | BELUM |
+| Pengelola keuangan | Mulai mencatat pengeluaran, unggah bukti selagi nominal terisi, kembali ke isian semula, lalu tautkan bukti pada halaman kedua daftar dokumen. | BELUM |
+| Pengurus aset | Pinjamkan kamera, temukan transaksi aktif dari layar kecil, kembalikan dengan kondisi rusak, lalu periksa riwayatnya. | BELUM |
+| Pembuat acara, peserta dan petugas respons | Siapkan acara draf dan formulir, tentukan kapan tautan siap dibagikan, daftarkan satu peserta, lalu temukan dan ekspor respons pada versi yang tepat. | BELUM |
+| Peserta | Dari tautan yang tidak tersedia, cari acara lain. Saat koneksi terganggu, coba lagi dan pastikan jawaban yang dikirim tercatat satu kali. | BELUM |
+| Ketua lama dan penerus | Temukan prasyarat yang kurang, tetapkan Ketua penerus di periode yang benar, periksa kelayakan lagi, lalu arsipkan periode dan temukan histori dari akun penerus. Jalankan terakhir. | BELUM |

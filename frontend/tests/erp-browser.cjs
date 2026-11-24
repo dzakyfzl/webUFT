@@ -156,7 +156,8 @@ async function main() {
     await cdp.wait(`document.querySelector('select[name=assignee_user_id]')?.value === ${JSON.stringify(fixture.external.id)}`, "saved task keeps PIC");
     await cdp.clickText("button", "Batal");
     await cdp.clickText("a", "Buka papan asal");
-    await cdp.wait(`location.pathname === '/admin/programs/${programId}' && document.body.innerText.includes('Browser Test Proker')`, "original program board link");
+    await cdp.wait(`location.pathname === '/admin/programs/${programId}/tasks' && document.body.innerText.includes('Browser Test Task')`, "original program board link");
+    await cdp.clickText("a", "Ringkasan Proker");
     await cdp.send("Page.removeScriptToEvaluateOnNewDocument", { identifier: delayDirectory.identifier });
     await cdp.clickText("button", "RAB");
     await cdp.clickText("button", "Tambah Item RAB");

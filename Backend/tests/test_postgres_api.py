@@ -446,15 +446,46 @@ class PostgresApiTest(unittest.TestCase):
         self.assertEqual(self.client.patch("/api/admin/tasks/" + general["id"], json={"expected_version": 1,
             "title": "Stale write", "status": "TODO"}).status_code, 409)
 
+    def test_board_name_identifies_shared_task_titles(self):
+        self.assertEqual(self.create_task()["board_name"], "Umum UKM")
+        for name in ("Proker A", "Proker B"):
+            program = self.create_program(name=name)
+            task = self.create_task(scope_type="PROGRAM", scope_id=program["id"])
+            self.assertEqual(self.client.get("/api/admin/tasks/" + task["id"]).json()["board_name"], name)
+        self.sign_in(self.hunting)
+        unit = self.create_task(scope_type="DIVISION", scope_id=self.units["Hunting"])
+        self.assertEqual(unit["board_name"], "Hunting")
+        board = self.client.get("/api/admin/tasks", params={"period_id": self.period_id,
+            "scope_type": "DEPARTMENT", "scope_id": self.units["Departemen Internal"]})
+        self.assertEqual({row["board_name"] for row in board.json()["items"]}, {"Hunting", "Proker A", "Proker B"})
+
     def test_only_chair_archives_and_successor_reads_unchanged_jejak(self):
         task = self.create_task()
         successor_response = self.client.post("/api/admin/periods", json={"name": "Penerus-" + secrets.token_hex(8)})
         self.assertEqual(successor_response.status_code, 201, successor_response.text)
         successor_id = successor_response.json()["id"]
+        params = {"successor_for": self.period_id}
+
+        def successor_ready():
+            periods = self.client.get("/api/admin/periods", params=params)
+            self.assertEqual(periods.status_code, 200)
+            return next(row["successor_ready"] for row in periods.json()["items"] if row["id"] == successor_id)
+
+        self.assertFalse(successor_ready())
         response = self.client.put("/api/admin/memberships", json={"user_id": self.external["id"],
             "period_id": successor_id, "positions": ["CHAIR"], "unit_ids": []})
         self.assertEqual(response.status_code, 200, response.text)
+        self.assertTrue(successor_ready())
+        for model in (UserRow, PositionRow, BoardMembershipRow):
+            with self.test_database.transaction() as session:
+                row = session.get(UserRow, self.external["id"]) if model is UserRow else session.scalar(
+                    select(model).where(model.user_id == self.external["id"], model.period_id == successor_id))
+                row.active = False
+            self.assertFalse(successor_ready())
+            with self.test_database.transaction() as session:
+                session.merge(row).active = True
         self.sign_in(self.hunting)
+        self.assertEqual(self.client.get("/api/admin/periods", params=params).status_code, 403)
         body = {"successor_period_id": successor_id, "confirmed": True}
         path = f"/api/admin/periods/{self.period_id}/archive"
         self.assertEqual(self.client.post(path, json=body).status_code, 403)

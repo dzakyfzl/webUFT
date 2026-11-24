@@ -1,13 +1,19 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { api, setCsrfToken } from "../../lib/erp/client";
 import DynamicButton from "../../components/ui/dynamic-button";
 
 export default function LoginPage() {
+  return <Suspense><LoginForm/></Suspense>;
+}
+
+function LoginForm() {
   const router = useRouter();
+  const params = useSearchParams();
+  const archive = params.get("archive");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -17,7 +23,7 @@ export default function LoginPage() {
       <div><p className="erp-login-message">Tugas, program kerja, dan riwayat kepengurusan.</p></div>
     </section>
     <section className="erp-login-form"><div className="erp-login-inner"><h1>Masuk ke ruang pengurus</h1>
-      <p>Gunakan akun pribadi yang diberikan pengurus Inti.</p>
+      <p>{archive ? `Periode ${params.get("period_name") || "sebelumnya"} telah diarsipkan. Masuk dengan akun pengurus aktif untuk melihat arsipnya.` : "Gunakan akun pribadi yang diberikan pengurus Inti."}</p>
       <form onSubmit={async event => {
         event.preventDefault();
         if (submitting.current) return;
@@ -27,7 +33,7 @@ export default function LoginPage() {
           const result = await api<{ csrf_token: string }>("/auth/login", { method: "POST", body: {
             username: String(values.get("username")).trim().toLowerCase(), password: String(values.get("password")),
           }});
-          setCsrfToken(result.csrf_token); router.replace("/admin");
+          setCsrfToken(result.csrf_token); router.replace(archive ? `/admin/history?period=${encodeURIComponent(archive)}` : "/admin");
         } catch (error) {
           setError(error instanceof Error ? error.message : "Login belum berhasil.");
           submitting.current = false; setBusy(false);

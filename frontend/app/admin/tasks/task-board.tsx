@@ -29,7 +29,7 @@ function Card({ task, people, today, list, move, edit }: { task: Task; people: M
       <span><UserRound size={14} aria-hidden="true"/>{owner}</span>
       {task.deadline && <TaskDeadline deadline={task.deadline} today={today} done={task.status === "DONE"}/>}
     </div>
-    <footer className="erp-task-footer"><span className="erp-scope-label">{task.program_id ? "Proker" : task.unit_id ? "Unit" : "Umum UKM"}</span>{!task.can_edit && <small>Hanya lihat</small>}</footer>
+    <footer className="erp-task-footer"><span className="erp-scope-label">{task.board_name || (task.program_id ? "Proker" : task.unit_id ? "Unit" : "Umum UKM")}</span>{!task.can_edit && <small>Hanya lihat</small>}</footer>
     {list && task.can_edit && <label>Status<select value={task.status} onChange={e => move(task, e.target.value as TaskStatus)}>{statuses.map(status => <option key={status} value={status}>{statusLabels[status]}</option>)}</select></label>}
   </article>;
 }
@@ -56,7 +56,7 @@ export default function TaskBoard({ program, initialView = "mine", startCreating
   const boards = units.filter(unit => unit.kind === "DEPARTMENT" || unit.kind === "DIVISION");
   const unit = boards.find(row => row.id === view);
   const scopeType = program ? "PROGRAM" : view === "ORGANIZATION" ? "ORGANIZATION" : unit?.kind;
-  const base = query({ period_id: periodId, scope_type: scopeType, scope_id: program?.id ?? unit?.id, mine: !program && view === "mine", archive: !!program?.closed_at });
+  const base = query({ period_id: periodId, scope_type: scopeType, scope_id: program?.id ?? unit?.id, mine: !program && view === "mine", archive: !!(program?.closed_at || program?.period_archived) });
   if (!program && view !== "mine" && view !== "ORGANIZATION" && !unit) {
     return allUnits.data ? <p className="erp-empty">Unit tidak tersedia pada periode ini.</p> : <LoadState error={allUnits.error} reload={allUnits.reload}/>;
   }
@@ -122,6 +122,7 @@ function Board({ base, program, view, picker, startCreating, people, peopleReady
   }, [base, revision, search]);
   const scopeChoices = program ? [{ value: `PROGRAM:${program.id}`, label: program.name }] : [{ value: "ORGANIZATION:", label: "Umum UKM" }, ...me.units.filter(row => row.kind === "DEPARTMENT" || row.kind === "DIVISION").map(row => ({ value: `${row.kind}:${row.id}`, label: row.name })), ...programs.items.filter(row => row.capabilities.edit).map(row => ({ value: `PROGRAM:${row.id}`, label: row.name }))];
   const defaultScope = program ? `PROGRAM:${program.id}` : selectedUnit ? `${selectedUnit.kind}:${selectedUnit.id}` : "ORGANIZATION:";
+  const [chosenScope, setChosenScope] = useState(defaultScope);
   const canCreate = !me.periods.find(p => p.id === me.period_id)?.archived_at && (program ? !program.closed_at && program.capabilities.edit : view === "mine" || view === "ORGANIZATION" || me.units.some(row => row.id === view));
   async function move(task: Task, status: TaskStatus) {
     if (busy.current || !task.can_edit || task.status === status) return;
@@ -147,6 +148,7 @@ function Board({ base, program, view, picker, startCreating, people, peopleReady
 
   function closeForm() {
     quickDraft.current = null;
+    setChosenScope(defaultScope);
     setCreating(null);
     setDetailed(false);
     setDraft("");
@@ -155,6 +157,7 @@ function Board({ base, program, view, picker, startCreating, people, peopleReady
 
   function cancelDetails() {
     if (quickDraft.current === null) { closeForm(); return; }
+    setChosenScope(defaultScope);
     setDraft(quickDraft.current);
     quickDraft.current = null;
     setDetailed(false);
@@ -199,7 +202,7 @@ function Board({ base, program, view, picker, startCreating, people, peopleReady
 
   const loading = (!Object.keys(pages).length || loadedSearch !== search) && !error;
   const normalizedSearch = search.toLocaleLowerCase("id");
-  const context = scopeChoices.find(scope => scope.value === defaultScope)?.label;
+  const context = scopeChoices.find(scope => scope.value === chosenScope)?.label;
   return <>
     <div className="erp-board-toolbar">
       {picker}
@@ -231,11 +234,11 @@ function Board({ base, program, view, picker, startCreating, people, peopleReady
         </div>
         {!peopleReady ? <LoadState error={peopleError} reload={retryPeople}/> : <SearchableSelect name="assignee_user_id" label="PIC" defaultValue={view === "mine" && !program ? me.user.id : ""} empty="Belum ditentukan"
           options={Array.from(people, ([value, label]) => ({ value, label }))}/>}
-        {program && <small>PIC berakun memperoleh akses edit Proker ini.</small>}
+        {chosenScope.startsWith("PROGRAM:") && <small>PIC berakun memperoleh akses edit Proker ini.</small>}
         <label>Deskripsi<textarea name="description" maxLength={10000}/></label>
         {!program && <details>
           <summary>Ubah papan asal</summary>
-          <label>Papan asal<select name="scope" defaultValue={defaultScope}>{scopeChoices.map(scope => <option value={scope.value} key={scope.value}>{scope.label}</option>)}</select></label>
+          <label>Papan asal<select name="scope" value={chosenScope} onChange={event => setChosenScope(event.target.value)}>{scopeChoices.map(scope => <option value={scope.value} key={scope.value}>{scope.label}</option>)}</select></label>
           {programs.error && <LoadState error={programs.error} reload={programs.reload}/>}
         </details>}
         <FormActions>
@@ -245,7 +248,7 @@ function Board({ base, program, view, picker, startCreating, people, peopleReady
       </form>}
     </FormSurface>}
     {editing && <TaskEditor key={editing.id} task={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); setMessage("Perubahan tugas tersimpan."); setCreatedId(""); }}/>}
-    {program?.closed_at && <p className="erp-muted erp-board-help">Arsip tugas · Hanya lihat</p>}
+    {(program?.closed_at || program?.period_archived) && <p className="erp-muted erp-board-help">Arsip tugas · Hanya lihat</p>}
     {!list && !statusFilter && <p className="erp-board-scroll-hint">Geser papan untuk melihat tahap lainnya.</p>}
     {loading && <LoadingIndicator label="Memuat tugas…"/>}
     <DragDropProvider onDragEnd={event => {

@@ -114,8 +114,8 @@ async function run() {
     await cdp.send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-color-scheme", value: "light" }] });
 
     await cdp.go(origin, "/admin/login");
-    await cdp.wait("document.documentElement.dataset.theme === 'light'", "client motion environment");
     const login = "document.querySelector('.erp-login button[type=submit]')";
+    await cdp.wait(`document.documentElement.dataset.theme === 'light' && !!${login}`, "login form and client motion environment");
     const point = async expression => cdp.eval(`(() => {
       const rect = (${expression}).getBoundingClientRect();
       return { x: rect.x + rect.width/2, y: rect.y + rect.height/2 };
@@ -188,12 +188,12 @@ async function run() {
     assert.equal(await cdp.eval("document.activeElement.id"), "dest-url");
 
     await cdp.go(origin, "/admin/events/e0");
-    await cdp.clickText("button", "Form Builder");
+    await cdp.clickText("button", "Formulir");
     const preview = "[...document.querySelectorAll('button[aria-pressed]')].find(button => /Preview peserta|Kembali ke editor/.test(button.textContent))";
     await cdp.wait(`!!(${preview}) && !!document.querySelector('.motion-step-panel')`, "editor preview control");
     await cdp.fill(".erp-builder-canvas input", "Draft lokal");
     await cdp.clickText("button", "Acara");
-    await cdp.clickText("button", "Form Builder");
+    await cdp.clickText("button", "Formulir");
     assert.equal(await cdp.eval("document.querySelector('.erp-builder-canvas input').value"), "Draft lokal", "tab switch keeps editor draft");
     builderVersion = 2;
     await cdp.eval("window.dispatchEvent(new Event('erp:changed'))");
@@ -312,6 +312,7 @@ async function run() {
     assert.ok(await cdp.eval("Math.abs(new DOMMatrix(getComputedStyle(document.querySelector('.cw-panel')).transform).m11 - .97) < .001"));
     await cdp.eval("new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))");
     await cdp.eval(`document.querySelector('[aria-label="Jeda putar otomatis"]').click()`);
+    await cdp.eval(`${card}.scrollIntoView({block:"center",behavior:"instant"})`);
     const start = await point(card);
     await cdp.send("Input.dispatchMouseEvent", { type: "mouseMoved", ...start });
     await cdp.eval(`(() => {
@@ -324,7 +325,7 @@ async function run() {
       }
     })()`);
     const mouse = (type, x) => cdp.send("Input.dispatchMouseEvent", {
-      type, x, y: start.y, button: type === "mouseMoved" ? "none" : "left",
+      type, x, y: start.y, button: "left",
       buttons: type === "mouseReleased" ? 0 : 1, clickCount: 1,
     });
     const settle = (target, label) => cdp.wait(`Math.abs(${position} - (${target})) < 1`, label);
@@ -385,6 +386,7 @@ async function run() {
     await cdp.eval(`${carousel}.querySelector('.hero-carousel-dot').click()`);
     await settle(0, "first poster on mobile");
     await cdp.send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 1 });
+    await cdp.eval(`${card}.scrollIntoView({block:"center",behavior:"instant"})`);
     const touch = await point(card);
     await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ ...touch, id: 1 }] });
     await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: touch.x - 100, y: touch.y, id: 1 }] });
@@ -419,7 +421,7 @@ async function run() {
     await cdp.eval("document.querySelector('form').requestSubmit()");
     await cdp.wait("document.querySelector('[role=status] h2')?.textContent === 'Pendaftaran diterima'", "registration succeeds with another checkbox");
     await cdp.go(origin, "/admin/login");
-    await cdp.wait("!!document.documentElement.dataset.theme", "reduced motion environment");
+    await cdp.wait(`!!document.documentElement.dataset.theme && !!${login}`, "login form in reduced motion");
     await cdp.eval("document.querySelector('.erp-login form').requestSubmit()");
     assert.equal(await cdp.eval(`!!(${shake})`), false);
     assert.equal(await cdp.eval(`${invalid}.getAttribute('aria-invalid')`), "true");
@@ -453,4 +455,4 @@ async function run() {
     chrome.kill("SIGTERM");
   }
 }
-run().catch(error => { console.error(error.message); process.exitCode = 1; });
+run().catch(error => { console.error(error); process.exitCode = 1; });

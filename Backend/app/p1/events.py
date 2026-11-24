@@ -86,7 +86,11 @@ def event_detail(event_id: str, user=Depends(current_user), session=Depends(tran
     frozen = session.get(PeriodRow, row.period_id).archived_at is not None or bool(
         row.program_id and session.get(ProgramRow, row.program_id).closed_at)
     staff = session.scalars(select(EventStaffRow).where(EventStaffRow.event_id == event_id, EventStaffRow.active.is_(True))).all() if responses else []
-    return {**event_dto(row, edit and not frozen, responses), "frozen": frozen,
+    form = session.scalar(select(FormRow).where(FormRow.event_id == event_id))
+    version = session.get(FormVersionRow, form.published_version_id) if form and form.published_version_id else None
+    return {**event_dto(row, edit and not frozen, responses),
+            "has_form": form is not None, "published_form_version": version.number if version else None,
+            "registration_open": bool(version and form.accepting and public_open(session, row)), "frozen": frozen,
             "staff_ids": [item.user_id for item in staff], "can_staff": row.owner_user_id == user.id and not frozen}
 
 

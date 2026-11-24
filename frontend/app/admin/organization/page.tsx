@@ -2,6 +2,7 @@
 
 import Disclosure from "../../components/ui/disclosure";
 
+import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { api, query } from "../../lib/erp/client";
 import type { Account, ItemList, Period, Person, Unit } from "../../lib/erp/types";
@@ -24,7 +25,9 @@ export default function OrganizationPage() {
   const [search, setSearch] = useState("");
   const accounts = useResource<ItemList<Account>>(me.capabilities.manage_organization ? `/users${query({ offset, search })}` : null);
   const periods = useResource<ItemList<Period>>("/periods");
-  const [targetPeriod, setTargetPeriod] = useState(me.period_id);
+  const requestedPeriod = useSearchParams().get("period");
+  const [chosenPeriod, setTargetPeriod] = useState("");
+  const targetPeriod = chosenPeriod || periods.data?.items.find(period => period.id === requestedPeriod && !period.archived_at)?.id || me.period_id;
   const [selectedUser, setSelectedUser] = useState<Account | null>(null);
   const [creating, setCreating] = useState(false);
   const [resetUser, setResetUser] = useState<Account | null>(null);

@@ -13,7 +13,7 @@ export default function FormPanel({ event }: { event: PublicEvent }) {
   const path = `/events/${event.id}/form`;
   const resource = useResource<Registration>(path);
   const action = useAction();
-  if (!resource.data) return <section className="erp-panel erp-stack"><Feedback {...action}/>{resource.error === "Acara belum memiliki formulir." ? <><h2>Formulir pendaftaran</h2><p>Acara ini belum memiliki formulir pendaftaran. Mulai dari template atau susun pertanyaan sendiri.</p><div className="erp-form-grid"><section><h3>Pertanyaan</h3><p className="erp-muted">Pertanyaan pendaftaran akan muncul di sini.</p></section><section><h3>Pratinjau peserta</h3><p className="erp-muted">Pratinjau tersedia setelah formulir dibuat.</p></section></div>{event.capabilities.edit && <div className="erp-row">{[true, false].map(useTemplate => <button key={String(useTemplate)} disabled={action.busy} onClick={() => action.run(async () => { await api(path, { method: "POST", body: { use_template: useTemplate } }); resource.reload(); })}>{useTemplate ? "Gunakan template awal" : "Mulai form kosong"}</button>)}</div>}</> : <LoadState error={resource.error} reload={resource.reload}/>}</section>;
+  if (!resource.data) return <section className="erp-panel erp-stack"><Feedback {...action}/>{resource.error === "Acara belum memiliki formulir." ? <><h2>Formulir pendaftaran</h2><p>Acara ini belum memiliki formulir pendaftaran.{event.capabilities.edit && " Mulai dari template atau susun pertanyaan sendiri."}</p><div className="erp-form-grid"><section><h3>Pertanyaan</h3><p className="erp-muted">Pertanyaan pendaftaran akan muncul di sini.</p></section><section><h3>Pratinjau peserta</h3><p className="erp-muted">Pratinjau tersedia setelah formulir dibuat.</p></section></div>{event.capabilities.edit && <div className="erp-row">{[true, false].map(useTemplate => <button key={String(useTemplate)} disabled={action.busy} onClick={() => action.run(async () => { await api(path, { method: "POST", body: { use_template: useTemplate } }); resource.reload(); })}>{useTemplate ? "Gunakan template awal" : "Mulai form kosong"}</button>)}</div>}</> : <LoadState error={resource.error} reload={resource.reload}/>}</section>;
   return <Builder refreshing={resource.refreshing} event={event} registration={resource.data} reload={resource.reload}/>;
 }
 
@@ -123,7 +123,7 @@ function Builder({ event, registration, reload, refreshing }: { refreshing: bool
 
   return <section className="erp-panel erp-stack">
     <header className="erp-panel-heading">
-      <div><h2>Formulir pendaftaran</h2><p className="erp-muted">{latest ? `Versi terbit ${latest.number}` : "Belum diterbitkan"} · {registration.accepting && !event.frozen ? "Pendaftaran dibuka" : "Pendaftaran ditutup"}</p></div>
+      <div><h2>Formulir pendaftaran</h2><p className="erp-muted">{latest ? `Versi terbit ${latest.number}` : "Belum diterbitkan"} · {registration.accepting && !event.frozen && event.status === "PUBLISHED" ? "Pendaftaran dibuka" : "Pendaftaran ditutup"}</p></div>
       {event.capabilities.edit && <button type="button" aria-pressed={preview} onClick={() => setPreview(!preview)}>{preview ? "Kembali ke editor" : "Preview peserta"}</button>}
     </header>
     <Feedback {...action}/>
@@ -210,13 +210,14 @@ function Builder({ event, registration, reload, refreshing }: { refreshing: bool
     </DirectionalPanels>
     {event.capabilities.edit && <section className="erp-form-section">
       <h3>Publikasi</h3>
+      {event.status !== "PUBLISHED" && <p>Terbitkan acara melalui tab Acara sebelum membuka pendaftaran.</p>}
       <p className="erp-muted">Terbitkan draft tersimpan untuk membuat versi baru. Respons lama tetap terhubung ke versi sebelumnya.</p>
       <div className="erp-row">
         <button disabled={action.busy || refreshing} onClick={() => {
           if (!window.confirm(changed ? "Terbitkan draft tersimpan? Perubahan yang belum disimpan tidak ikut diterbitkan." : "Terbitkan draft tersimpan sebagai versi baru?")) return;
           action.run(async () => { const saved = await api<Registration>(path + "/publish", { method: "POST", body: { expected_version: baseVersion } }); setBaseVersion(saved.version); reload(); });
-        }}>Publish draft tersimpan</button>
-        <button disabled={action.busy || refreshing || !latest} onClick={() => action.run(async () => {
+        }}>Terbitkan draf tersimpan</button>
+        <button disabled={action.busy || refreshing || !latest || event.status !== "PUBLISHED"} onClick={() => action.run(async () => {
           const saved = await api<Registration>(path + "/acceptance", { method: "POST", body: { expected_version: baseVersion, accepting: !registration.accepting } }); setBaseVersion(saved.version); reload();
         })}>{registration.accepting ? "Tutup pendaftaran" : "Buka pendaftaran"}</button>
       </div>

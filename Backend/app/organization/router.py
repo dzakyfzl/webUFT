@@ -9,7 +9,7 @@ from app.errors import ApiError
 from app.http import current_user, transaction
 from app.organization.models import (BoardMembershipRow, MemberRow, PeriodRow,
                                      PositionRow, UnitMembershipRow, UnitRow, UserRow)
-from app.organization.service import create_user, ensure_admin_continuity, me, membership, seed_units, user_dto
+from app.organization.service import active_chair_periods, create_user, ensure_admin_continuity, me, membership, seed_units, user_dto
 from app.permissions.policy import Action, Position
 from app.schemas import Input
 
@@ -168,9 +168,14 @@ def membership_list(period_id: str, user_id: str, user=Depends(current_user), se
 
 
 @router.get("/periods")
-def periods_route(user=Depends(current_user), session=Depends(transaction, scope="function")):
+def periods_route(successor_for: str | None = None, user=Depends(current_user), session=Depends(transaction, scope="function")):
     rows = session.scalars(select(PeriodRow).order_by(PeriodRow.name.desc())).all()
-    return {"items": [{"id": p.id, "name": p.name, "archived_at": p.archived_at} for p in rows]}
+    if successor_for:
+        require(session, user.id, Action.ARCHIVE_PERIOD, period_id=successor_for)
+        ready = set(session.scalars(active_chair_periods()))
+    return {"items": [{"id": p.id, "name": p.name, "archived_at": p.archived_at,
+                       **({"successor_ready": p.id != successor_for and not p.archived_at and p.id in ready}
+                          if successor_for else {})} for p in rows]}
 
 
 @router.post("/periods", status_code=201)

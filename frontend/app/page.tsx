@@ -14,6 +14,7 @@ import type { Acara, Koleksi, KoleksiOrigin } from './components/types';
 import { fetchGalleryData, fetchEventsData } from './lib/api';
 
 // --- Extracted section components (self-contained state) ---
+import { ShutterIntro } from './components/sections/ShutterIntro';
 import { Navbar } from './components/sections/Navbar';
 import { HeroCarousel } from './components/sections/HeroCarousel';
 import { GalleryFull } from './components/sections/GalleryFull';
@@ -249,6 +250,7 @@ export default function LandingPage() {
 
   return (
     <div className="h-screen overflow-hidden bg-white font-sans text-slate-900 selection:bg-red-600 selection:text-white">
+      <ShutterIntro />
       {/* --- NAVBAR (self-contained: activeSection, isMobileMenuOpen) --- */}
       <Navbar />
 

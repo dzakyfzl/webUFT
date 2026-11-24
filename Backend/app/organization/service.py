@@ -11,6 +11,14 @@ from app.organization.models import (BoardMembershipRow, MemberRow, PeriodRow,
 from app.permissions.policy import Action, Position
 
 
+def active_chair_periods():
+    return (select(PositionRow.period_id).join(UserRow, UserRow.id == PositionRow.user_id)
+            .join(BoardMembershipRow, (BoardMembershipRow.user_id == UserRow.id)
+                  & (BoardMembershipRow.period_id == PositionRow.period_id))
+            .where(PositionRow.position == Position.CHAIR.value, PositionRow.active.is_(True),
+                   UserRow.active.is_(True), BoardMembershipRow.active.is_(True)))
+
+
 UNIT_SEED = (
     ("UKM", "ORGANIZATION", None),
     ("Departemen Internal", "DEPARTMENT", None),

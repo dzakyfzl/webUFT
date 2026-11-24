@@ -52,12 +52,12 @@ export default function DashboardPage() {
             </Link>;
           }) : <p className="erp-muted">Belum ada agenda terdekat.</p>}
         </Summary>
-        <Summary title="Proker Saya" icon={Presentation} href="/admin/programs" action="Lihat program kerja">
+        <Summary title="Proker Saya" icon={Presentation} href="/admin/programs" action="Lihat daftar Proker">
           {!resource.data ? <LoadState error={resource.error} reload={resource.reload}/> : programs.length ? programs.map(program => (
             <Link className="erp-summary-item" key={program.id} href={`/admin/programs/${program.id}`}>
               <strong>{program.name}</strong><span>{dateLabel(program.starts_on)}</span>
             </Link>
-          )) : <p className="erp-muted">Belum ada Proker yang ditugaskan kepada Anda.</p>}
+          )) : <p className="erp-muted">Penugasan Proker Anda akan muncul di sini. Anda dapat melihat kegiatan unit lain di daftar Proker.</p>}
         </Summary>
       </div>
     </div>}

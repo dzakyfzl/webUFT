@@ -137,3 +137,56 @@
 - Editor kontekstual memakai dialog HTML agar fokus, Escape, dan latar inert mengikuti browser. Penyuntingan panjang Proker baru tetap di halaman khusus, sedangkan perubahan singkat seperti peralihan status daftar tetap inline.
 - Builder menyunting satu pertanyaan atau bagian sekaligus. Draft dan versi dasar bertahan saat berpindah tab dan saat data disegarkan, karena mengambil versi server otomatis dapat menimpa perubahan organizer.
 - RAB menampilkan taksiran subtotal dengan aritmetika desimal yang dibulatkan per baris. Total tersimpan tetap dibaca dari backend agar angka otoritatif tidak bergantung pada floating point browser.
+
+## 2026-11-21 — Perpindahan kerja antarperan
+
+- Kesiapan Ketua penerus dan status penerimaan peserta dihitung memakai aturan backend yang juga memvalidasi tindakan akhirnya. Indikator frontend yang hanya memeriksa pilihan periode atau versi formulir bisa mengizinkan tindakan yang kemudian ditolak.
+- Pengelola membuka Dokumen dari formulir realisasi di tab baru. Saat kembali, pemilih bukti memuat ulang semua halaman dokumen. Cara ini menjaga isian nominal dan tanggal di dialog tanpa menyimpan data keuangan pada penyimpanan browser.
+
+## 2026-11-22 — Intro shutter beranda publik
+
+- Penanda kunjungan disimpan di localStorage ketika delapan aset siap dan animasi mulai. sessionStorage akan mengulang intro di tab baru, sedangkan penanda di layout global dapat menghabiskan kunjungan pertama di halaman admin.
+- Koordinat potongan dan engsel bilah memakai ruang gambar PNG master agar logo dapat disusun ulang persis dan bukaan mengikuti bentuk diafragma aslinya. Bilah geometris generik tidak mempertahankan kontur logo.
+
+## 2026-11-22 — Beyond the Frame
+
+- Penyimpanan sesi tab menggantikan penanda permanen sesuai storyboard baru. Skrip HTML memulai satu timeline CSS dengan batas waktu mandiri agar hidrasi atau unduhan foto yang lambat tetap menghasilkan beranda yang dapat diakses.
+- Enam path SVG berasal dari kontur alfa bilah master. Satu elemen foto memakai mask selama pembukaan dan tetap menjadi hero setelahnya. Pendekatan ini menghindari duplikasi gambar, sinkronisasi dua elemen, dan dependensi animasi tambahan.
+- Seri referensi disimpan lokal di direktori studi terpisah. Galeri anggota tetap mengambil data album, sehingga foto sementara tidak pernah mendapat kredit sebagai karya anggota.
+- Pembukaan mengandalkan font dan stylesheet yang disajikan oleh build Next. Memuat Yesteryear dari Google Fonts pada setiap kunjungan menambah permintaan yang menahan render pertama, sementara tidak ada komponen yang memakai font tersebut.
+
+## 2026-11-22 — Entrance pada landing page asli
+
+- Pengguna membatasi perubahan pada animasi masuk. Shutter memakai lapisan sementara di atas beranda yang sudah terpasang agar bukaan langsung memperlihatkan poster dan navigasi asli. Hero pengganti dan rute pameran terpisah berada di luar cakupan.
+
+## 2026-11-23 — Putar ulang intro saat refresh
+
+- Siklus dokumen menggantikan penanda `sessionStorage` agar refresh selalu dapat memulai intro, termasuk ketika penyimpanan browser diblokir. Untuk URL berfragmen, tipe navigasi `reload` memicu intro dan kunjungan langsung tetap membawa pengunjung ke bagian tujuan tanpa intro.
+
+## 2026-11-23 — Pencarian fokus shutter
+
+- Pencarian fokus memakai kotak bidik dengan jarak sapuan mengikuti ukuran viewport. Fase logo dan bukaan digeser dalam timeline CSS yang sama agar pengunjung melihat fokus terkunci tanpa tambahan durasi atau logika JavaScript.
+
+## 2026-11-23 — Jeda pencarian fokus
+
+- Pasangan keyframe dengan posisi yang sama memberi jeda nyata di tiap titik bidik. Durasi intro dinaikkan menjadi 3,6 detik agar tiga jeda dapat masuk tanpa mempercepat sapuan atau bukaan shutter.
+
+## 2026-11-23 — Publikasi hasil seleksi
+
+- Sumber pengumuman berupa daftar terkurasi yang diisi setelah nama dan penempatan disetujui untuk publikasi. Data keanggotaan ERP mencatat keanggotaan operasional dan bisa berbeda dari hasil seleksi, sehingga dipisahkan dari pengumuman ini.
+- Framer Motion menggerakkan foto dan bingkai bidik sejak guliran pertama agar parallax tetap terlihat saat daftar belum diumumkan dan halaman masih pendek. Nama peserta serta kontrol pencarian mengikuti guliran biasa untuk menjaga keterbacaan.
+
+## 2026-11-23 — Intro dan demonstrasi pengumuman
+
+- Intro pengumuman memakai gerakan strip film dan satu sapuan mendatar. Timeline CSS berakhir sendiri agar halaman segera terbuka saat hidrasi lambat, JavaScript gagal, atau foto masih dimuat.
+- Daftar simulasi dan daftar resmi dipisah supaya mode demo dapat dimatikan dengan satu pilihan, sementara hasil yang sudah dikurasi tetap utuh.
+
+## 2026-11-24 — Intro beranda dan pengumuman
+
+- Lapisan intro bersifat dekoratif dan meneruskan klik ke halaman. Input penunjuk menutup intro seperti input keyboard, sehingga pengunjung bisa langsung memakai navigasi tanpa menunggu animasi selesai.
+
+- Empat titik pada poligon `evenodd` memotong lapisan gelap dari tengah untuk membuka shutter berbentuk wajik. Cara ini langsung memperlihatkan beranda yang sudah terpasang tanpa menambahkan foto atau menggandakan konten hero.
+
+## 2026-11-24 — Keterbacaan indikator kamera
+
+- Pada lebar hingga 42 rem, metadata foto turun ke baris kedua. Ini memberi ruang untuk mempertahankan ukuran teks utama minimal 16 px pada layar sempit. Ikon yang terbaca di referensi diadaptasi memakai Lucide yang sudah ada di frontend.

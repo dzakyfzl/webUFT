@@ -44,6 +44,7 @@ def program_dto(row, actor, policy):
             "chairperson_name": row.chairperson_name, "chairperson_user_id": row.chairperson_user_id,
             "created_by": row.created_by, "created_at": row.created_at,
             "starts_on": row.starts_on, "ends_on": row.ends_on, "closed_at": row.closed_at,
+            "period_archived": policy.period(row.period_id).archived,
             "status": "CLOSED" if row.closed_at else "ACTIVE", "version": row.version,
             "capabilities": {"edit": policy.allows(actor, Action.EDIT_PROGRAM, program_id=row.id),
                 "close": policy.allows(actor, Action.CLOSE_PROGRAM, program_id=row.id),

@@ -17,7 +17,7 @@ export default function EventsPage() {
   return <><PageHeading title="Acara & Formulir" description="Publikasi acara, formulir fleksibel, dan respons peserta.">{!me.periods.find(period => period.id === me.period_id)?.archived_at && <button className="erp-primary" aria-haspopup="dialog" onClick={() => setCreating(true)}>Buat Acara</button>}</PageHeading><div className="erp-stack"><section className="erp-panel">
     {!resource.data ? <LoadState error={resource.error} reload={resource.reload}/> : <>
       {!resource.data.items.length && <EmptyState title="Belum ada acara pada periode ini" description="Buat acara untuk menyiapkan publikasi dan pendaftaran peserta."/>}
-      {resource.data.items.map(event => <Link key={event.id} href={`/admin/events/${event.id}`} className="erp-list-item"><div><h3>{event.title}</h3><p>{dateLabel(event.starts_at)} · {event.location}</p></div><span className="erp-pill">{event.status}</span></Link>)}
+      {resource.data.items.map(event => <Link key={event.id} href={`/admin/events/${event.id}`} className="erp-list-item"><div><h3>{event.title}</h3><p>{dateLabel(event.starts_at)} · {event.location}</p></div><span className="erp-pill">{({ DRAFT: "Draf", PUBLISHED: "Terbit", UNPUBLISHED: "Tidak ditampilkan" })[event.status] ?? event.status}</span></Link>)}
       <div className="erp-row">{offset > 0 && <button onClick={() => setOffset(offset - 30)}>Sebelumnya</button>}{resource.data.has_more && <button onClick={() => setOffset(offset + 30)}>Berikutnya</button>}</div>
     </>}
     </section></div>{creating && <EventEditor onClose={() => setCreating(false)}/>}</>;

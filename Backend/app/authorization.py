@@ -32,9 +32,9 @@ def policy_snapshot(session: Session, program_ids: tuple[str, ...] = ()) -> Poli
     grants = session.scalars(select(GrantRow).where(GrantRow.program_id.in_(program_ids))).all() if program_ids else []
     return Policy(
         tuple(Period(row.id, row.archived_at is not None) for row in periods),
-        tuple(Unit(row.id, row.period_id, UnitType(row.kind), row.parent_id) for row in units),
+        tuple(Unit(row.id, row.period_id, UnitType(row.kind), row.parent_id, row.name) for row in units),
         tuple(Program(row.id, row.period_id, row.owner_unit_id, row.chairperson_user_id,
-                      row.closed_at is not None) for row in programs),
+                      row.closed_at is not None, row.name) for row in programs),
         tuple(Grant(row.program_id, row.user_id, GrantSource(row.source), row.source_id, row.active) for row in grants),
     )
 
